@@ -1,10 +1,9 @@
 /** Authored encounter list. Distances are path `traveled` units. */
 
-import { flattenCampaigns } from './campaigns.js';
+import { CAMPAIGNS } from './campaigns.js';
 
-const _flat = flattenCampaigns();
-export const SCRIPT = _flat.script;
-export const CHAPTERS = _flat.chapters;
+export const SCRIPT = CAMPAIGNS[0].levels[0].script;
+export const CHAPTERS = CAMPAIGNS[0].levels[0].chapters;
 
 export const LANE_T = [-0.84, -0.5, -0.18, 0.18, 0.5, 0.84];
 

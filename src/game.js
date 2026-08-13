@@ -829,8 +829,9 @@ export class Game {
         const cleared = this.progress.cleared.includes(id);
         const current = ci === cursor.c && li === cursor.l;
         const locked = this._nodeLocked(ci, li);
-        const kind = lv.boss === 'finale' ? 'finale boss' : lv.boss ? 'boss' : '';
-        const label = lv.boss === 'finale' ? '✦' : lv.boss ? '★' : String(li + 1);
+        const last = li === camp.levels.length - 1;
+        const kind = lv.boss === 'finale' ? 'finale boss' : last ? 'boss' : '';
+        const label = lv.boss === 'finale' ? '✦' : last ? '★' : String(li + 1);
         return `<button type="button" class="map-node ${kind} ${cleared ? 'cleared' : ''} ${current ? 'current' : ''} ${locked ? 'locked' : ''}" data-c="${ci}" data-l="${li}" ${locked ? 'disabled' : ''} aria-label="${lv.id} ${lv.name}">${label}</button>`;
       }).join('<div class="map-rail"></div>');
       return `<div class="map-campaign${currentCamp ? ' current' : ''}"><div class="map-camp-meta"><span class="kicker">${camp.kicker}</span><span class="name">${camp.name}</span></div><div class="map-nodes">${nodes}</div></div>`;
@@ -1152,8 +1153,10 @@ export class Game {
           this._dropLoot(k);
           if (k.type === 'midboss') {
             this.toast(this._bossToast(k.role));
-            this._clearLevel();
-            return;
+            if (this._isLevelBossKill(k)) {
+              this._clearLevel();
+              return;
+            }
           }
         } else if (k.type === 'blocker') {
           this._combatScore(160);
@@ -1210,7 +1213,10 @@ export class Game {
                   laneX: en.offset?.x ?? this.offset.x,
                   bombDrop: en.bombDrop ?? 0,
                 });
-                if (en.role === 'finale' || en.elite) {
+                if (this._isLevelBossKill({
+                  type: en.role === 'finale' ? 'boss' : 'midboss',
+                  role: en.role,
+                })) {
                   this.toast(this._bossToast(en.role));
                   this._clearLevel();
                   return;
@@ -1508,11 +1514,14 @@ export class Game {
       } else if (ev.kind === 'midboss') {
         this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step);
         this.stage.finaleAlive = false;
-        if (slot?.lv.bossWorld) this._setChapter(slot.lv.bossWorld, 'boss');
-      } else if (ev.kind === 'finale') {
-        this.entities.spawnFinale(this.path, this.traveled, 96, this.step);
+      } else if (ev.kind === 'boss' || ev.kind === 'finale') {
+        const id = ev.id || 'finale';
+        if (ev.kind === 'finale' || id === 'finale' || id === 'sentinel') {
+          this.entities.spawnFinale(this.path, this.traveled, 96, this.step);
+        } else {
+          this.entities.spawnNamed(this.path, this.traveled, id, 96, this.step);
+        }
         this.stage.finaleAlive = true;
-        this._setChapter(slot?.lv.bossWorld || 'finale', 'boss');
       }
     }
     this._maybeClearLevel();
@@ -1547,6 +1556,13 @@ export class Game {
     }
   }
 
+  _isLevelBossKill(k) {
+    const boss = this._currentLevel()?.lv.boss;
+    if (!boss) return false;
+    if (k.type === 'boss' || k.role === 'finale') return boss === 'finale';
+    return k.role === boss;
+  }
+
   _bossToast(role) {
     if (role === 'warden') return 'WARDEN DOWN';
     if (role === 'coil') return 'COIL DOWN';
@@ -1575,12 +1591,11 @@ export class Game {
       this._combatScore(k.type === 'boss' ? 3200 : k.type === 'midboss' ? 1400 : 180);
       this._dropLoot(k);
       if (k.type === 'boss') {
-        this.stage.cleared = true;
         this.toast('SENTINEL DOWN');
         this._clearLevel();
         return;
       }
-      if (k.type === 'midboss') {
+      if (k.type === 'midboss' && this._isLevelBossKill(k)) {
         this.toast(this._bossToast(k.role));
         this._clearLevel();
         return;

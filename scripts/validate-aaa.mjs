@@ -96,9 +96,12 @@ ok(audio.includes('sting(') && audio.includes('setChapter'), 'stems and stings e
 ok(game.includes('_onPointerDown'), 'pointer drag starts on press');
 ok(game.includes('_applyTouchDrag'), 'mobile drag moves the ship');
 ok(game.includes('_onTouchStart'), 'touch hold fires');
-ok(CAMPAIGNS.length === 5 && CAMPAIGNS.every((c) => c.levels.length === 3), 'five campaigns of three levels');
+ok(css.includes('touch-action: none'), 'touch does not scroll the page');
+ok(html.includes('map-screen') && html.includes('campaign-map'), 'campaign map exists');
+ok(CAMPAIGNS.length === 5 && CAMPAIGNS.every((c) => c.levels.length >= 5 && c.levels.length <= 7), 'five campaigns of 5–7 full levels');
+ok(CAMPAIGNS[0].levels[0].script.some((e) => e.kind === 'finale' && e.at === 1320), 'campaign 1 level 1 is the original MVP run');
 ok(game.includes('_openMap') && game.includes('_deployLevel') && game.includes('_clearLevel'), 'campaign flow is wired');
-ok(src('src/campaigns.js').includes('CAMPAIGNS'), 'campaign data exists');
+ok(src('src/campaigns.js').includes('MVP_SCRIPT'), 'MVP script is preserved');
 
 const dir = new StageDirector();
 dir.reset();

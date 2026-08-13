@@ -554,12 +554,12 @@ button:hover {
 
 .campaign-map {
   margin: 8px auto 22px;
-  width: min(720px, 92vw);
+  width: min(760px, 94vw);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   text-align: left;
-  max-height: min(46vh, 420px);
+  max-height: min(52vh, 520px);
   overflow-y: auto;
   pointer-events: auto;
 }
@@ -615,11 +615,11 @@ button:hover {
 
 .map-node {
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   letter-spacing: 0.04em;
-  font-size: 9px;
+  font-size: 8px;
   border-radius: 50%;
   border: 1px solid rgba(92, 225, 255, 0.35);
   background: rgba(5, 1, 13, 0.7);
@@ -629,10 +629,10 @@ button:hover {
 }
 
 .map-node.boss {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  letter-spacing: 0.08em;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  letter-spacing: 0.06em;
 }
 
 .map-node.finale {
@@ -841,18 +841,18 @@ kbd {
   }
 
   .campaign-map {
-    max-height: 40vh;
+    max-height: 46vh;
     gap: 8px;
   }
 
   .map-node {
-    width: 32px;
-    height: 32px;
+    width: 26px;
+    height: 26px;
   }
 
   .map-node.boss {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
   }
 
   #map-title {

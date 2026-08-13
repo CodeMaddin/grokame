@@ -1,29 +1,142 @@
-/** Five campaigns, three levels each. Super boss on the third; Sentinel is last. */
+/** Five themed campaigns. 1-1 is the original MVP run, uncut. */
 
-const s = (at, form, role, n, ahead = 90) => ({ at, kind: 'squad', form, role, n, ahead });
-const breath = (at) => ({ at, kind: 'breath' });
-const gate = (at) => ({ at, kind: 'gate' });
-const orbs = (at) => ({ at, kind: 'orbs' });
-const blockers = (at, n = 2) => ({ at, kind: 'blockers', n });
-const midboss = (at, id) => ({ at, kind: 'midboss', id });
-const finale = (at) => ({ at, kind: 'finale' });
+export const MVP_CHAPTERS = [
+  { at: 70, toast: 'WAVE 01 — STINGER FAN', world: 'default', sting: 'chapter' },
+  { at: 380, toast: 'MID-BOSS — WEAVER QUEEN', world: 'queen', sting: 'boss' },
+  { at: 820, toast: 'MID-BOSS — WARDEN', world: 'warden', sting: 'boss' },
+  { at: 1320, toast: 'FINALE — SENTINEL', world: 'finale', sting: 'boss' },
+];
 
-function level(id, name, world, script, extra = {}) {
-  const last = script.reduce((m, ev) => Math.max(m, ev.at), 70);
-  const boss = extra.boss || null;
-  const exitAt = extra.exitAt ?? last + (boss ? 40 : 88);
+export const MVP_SCRIPT = [
+  { at: 70, kind: 'squad', form: 'v', role: 'dive', n: 5, ahead: 88 },
+  { at: 118, kind: 'squad', form: 'line', role: 'sine', n: 4, ahead: 92 },
+  { at: 160, kind: 'breath' },
+  { at: 188, kind: 'squad', form: 'flank', role: 'heavy', n: 2, ahead: 96 },
+  { at: 210, kind: 'squad', form: 'pair', role: 'dive', n: 2, ahead: 84 },
+  { at: 248, kind: 'gate' },
+  { at: 268, kind: 'orbs' },
+  { at: 292, kind: 'squad', form: 'cross', role: 'sine', n: 6, ahead: 100 },
+  { at: 330, kind: 'blockers', n: 2 },
+  { at: 348, kind: 'squad', form: 'v', role: 'dive', n: 7, ahead: 90 },
+  { at: 380, kind: 'midboss', id: 'queen' },
+  { at: 470, kind: 'breath' },
+  { at: 490, kind: 'orbs' },
+  { at: 512, kind: 'squad', form: 'escort', role: 'dive', n: 5, ahead: 94 },
+  { at: 548, kind: 'gate' },
+  { at: 572, kind: 'squad', form: 'line', role: 'heavy', n: 3, ahead: 100 },
+  { at: 610, kind: 'squad', form: 'cross', role: 'sine', n: 6, ahead: 88 },
+  { at: 648, kind: 'blockers', n: 3 },
+  { at: 670, kind: 'squad', form: 'v', role: 'dive', n: 5, ahead: 86 },
+  { at: 710, kind: 'squad', form: 'pair', role: 'sine', n: 4, ahead: 92 },
+  { at: 748, kind: 'gate' },
+  { at: 780, kind: 'squad', form: 'flank', role: 'heavy', n: 2, ahead: 98 },
+  { at: 820, kind: 'midboss', id: 'warden' },
+  { at: 920, kind: 'breath' },
+  { at: 944, kind: 'orbs' },
+  { at: 968, kind: 'squad', form: 'cross', role: 'dive', n: 8, ahead: 90 },
+  { at: 1010, kind: 'squad', form: 'line', role: 'sine', n: 5, ahead: 94 },
+  { at: 1048, kind: 'gate' },
+  { at: 1072, kind: 'blockers', n: 3 },
+  { at: 1100, kind: 'squad', form: 'escort', role: 'heavy', n: 5, ahead: 100 },
+  { at: 1148, kind: 'squad', form: 'v', role: 'dive', n: 7, ahead: 88 },
+  { at: 1190, kind: 'squad', form: 'cross', role: 'sine', n: 6, ahead: 96 },
+  { at: 1240, kind: 'gate' },
+  { at: 1270, kind: 'squad', form: 'line', role: 'dive', n: 6, ahead: 90 },
+  { at: 1320, kind: 'finale' },
+];
+
+const BOSS_TITLE = {
+  queen: 'WEAVER QUEEN',
+  warden: 'WARDEN',
+  coil: 'TITAN COIL',
+  empress: 'WEAVER EMPRESS',
+  finale: 'SENTINEL',
+};
+
+const BOSS_WORLD = {
+  queen: 'queen',
+  warden: 'warden',
+  coil: 'coil',
+  empress: 'empress',
+  finale: 'finale',
+};
+
+const FORMS = {
+  A: {},
+  B: { v: 'line', line: 'v', cross: 'escort', escort: 'cross' },
+  C: { v: 'cross', cross: 'v', pair: 'flank', flank: 'pair', line: 'escort', escort: 'line' },
+  D: { v: 'escort', escort: 'v', cross: 'line', line: 'cross', pair: 'v', flank: 'pair' },
+};
+
+const ROLES = {
+  stinger: {},
+  crimson: { dive: 'heavy', sine: 'dive', heavy: 'heavy' },
+  cathedral: { dive: 'sine', sine: 'sine', heavy: 'heavy' },
+  iris: { dive: 'dive', sine: 'dive', heavy: 'sine' },
+  heart: { dive: 'dive', sine: 'heavy', heavy: 'sine' },
+};
+
+function remapMvp({ mid = ['queen', 'warden'], boss = 'finale', formOf = {}, roleOf = {} }) {
+  let midI = 0;
+  return MVP_SCRIPT.map((ev) => {
+    const e = { ...ev };
+    if (e.kind === 'squad') {
+      e.role = roleOf[e.role] || e.role;
+      e.form = formOf[e.form] || e.form;
+    } else if (e.kind === 'midboss') {
+      e.id = mid[midI++] || e.id;
+    } else if (e.kind === 'finale') {
+      if (boss === 'finale') return e;
+      return { at: e.at, kind: 'boss', id: boss };
+    }
+    return e;
+  });
+}
+
+function chaptersFor(id, name, world, mid, boss, banner) {
+  const superBoss = banner === 'super';
+  const finale = banner === 'finale';
+  const bossLabel = finale ? 'FINALE' : superBoss ? 'SUPER BOSS' : 'LEVEL BOSS';
+  return [
+    { at: 70, toast: `${id} — ${name}`, world, sting: 'chapter' },
+    { at: 380, toast: `MINI-BOSS — ${BOSS_TITLE[mid[0]]}`, world: BOSS_WORLD[mid[0]], sting: 'boss' },
+    { at: 820, toast: `MINI-BOSS — ${BOSS_TITLE[mid[1]]}`, world: BOSS_WORLD[mid[1]], sting: 'boss' },
+    { at: 1320, toast: `${bossLabel} — ${BOSS_TITLE[boss]}`, world: BOSS_WORLD[boss], sting: 'boss' },
+  ];
+}
+
+function themedLevel(id, name, world, spec) {
+  const mid = spec.mid;
+  const boss = spec.boss;
   return {
     id,
     name,
     world,
     boss,
-    bossWorld: extra.bossWorld || world,
-    exitAt,
-    length: extra.length ?? exitAt + 40,
-    chapters: extra.chapters || [
-      { at: 68, toast: `${id} — ${name}`, world, sting: 'chapter' },
-    ],
-    script,
+    bossWorld: BOSS_WORLD[boss] || world,
+    exitAt: 1360,
+    length: 1400,
+    chapters: chaptersFor(id, name, world, mid, boss, spec.banner),
+    script: remapMvp({
+      mid,
+      boss,
+      formOf: FORMS[spec.forms] || FORMS.A,
+      roleOf: ROLES[spec.roles] || ROLES.stinger,
+    }),
+  };
+}
+
+function mvpLevel() {
+  return {
+    id: '1-1',
+    name: 'STINGER FAN',
+    world: 'default',
+    boss: 'finale',
+    bossWorld: 'finale',
+    exitAt: 1360,
+    length: 1400,
+    chapters: MVP_CHAPTERS.map((ch) => ({ ...ch })),
+    script: MVP_SCRIPT.map((ev) => ({ ...ev })),
   };
 }
 
@@ -32,208 +145,75 @@ export const CAMPAIGNS = [
     id: 'stinger',
     kicker: 'CAMPAIGN 01',
     name: 'STINGER FAN',
-    blurb: 'Needle wakes. Silk in the lane. A queen at the end of the thread.',
+    blurb: 'The original rift. Mini-bosses in the lane. A level boss at the far end.',
     world: 'default',
     levels: [
-      level('1-1', 'NEEDLE WAKE', 'default', [
-        s(70, 'v', 'dive', 5, 88),
-        s(118, 'line', 'sine', 4, 92),
-        breath(160),
-        s(188, 'flank', 'heavy', 2, 96),
-        s(220, 'pair', 'dive', 2, 84),
-      ]),
-      level('1-2', 'FILAMENT CUT', 'default', [
-        gate(72),
-        orbs(96),
-        s(128, 'cross', 'sine', 6, 100),
-        blockers(168, 2),
-        s(198, 'v', 'dive', 7, 90),
-        breath(236),
-        s(268, 'line', 'heavy', 3, 100),
-      ]),
-      level('1-3', 'QUEEN NEST', 'default', [
-        s(70, 'escort', 'dive', 5, 94),
-        breath(112),
-        s(140, 'cross', 'sine', 6, 88),
-        gate(178),
-        s(208, 'v', 'dive', 5, 86),
-        midboss(248, 'queen'),
-      ], {
-        boss: 'queen',
-        bossWorld: 'queen',
-        chapters: [
-          { at: 68, toast: '1-3 — QUEEN NEST', world: 'default', sting: 'chapter' },
-          { at: 248, toast: 'SUPER BOSS — WEAVER QUEEN', world: 'queen', sting: 'boss' },
-        ],
-      }),
+      mvpLevel(),
+      themedLevel('1-2', 'SILK BREAK', 'default', { mid: ['coil', 'empress'], boss: 'queen', forms: 'B', roles: 'stinger' }),
+      themedLevel('1-3', 'CROSS THREAD', 'default', { mid: ['empress', 'coil'], boss: 'warden', forms: 'C', roles: 'stinger' }),
+      themedLevel('1-4', 'FAN STORM', 'default', { mid: ['warden', 'queen'], boss: 'coil', forms: 'D', roles: 'stinger' }),
+      themedLevel('1-5', 'RIFT SPINE', 'default', { mid: ['coil', 'warden'], boss: 'empress', forms: 'B', roles: 'stinger' }),
+      themedLevel('1-6', 'WEAVER CROWN', 'queen', { mid: ['warden', 'coil'], boss: 'queen', forms: 'C', roles: 'stinger', banner: 'super' }),
     ],
   },
   {
     id: 'crimson',
     kicker: 'CAMPAIGN 02',
     name: 'CRIMSON SHOALS',
-    blurb: 'The ribbon runs hot. Heavies own the flanks. A coil waits in the glare.',
+    blurb: 'Hot ribbon. Heavy hulls. The coil is the law here.',
     world: 'coil',
     levels: [
-      level('2-1', 'EMBER DRIFT', 'coil', [
-        s(70, 'line', 'dive', 6, 88),
-        s(108, 'pair', 'heavy', 2, 96),
-        breath(148),
-        s(178, 'cross', 'sine', 5, 92),
-        blockers(218, 2),
-        s(248, 'v', 'dive', 5, 86),
-      ]),
-      level('2-2', 'SLAG GATES', 'coil', [
-        gate(70),
-        s(104, 'flank', 'heavy', 2, 98),
-        orbs(138),
-        s(168, 'escort', 'dive', 5, 94),
-        breath(208),
-        s(240, 'cross', 'sine', 6, 90),
-        blockers(278, 3),
-        s(312, 'line', 'heavy', 3, 100),
-      ]),
-      level('2-3', 'COIL WELL', 'coil', [
-        s(70, 'v', 'dive', 6, 88),
-        s(112, 'line', 'sine', 5, 92),
-        breath(150),
-        gate(178),
-        s(208, 'flank', 'heavy', 2, 96),
-        midboss(248, 'coil'),
-      ], {
-        boss: 'coil',
-        bossWorld: 'coil',
-        chapters: [
-          { at: 68, toast: '2-3 — COIL WELL', world: 'coil', sting: 'chapter' },
-          { at: 248, toast: 'SUPER BOSS — TITAN COIL', world: 'coil', sting: 'boss' },
-        ],
-      }),
+      themedLevel('2-1', 'EMBER DRIFT', 'coil', { mid: ['queen', 'empress'], boss: 'coil', forms: 'B', roles: 'crimson' }),
+      themedLevel('2-2', 'SLAG GATES', 'coil', { mid: ['warden', 'queen'], boss: 'empress', forms: 'C', roles: 'crimson' }),
+      themedLevel('2-3', 'MAGMA FAN', 'coil', { mid: ['empress', 'warden'], boss: 'queen', forms: 'D', roles: 'crimson' }),
+      themedLevel('2-4', 'ASH RIBBON', 'coil', { mid: ['coil', 'queen'], boss: 'warden', forms: 'A', roles: 'crimson' }),
+      themedLevel('2-5', 'CINDER NAVE', 'coil', { mid: ['empress', 'coil'], boss: 'queen', forms: 'B', roles: 'crimson' }),
+      themedLevel('2-6', 'TITAN COIL', 'coil', { mid: ['warden', 'empress'], boss: 'coil', forms: 'C', roles: 'crimson', banner: 'super' }),
     ],
   },
   {
     id: 'cathedral',
     kicker: 'CAMPAIGN 03',
     name: 'NULL CATHEDRAL',
-    blurb: 'Gold hush. Crossfire aisles. The Warden keeps the nave.',
+    blurb: 'Gold hush and crossfire aisles. The Warden keeps every door.',
     world: 'warden',
     levels: [
-      level('3-1', 'AISLE FIRE', 'warden', [
-        s(70, 'cross', 'sine', 6, 90),
-        s(112, 'line', 'dive', 5, 88),
-        breath(152),
-        s(182, 'escort', 'heavy', 4, 100),
-        gate(222),
-        s(252, 'v', 'dive', 6, 86),
-      ]),
-      level('3-2', 'NAVE LOCK', 'warden', [
-        blockers(70, 3),
-        s(108, 'flank', 'heavy', 2, 98),
-        orbs(142),
-        s(172, 'cross', 'sine', 6, 92),
-        breath(212),
-        gate(240),
-        s(272, 'line', 'dive', 6, 90),
-        s(312, 'pair', 'sine', 4, 92),
-      ]),
-      level('3-3', 'WARDEN KEEP', 'warden', [
-        s(70, 'escort', 'dive', 5, 94),
-        breath(110),
-        s(140, 'cross', 'sine', 6, 96),
-        blockers(180, 3),
-        s(214, 'line', 'heavy', 3, 100),
-        midboss(258, 'warden'),
-      ], {
-        boss: 'warden',
-        bossWorld: 'warden',
-        chapters: [
-          { at: 68, toast: '3-3 — WARDEN KEEP', world: 'warden', sting: 'chapter' },
-          { at: 258, toast: 'SUPER BOSS — WARDEN', world: 'warden', sting: 'boss' },
-        ],
-      }),
+      themedLevel('3-1', 'AISLE FIRE', 'warden', { mid: ['coil', 'queen'], boss: 'empress', forms: 'C', roles: 'cathedral' }),
+      themedLevel('3-2', 'NAVE LOCK', 'warden', { mid: ['empress', 'coil'], boss: 'queen', forms: 'B', roles: 'cathedral' }),
+      themedLevel('3-3', 'CHOIR WALL', 'warden', { mid: ['queen', 'coil'], boss: 'empress', forms: 'D', roles: 'cathedral' }),
+      themedLevel('3-4', 'GOLD HUSH', 'warden', { mid: ['coil', 'empress'], boss: 'queen', forms: 'A', roles: 'cathedral' }),
+      themedLevel('3-5', 'WARDEN KEEP', 'warden', { mid: ['queen', 'empress'], boss: 'warden', forms: 'C', roles: 'cathedral', banner: 'super' }),
     ],
   },
   {
     id: 'iris',
     kicker: 'CAMPAIGN 04',
     name: 'IRIS FORGE',
-    blurb: 'Magenta heat. The silk learns your name. An empress answers.',
+    blurb: 'Magenta heat. The silk learns your name.',
     world: 'empress',
     levels: [
-      level('4-1', 'BLOOM CUT', 'empress', [
-        s(70, 'v', 'dive', 7, 88),
-        s(114, 'cross', 'sine', 6, 92),
-        breath(154),
-        s(184, 'line', 'heavy', 3, 100),
-        orbs(222),
-        s(252, 'escort', 'dive', 5, 94),
-      ]),
-      level('4-2', 'PRISM GAUNTLET', 'empress', [
-        gate(70),
-        s(102, 'pair', 'sine', 4, 90),
-        s(142, 'flank', 'heavy', 2, 98),
-        breath(180),
-        blockers(208, 3),
-        s(242, 'cross', 'dive', 8, 90),
-        gate(282),
-        s(314, 'line', 'sine', 5, 94),
-      ]),
-      level('4-3', 'EMPRESS LOOM', 'empress', [
-        s(70, 'v', 'dive', 6, 88),
-        s(112, 'escort', 'heavy', 5, 100),
-        breath(152),
-        gate(180),
-        s(212, 'cross', 'sine', 6, 96),
-        midboss(252, 'empress'),
-      ], {
-        boss: 'empress',
-        bossWorld: 'empress',
-        chapters: [
-          { at: 68, toast: '4-3 — EMPRESS LOOM', world: 'empress', sting: 'chapter' },
-          { at: 252, toast: 'SUPER BOSS — WEAVER EMPRESS', world: 'empress', sting: 'boss' },
-        ],
-      }),
+      themedLevel('4-1', 'BLOOM CUT', 'empress', { mid: ['coil', 'warden'], boss: 'queen', forms: 'B', roles: 'iris' }),
+      themedLevel('4-2', 'PRISM GAUNTLET', 'empress', { mid: ['warden', 'coil'], boss: 'queen', forms: 'C', roles: 'iris' }),
+      themedLevel('4-3', 'MAGENTA HEAT', 'empress', { mid: ['queen', 'coil'], boss: 'warden', forms: 'D', roles: 'iris' }),
+      themedLevel('4-4', 'LOOM WAKE', 'empress', { mid: ['coil', 'queen'], boss: 'warden', forms: 'A', roles: 'iris' }),
+      themedLevel('4-5', 'SHARD NAVE', 'empress', { mid: ['warden', 'queen'], boss: 'coil', forms: 'B', roles: 'iris' }),
+      themedLevel('4-6', 'ROYAL SILK', 'empress', { mid: ['coil', 'warden'], boss: 'queen', forms: 'C', roles: 'iris' }),
+      themedLevel('4-7', 'EMPRESS LOOM', 'empress', { mid: ['warden', 'coil'], boss: 'empress', forms: 'D', roles: 'iris', banner: 'super' }),
     ],
   },
   {
     id: 'heart',
     kicker: 'CAMPAIGN 05',
     name: 'HEART OF THE RIFT',
-    blurb: 'The ribbon ends. The Sentinel does not.',
+    blurb: 'The ribbon ends here. Everything you fought was a door.',
     world: 'finale',
     levels: [
-      level('5-1', 'LAST LIGHT', 'finale', [
-        s(70, 'line', 'dive', 6, 90),
-        s(112, 'cross', 'sine', 6, 96),
-        breath(152),
-        s(182, 'flank', 'heavy', 2, 98),
-        gate(220),
-        s(250, 'v', 'dive', 7, 88),
-      ]),
-      level('5-2', 'CORE APPROACH', 'finale', [
-        orbs(70),
-        s(104, 'escort', 'heavy', 5, 100),
-        s(144, 'cross', 'dive', 8, 90),
-        breath(184),
-        blockers(212, 3),
-        gate(244),
-        s(276, 'line', 'sine', 5, 94),
-        s(316, 'v', 'dive', 6, 88),
-      ]),
-      level('5-3', 'SENTINEL', 'finale', [
-        s(70, 'line', 'dive', 6, 90),
-        breath(112),
-        s(140, 'cross', 'sine', 6, 96),
-        gate(178),
-        s(208, 'escort', 'heavy', 5, 100),
-        finale(252),
-      ], {
-        boss: 'finale',
-        bossWorld: 'finale',
-        chapters: [
-          { at: 68, toast: '5-3 — SENTINEL', world: 'finale', sting: 'chapter' },
-          { at: 252, toast: 'FINALE — SENTINEL', world: 'finale', sting: 'boss' },
-        ],
-      }),
+      themedLevel('5-1', 'LAST LIGHT', 'finale', { mid: ['queen', 'coil'], boss: 'warden', forms: 'B', roles: 'heart' }),
+      themedLevel('5-2', 'CORE APPROACH', 'finale', { mid: ['empress', 'warden'], boss: 'coil', forms: 'C', roles: 'heart' }),
+      themedLevel('5-3', 'VOID CHOIR', 'finale', { mid: ['coil', 'empress'], boss: 'queen', forms: 'D', roles: 'heart' }),
+      themedLevel('5-4', 'ION WAKE', 'finale', { mid: ['warden', 'queen'], boss: 'empress', forms: 'A', roles: 'heart' }),
+      themedLevel('5-5', 'CROWN GATE', 'finale', { mid: ['empress', 'coil'], boss: 'warden', forms: 'B', roles: 'heart' }),
+      themedLevel('5-6', 'SENTINEL', 'finale', { mid: ['queen', 'warden'], boss: 'finale', forms: 'C', roles: 'heart', banner: 'finale' }),
     ],
   },
 ];
@@ -316,5 +296,6 @@ export function markCleared(progress, ci, li) {
 }
 
 export function catchupStep(ci, li) {
-  return Math.min(80, (ci * 3 + li) * 7);
+  const prior = CAMPAIGNS.slice(0, ci).reduce((n, c) => n + c.levels.length, 0) + li;
+  return Math.min(80, prior * 3);
 }

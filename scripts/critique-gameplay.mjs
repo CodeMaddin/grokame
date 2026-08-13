@@ -123,8 +123,26 @@ if (!readFileSync(resolve(root, 'src/patterns.js'), 'utf8').includes('queenVolle
 if (game.includes("toast('NEAR MISS')")) fail('near-miss toast still screams over the gun');
 if (CHAPTERS.length < 4) fail('no chapter banners for mid-bosses/finale');
 if (CAMPAIGNS.length !== 5) fail('need five campaigns');
-if (CAMPAIGNS.some((c) => c.levels.length !== 3)) fail('each campaign needs three levels');
-if (!CAMPAIGNS[4].levels[2].boss || CAMPAIGNS[4].levels[2].boss !== 'finale') fail('the last campaign does not end on the Sentinel');
+if (CAMPAIGNS.some((c) => c.levels.length < 5 || c.levels.length > 7)) fail('each campaign needs 5–7 full levels');
+const lastCamp = CAMPAIGNS[4];
+const lastLevel = lastCamp.levels[lastCamp.levels.length - 1];
+if (lastLevel.boss !== 'finale') fail('the last campaign does not end on the Sentinel');
+const mvp = CAMPAIGNS[0].levels[0].script;
+if (!mvp.some((e) => e.kind === 'midboss' && e.id === 'queen' && e.at === 380)) fail('1-1 is missing the original Queen');
+if (!mvp.some((e) => e.kind === 'midboss' && e.id === 'warden' && e.at === 820)) fail('1-1 is missing the original Warden');
+if (!mvp.some((e) => e.kind === 'finale' && e.at === 1320)) fail('1-1 is not the original MVP run');
+for (const camp of CAMPAIGNS) {
+  for (const lv of camp.levels) {
+    const mids = lv.script.filter((e) => e.kind === 'midboss');
+    const bosses = lv.script.filter((e) => e.kind === 'finale' || e.kind === 'boss');
+    const sq = lv.script.filter((e) => e.kind === 'squad');
+    if (mids.length < 2) fail(`${lv.id} does not have two mini-bosses`);
+    if (bosses.length !== 1) fail(`${lv.id} does not have one level boss`);
+    if (sq.length < 10) fail(`${lv.id} is too thin to be an MVP-scale level`);
+    const end = lv.script.reduce((m, e) => Math.max(m, e.at), 0);
+    if (end < 1300) fail(`${lv.id} is a chopped stage (${end}u) — MVP scale is ~1320`);
+  }
+}
 
 const live = Number((entities.match(/for \(let i = 0; i < (\d+); i\+\+\) \{\s*const g = new THREE\.Group/) || [])[1]);
 const peakSquad = Math.max(...squads.map((s) => s.n));

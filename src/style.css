@@ -513,4 +513,22 @@ kbd {
   .hud-bottom {
     flex-direction: column;
   }
+
+  /* Phone HUD stacks the bars; keep camera chips off that column. */
+  #hud.visible #view-switcher {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    top: calc(11vh + 2.8rem);
+    right: 3vw;
+    bottom: auto;
+    gap: 6px;
+    z-index: 3;
+  }
+
+  .view-btn {
+    padding: 8px 10px;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+  }
 }

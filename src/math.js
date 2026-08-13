@@ -14,10 +14,22 @@ export function mulberry32(seed) {
 export function createFrenet(tangent, upHint = new THREE.Vector3(0, 1, 0)) {
   const t = tangent.clone().normalize();
   const up = upHint.clone();
-  if (Math.abs(t.dot(up)) > 0.96) up.set(1, 0, 0);
+  if (Math.abs(t.dot(up)) > 0.92) up.set(1, 0, 0);
+  up.addScaledVector(t, -up.dot(t));
+  if (up.lengthSq() < 1e-8) up.set(1, 0, 0);
+  up.normalize();
   const binormal = new THREE.Vector3().crossVectors(t, up).normalize();
   const normal = new THREE.Vector3().crossVectors(binormal, t).normalize();
   return { tangent: t, normal, binormal };
+}
+
+export function sampleRail(path, dist, laneX = 0, hover = 0) {
+  const sample = path.sample(Math.max(8, dist));
+  const frame = createFrenet(sample.tangent);
+  const pos = sample.pos.clone()
+    .addScaledVector(frame.binormal, laneX)
+    .addScaledVector(frame.normal, hover);
+  return { sample, frame, pos };
 }
 
 export function lerp(a, b, t) {
@@ -45,15 +57,9 @@ export class InfinitePath {
 
   _append() {
     const i = this.cursor++;
-    const x =
-      Math.sin(i * 0.21) * 38 +
-      Math.sin(i * 0.07) * 22 +
-      Math.cos(i * 0.031) * 12;
-    const y =
-      Math.cos(i * 0.17) * 16 +
-      Math.sin(i * 0.39) * 11 +
-      Math.sin(i * 0.053) * 8;
-    const z = -i * 34;
+    const x = Math.sin(i * 0.09) * 16 + Math.sin(i * 0.031) * 8;
+    const y = Math.cos(i * 0.055) * 7 + Math.sin(i * 0.13) * 3.5;
+    const z = -i * 42;
     this.points.push(new THREE.Vector3(x, y, z));
   }
 

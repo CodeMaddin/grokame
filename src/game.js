@@ -6,7 +6,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { cinematicShader } from './shaders.js';
-import { InfinitePath, createFrenet, clamp, lerp } from './math.js';
+import { InfinitePath, createFrenet, sampleRail, clamp, lerp } from './math.js';
 import { World } from './world.js';
 import { createShip, EngineTrail } from './ship.js';
 import { EntityField } from './entities.js';
@@ -23,8 +23,8 @@ export class Game {
       firing: false,
     };
     this.audio = new AudioBus();
-    this.view = localStorage.getItem('aether-view') || 'chase';
-    if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'chase';
+    this.view = localStorage.getItem('aether-view') || 'scroll';
+    if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'scroll';
     this._viewSnap = 1;
     this._camLook = new THREE.Vector3();
     this._camUp = new THREE.Vector3(0, 1, 0);
@@ -87,8 +87,6 @@ export class Game {
     this.shipLights = ship.lights;
     this.shipCore = ship.core;
     this.scene.add(this.ship);
-    this._lookDummy = new THREE.Object3D();
-    this.scene.add(this._lookDummy);
     this.trail = new EngineTrail(this.scene);
   }
 
@@ -189,9 +187,11 @@ export class Game {
     return this.state === 'title' ? 'chase' : this.view;
   }
 
-  _applyCamera(dt, sample, frame) {
+  _applyCamera(dt, sample, frame, shipSample, shipFrame) {
     const view = this._activeView();
     this.ship.visible = view !== 'cockpit';
+    const shipFrameSafe = shipFrame || frame;
+    const shipSampleSafe = shipSample || sample;
 
     const camPos = new THREE.Vector3();
     const camLook = new THREE.Vector3();
@@ -201,38 +201,33 @@ export class Game {
     if (view === 'cockpit') {
       fov = 78;
       camPos.copy(this.ship.position)
-        .addScaledVector(sample.tangent, 1.85)
-        .addScaledVector(frame.normal, 0.72);
+        .addScaledVector(shipSampleSafe.tangent, 1.85)
+        .addScaledVector(shipFrameSafe.normal, 0.72);
       camLook.copy(this.ship.position)
-        .addScaledVector(sample.tangent, 30)
-        .addScaledVector(frame.binormal, this.steer.x * 11)
-        .addScaledVector(frame.normal, this.steer.y * 7);
-      camUp.copy(frame.normal);
+        .addScaledVector(shipSampleSafe.tangent, 30);
+      camUp.copy(shipFrameSafe.normal);
     } else if (view === 'scroll') {
       fov = 38;
-      camPos.copy(this.ship.position)
-        .addScaledVector(frame.normal, 168)
-        .addScaledVector(sample.tangent, 6);
-      camLook.copy(this.ship.position)
-        .addScaledVector(sample.tangent, 16);
-      camUp.copy(sample.tangent);
+      const focus = this.path.sample(this.traveled + 22);
+      const focusFrame = createFrenet(focus.tangent);
+      camPos.copy(focus.pos).addScaledVector(focusFrame.normal, 168);
+      camLook.copy(focus.pos);
+      camUp.copy(focus.tangent);
     } else {
       fov = 62;
-      camPos.copy(this.ship.position)
-        .addScaledVector(sample.tangent, -24)
-        .addScaledVector(frame.normal, 10.5)
-        .addScaledVector(frame.binormal, this.offset.x * 0.12);
-      camLook.copy(this.ship.position)
-        .addScaledVector(sample.tangent, 10)
-        .addScaledVector(frame.binormal, this.steer.x * 2)
-        .addScaledVector(frame.normal, this.steer.y * 1.2);
-      camUp.copy(frame.normal);
+      const focus = this.path.sample(this.traveled + 8);
+      const focusFrame = createFrenet(focus.tangent);
+      camPos.copy(focus.pos)
+        .addScaledVector(focus.tangent, -30)
+        .addScaledVector(focusFrame.normal, 14);
+      camLook.copy(focus.pos).addScaledVector(focus.tangent, 18);
+      camUp.copy(focusFrame.normal);
     }
 
     const snap = this._viewSnap > 0.02;
-    const locked = view === 'scroll';
-    const posK = snap ? 16 : locked ? 11 : 4.2;
-    const lookK = snap ? 14 : locked ? 10 : 5;
+    const locked = view !== 'cockpit';
+    const posK = snap ? 16 : locked ? 12 : 5;
+    const lookK = snap ? 14 : locked ? 11 : 5.5;
     this.camera.position.lerp(camPos, 1 - Math.exp(-dt * posK));
     this._camLook.lerp(camLook, 1 - Math.exp(-dt * lookK));
     this._camUp.lerp(camUp, 1 - Math.exp(-dt * lookK));
@@ -258,6 +253,7 @@ export class Game {
     this.kills = 0;
     this._blockWarn = false;
     this.offset = new THREE.Vector2(0, 0);
+    this.holdY = 0;
     this.steer = new THREE.Vector2(0, 0);
     this.slide = new THREE.Vector2(0, 0);
     this.best = Number(localStorage.getItem('aether-best') || 0);
@@ -340,12 +336,6 @@ export class Game {
 
     let wantBoost = 0;
     if (this.state === 'playing') {
-      const throttleUp = this.input.keys.has('KeyW') || this.input.keys.has('ArrowUp');
-      const throttleDown = this.input.keys.has('KeyS') || this.input.keys.has('ArrowDown');
-      if (throttleUp) this.throttle = clamp(this.throttle + dt * 0.85, 0.08, 1);
-      else if (throttleDown) this.throttle = clamp(this.throttle - dt * 1.05, 0.08, 1);
-      else this.throttle = lerp(this.throttle, 0.5, 1 - Math.exp(-dt * 0.7));
-
       if (boosting && this.boost > 0.05) {
         wantBoost = 1;
         this.boost = Math.max(0, this.boost - dt * 0.32);
@@ -356,7 +346,7 @@ export class Game {
 
     const cruise = cinematic
       ? 16
-      : 10 + this.throttle * 46 + wantBoost * 30 + Math.min(this.traveled / 2400, 10);
+      : 26 + wantBoost * 22 + Math.min(this.traveled / 2800, 8);
     this.speed = lerp(this.speed, cruise, 1 - Math.exp(-dt * 2.4));
     this.traveled += this.speed * dt;
     this.path.ensure(this.traveled + 400);
@@ -372,41 +362,27 @@ export class Game {
     if (this.state === 'playing') {
       const keyX = (this.input.keys.has('KeyD') || this.input.keys.has('ArrowRight') ? 1 : 0)
         - (this.input.keys.has('KeyA') || this.input.keys.has('ArrowLeft') ? 1 : 0);
-      this.steer.x = clamp(this.input.mouse.x * 1.25 + keyX * 0.55, -1, 1);
-      this.steer.y = clamp(this.input.mouse.y * 1.15, -1, 1);
-      this.slide.x = lerp(this.slide.x, keyX * 6.5, 1 - Math.exp(-dt * 4));
+      const keyY = (this.input.keys.has('KeyW') || this.input.keys.has('ArrowUp') ? 1 : 0)
+        - (this.input.keys.has('KeyS') || this.input.keys.has('ArrowDown') ? 1 : 0);
+      const move = 46;
+      this.offset.x = clamp(this.offset.x + keyX * move * dt, -20, 20);
+      this.holdY = clamp(this.holdY + keyY * move * dt, 0, 26);
+      this.offset.y = 0;
+      this.steer.set(keyX, keyY);
     } else {
-      this.steer.x = Math.sin(this.clock.elapsedTime * 0.35) * 0.45;
-      this.steer.y = Math.cos(this.clock.elapsedTime * 0.22) * 0.28;
-      this.slide.x = 0;
+      this.offset.x = Math.sin(this.clock.elapsedTime * 0.35) * 8;
+      this.holdY = 8;
+      this.steer.set(0, 0);
     }
 
-    const targetX = this.steer.x * 18 + this.slide.x;
-    const targetY = this.steer.y * 11;
-    this.offset.x = lerp(this.offset.x, targetX, 1 - Math.exp(-dt * 3.2));
-    this.offset.y = lerp(this.offset.y, targetY, 1 - Math.exp(-dt * 3.2));
-    const span = Math.hypot(this.offset.x, this.offset.y);
-    if (span > 22) {
-      this.offset.multiplyScalar(22 / span);
-    }
+    const rail = sampleRail(this.path, this.traveled + this.holdY, this.offset.x, 0.35);
+    const shipSample = rail.sample;
+    const shipFrame = rail.frame;
+    this.ship.position.copy(rail.pos);
+    this.ship.up.copy(shipFrame.normal);
+    this.ship.lookAt(this.ship.position.clone().add(shipSample.tangent));
 
-    this.ship.position.copy(sample.pos)
-      .addScaledVector(frame.binormal, this.offset.x)
-      .addScaledVector(frame.normal, this.offset.y + 0.2);
-
-    const look = this.ship.position.clone()
-      .addScaledVector(sample.tangent, 20)
-      .addScaledVector(frame.binormal, this.steer.x * 8)
-      .addScaledVector(frame.normal, this.steer.y * 5);
-    const tmp = this._lookDummy;
-    tmp.position.copy(this.ship.position);
-    tmp.up.copy(frame.normal);
-    tmp.lookAt(look);
-    const bank = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -this.steer.x * 0.35);
-    tmp.quaternion.multiply(bank);
-    this.ship.quaternion.slerp(tmp.quaternion, 1 - Math.exp(-dt * 7));
-
-    this._applyCamera(dt, sample, frame);
+    this._applyCamera(dt, sample, frame, shipSample, shipFrame);
 
     const boostAmt = wantBoost;
     for (const ex of this.exhausts) {
@@ -415,7 +391,7 @@ export class Game {
       ex.material.color.set(boostAmt > 0.2 ? 0xffd166 : 0x9be7ff);
     }
     for (const l of this.shipLights) l.intensity = 3.2 + boostAmt * 3;
-    this.trail.push(this.ship.position.clone().addScaledVector(sample.tangent, -1.4), boostAmt);
+    this.trail.push(this.ship.position.clone().addScaledVector(shipSample.tangent, -1.4), boostAmt);
     this.audio.setBoost(boostAmt);
 
     this.world.update(dt, this.camera, this.traveled);
@@ -442,15 +418,9 @@ export class Game {
     if (this.state === 'playing') {
       const firing = this.input.firing || this.input.keys.has('Space');
       if (firing && this.fireCd <= 0) {
-        const origin = this.ship.position.clone().addScaledVector(sample.tangent, 5.4);
-        const dir = sample.tangent.clone()
-          .addScaledVector(frame.binormal, this.steer.x * 0.72)
-          .addScaledVector(frame.normal, this.steer.y * 0.5)
-          .normalize();
-        const left = origin.clone().addScaledVector(frame.binormal, -1.8);
-        const right = origin.clone().addScaledVector(frame.binormal, 1.8);
-        const shotA = this.entities.fire(left, dir);
-        const shotB = this.entities.fire(right, dir);
+        const muzzle = this.traveled + this.holdY + 6.2;
+        const shotA = this.entities.fireRail(this.path, muzzle, this.offset.x - 1.8, 1);
+        const shotB = this.entities.fireRail(this.path, muzzle, this.offset.x + 1.8, 1);
         if (shotA || shotB) {
           this.audio.laser();
           this.fireCd = 0.09;
@@ -486,7 +456,7 @@ export class Game {
         this.audio.explosion();
         if (k.type === 'enemy') {
           this.kills += 1;
-          this._combatScore(k.role === 'hunter' ? 280 : 180);
+          this._combatScore(220);
           this.boost = Math.min(1, this.boost + 0.18);
         } else if (k.type === 'blocker') {
           this._combatScore(160);

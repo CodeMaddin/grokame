@@ -253,7 +253,7 @@ export class World {
       const sample = path.sample(dist);
       const frame = createFrenet(sample.tangent);
       const ang = rng() * Math.PI * 2;
-      const rad = 22 + rng() * 16;
+      const rad = 28 + rng() * 16;
       const mesh = this.crystals[i];
       mesh.position.copy(sample.pos)
         .addScaledVector(frame.normal, Math.cos(ang) * rad)
@@ -273,7 +273,7 @@ export class World {
         const sample = path.sample(dist);
         const frame = createFrenet(sample.tangent);
         const ang = Math.random() * Math.PI * 2;
-        const rad = 22 + Math.random() * 18;
+        const rad = 28 + Math.random() * 18;
         this.crystals[i].position.copy(sample.pos)
           .addScaledVector(frame.normal, Math.cos(ang) * rad)
           .addScaledVector(frame.binormal, Math.sin(ang) * rad);

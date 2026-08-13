@@ -20,16 +20,15 @@ npm run preview
 
 | Input | Action |
 | --- | --- |
-| Mouse | Look / aim |
-| A / D | Strafe |
-| W / S | Throttle / brake |
-| Click / Space | Fire |
+| A / D | Slide left / right — the ship stays where you leave it |
+| W / S | Move up / down the playfield |
+| Click / Space | Fire straight forward |
 | Shift | Boost |
 | 1 / 2 / 3 | Chase / cockpit / scroll camera |
 | V | Cycle camera |
 | P | Pause |
 
-The cyan ribbon is a guide, not a cage — fly out into the canyon. Amber cores sit in your path and will wreck the hull unless you shoot them. Red hunters chase you; gold gunships sit ahead and fire. Locked magenta gates have to be shot open. Combat is the score. Orbs off the path are just snacks.
+The rift auto-scrolls like a vertical shmup. Strafe across the playfield; the ship never yaws or springs back to center, and the guns always shoot up the screen. Enemies enter from the top in lanes and descend. Amber cores sit in your path and will wreck the hull unless you shoot them. Locked magenta gates have to be shot open. Combat is the score. Orbs off the path are just snacks.
 
 ## Why this stack
 

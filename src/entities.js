@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { orbVertex, orbFragment } from './shaders.js';
-import { createFrenet } from './math.js';
+import { createFrenet, sampleRail } from './math.js';
 
 function makeOrbMaterial(color) {
   return new THREE.ShaderMaterial({
@@ -189,6 +189,10 @@ export class EntityField {
         vel: new THREE.Vector3(),
         alive: false,
         life: 0,
+        pathDist: 0,
+        laneX: 0,
+        along: 1,
+        speed: 120,
       });
     }
     for (let i = 0; i < 32; i++) {
@@ -203,6 +207,10 @@ export class EntityField {
         vel: new THREE.Vector3(),
         alive: false,
         life: 0,
+        pathDist: 0,
+        laneX: 0,
+        along: -1,
+        speed: 34,
       });
     }
   }
@@ -234,17 +242,24 @@ export class EntityField {
     this._placeInactive(this.gates, path, traveled, 260, 3, 'gate');
     this._placeInactive(this.blockers, path, traveled, 95, Math.min(4 + Math.floor(difficulty), 8), 'blocker');
 
-    const enemyNeed = Math.min(4 + Math.floor(difficulty * 1.2), 12);
+    const enemyNeed = Math.min(5 + Math.floor(difficulty * 1.15), 12);
+    const lanes = [-16, -10, -4, 4, 10, 16];
     let liveEnemies = this.enemies.filter((e) => e.alive).length;
     while (liveEnemies < enemyNeed) {
       const idle = this.enemies.find((e) => !e.alive);
       if (!idle) break;
-      this._placeOne(idle, path, traveled + 50 + Math.random() * 220, 'enemy');
-      idle.hp = 3 + (difficulty > 2.5 ? 1 : 0);
-      idle.cooldown = 0.4 + Math.random() * 0.6;
-      idle.role = Math.random() < 0.65 ? 'hunter' : 'gunship';
+      const row = Math.floor(liveEnemies / lanes.length);
+      const lane = lanes[liveEnemies % lanes.length];
+      this._placeOne(idle, path, traveled + 78 + row * 22 + Math.random() * 10, 'enemy');
+      idle.hp = 2 + (difficulty > 2.5 ? 1 : 0);
+      idle.cooldown = 0.7 + Math.random() * 0.9;
+      idle.role = Math.random() < 0.55 ? 'dive' : 'sine';
       idle.nearMiss = false;
-      idle.ring.material.color.set(idle.role === 'hunter' ? 0xff6b8a : 0xffd166);
+      idle.offset.x = lane + (Math.random() - 0.5) * 1.6;
+      idle.baseX = idle.offset.x;
+      idle.weave = 1.1 + Math.random() * 1.4;
+      idle.descent = 11 + Math.random() * 8;
+      idle.ring.material.color.set(idle.role === 'dive' ? 0xff6b8a : 0xffd166);
       liveEnemies++;
     }
 
@@ -273,11 +288,11 @@ export class EntityField {
       ox = (Math.random() - 0.5) * 28;
       oy = (Math.random() - 0.5) * 16;
     } else if (kind === 'enemy') {
-      ox = (Math.random() - 0.5) * 22;
-      oy = (Math.random() - 0.5) * 12;
+      ox = (Math.random() - 0.5) * 32;
+      oy = 0;
     } else if (kind === 'blocker') {
-      ox = (Math.random() - 0.5) * 7;
-      oy = (Math.random() - 0.5) * 4;
+      ox = (Math.random() - 0.5) * 28;
+      oy = 0;
       const scale = 2.4 + Math.random() * 1.6;
       item.mesh.scale.setScalar(scale);
       item.radius = 1.15 * scale;
@@ -298,6 +313,7 @@ export class EntityField {
     item.alive = true;
     item.pathDist = dist;
     item.offset = new THREE.Vector3(ox, oy, 0);
+    if (kind === 'enemy') item.baseX = ox;
     item.mesh.lookAt(sample.pos.clone().add(sample.tangent));
   }
 
@@ -338,27 +354,38 @@ export class EntityField {
     group.position.copy(sample.pos);
   }
 
-  fire(origin, dir) {
+  fireRail(path, pathDist, laneX, along = 1) {
     const b = this.bullets.find((x) => !x.alive);
     if (!b) return false;
     b.alive = true;
-    b.life = 1.05;
+    b.life = 1.25;
+    b.pathDist = pathDist;
+    b.laneX = laneX;
+    b.along = along;
+    b.speed = 124;
     b.mesh.visible = true;
-    b.mesh.position.copy(origin);
-    b.vel.copy(dir).setLength(96);
-    const aim = origin.clone().add(dir);
-    b.mesh.lookAt(aim);
+    this._placeRailShot(b, path);
     return true;
   }
 
-  enemyFire(origin, target, speed = 38) {
+  enemyFireRail(path, pathDist, laneX, speed = 36) {
     const b = this.enemyShots.find((x) => !x.alive);
     if (!b) return;
     b.alive = true;
     b.life = 2.4;
+    b.pathDist = pathDist;
+    b.laneX = laneX;
+    b.along = -1;
+    b.speed = speed;
     b.mesh.visible = true;
-    b.mesh.position.copy(origin);
-    b.vel.copy(target).sub(origin).normalize().multiplyScalar(speed);
+    this._placeRailShot(b, path);
+  }
+
+  _placeRailShot(b, path) {
+    const rail = sampleRail(path, b.pathDist, b.laneX, 0.45);
+    b.mesh.position.copy(rail.pos);
+    b.vel.copy(rail.sample.tangent).multiplyScalar(b.along * b.speed);
+    b.mesh.lookAt(rail.pos.clone().addScaledVector(rail.sample.tangent, b.along));
   }
 
   explode(pos, color = 0x5ce1ff) {
@@ -383,7 +410,7 @@ export class EntityField {
   recycleBehind(traveled) {
     for (const list of [this.orbs, this.gates, this.enemies, this.blockers]) {
       for (const item of list) {
-        if (item.alive && item.pathDist < traveled - 40) {
+        if (item.alive && item.pathDist < traveled - 18) {
           item.alive = false;
           item.mesh.visible = false;
         }
@@ -433,55 +460,41 @@ export class EntityField {
     }
     for (const en of this.enemies) {
       if (!en.alive) continue;
-      en.mesh.rotation.y += dt * 2.2;
-      if (en.role === 'hunter') {
-        const desired = traveled + 5;
-        const delta = desired - en.pathDist;
-        en.pathDist += Math.max(-36, Math.min(26, delta)) * dt;
-        en.offset.x += (playerOffset.x - en.offset.x) * dt * 2.1;
-        en.offset.y += (playerOffset.y - en.offset.y) * dt * 2.1;
-      } else {
-        const desired = traveled + 40;
-        const delta = desired - en.pathDist;
-        en.pathDist += Math.max(-22, Math.min(18, delta)) * dt;
-        en.offset.x += Math.sin(this.time * 1.4 + en.pathDist) * dt * 3;
+      en.ring.rotation.z += dt * 2.2;
+      en.pathDist -= (en.descent || 14) * dt;
+      if (en.role === 'sine') {
+        en.offset.x = (en.baseX || 0) + Math.sin(this.time * (en.weave || 1.4) + en.pathDist * 0.05) * 5;
       }
-      const sample = path.sample(Math.max(10, en.pathDist));
-      const frame = createFrenet(sample.tangent);
-      en.mesh.position.copy(sample.pos)
-        .addScaledVector(frame.binormal, en.offset.x)
-        .addScaledVector(frame.normal, en.offset.y);
-      en.mesh.lookAt(shipPos);
+      en.offset.y = 0;
+      const rail = sampleRail(path, en.pathDist, en.offset.x, 0.4);
+      en.mesh.position.copy(rail.pos);
+      en.mesh.up.copy(rail.frame.normal);
+      en.mesh.lookAt(rail.pos.clone().addScaledVector(rail.sample.tangent, -12));
       en.cooldown -= dt;
-      const dist = en.mesh.position.distanceTo(shipPos);
-      if (en.cooldown <= 0 && dist < 90) {
-        const lead = shipPos.clone().addScaledVector(sample.tangent, 6);
-        this.enemyFire(en.mesh.position, lead, en.role === 'hunter' ? 46 : 34);
-        en.cooldown = Math.max(0.38, (en.role === 'hunter' ? 0.7 : 1.05) - difficulty * 0.08);
+      if (en.cooldown <= 0 && en.pathDist > traveled - 4 && en.pathDist < traveled + 88) {
+        this.enemyFireRail(path, en.pathDist - 3, en.offset.x, 38);
+        en.cooldown = Math.max(0.75, 1.3 - difficulty * 0.08);
       }
     }
     if (this.boss?.alive) {
       this.boss.mesh.rotation.x += dt * 0.4;
       this.boss.mesh.rotation.y += dt * 0.7;
       this.boss.shell.rotation.z -= dt * 0.9;
-      this.boss.pathDist += (traveled + 28 - this.boss.pathDist) * dt * 0.7;
-      const sample = path.sample(Math.max(10, this.boss.pathDist));
-      this.boss.mesh.position.copy(sample.pos).add(new THREE.Vector3(0, 2.2, 0));
-      this.boss.mesh.lookAt(shipPos);
+      this.boss.pathDist -= 8 * dt;
+      const rail = sampleRail(path, this.boss.pathDist, 0, 1.2);
+      this.boss.mesh.position.copy(rail.pos);
+      this.boss.mesh.lookAt(rail.pos.clone().addScaledVector(rail.sample.tangent, -16));
       this.boss.cooldown -= dt;
       if (this.boss.cooldown <= 0) {
-        for (let i = 0; i < 10; i++) {
-          const a = (i / 10) * Math.PI * 2 + this.time;
-          const dir = shipPos.clone().sub(this.boss.mesh.position).normalize()
-            .add(new THREE.Vector3(Math.cos(a) * 0.35, Math.sin(a) * 0.25, 0));
-          this.enemyFire(this.boss.mesh.position, this.boss.mesh.position.clone().add(dir), 32);
-        }
-        this.boss.cooldown = 0.95;
+        this.enemyFireRail(path, this.boss.pathDist - 4, 0, 34);
+        this.enemyFireRail(path, this.boss.pathDist - 4, -8, 32);
+        this.enemyFireRail(path, this.boss.pathDist - 4, 8, 32);
+        this.boss.cooldown = 0.85;
       }
     }
 
-    this._stepProjectiles(this.bullets, dt);
-    this._stepProjectiles(this.enemyShots, dt);
+    this._stepProjectiles(this.bullets, dt, path);
+    this._stepProjectiles(this.enemyShots, dt, path);
 
     for (let i = this.explosions.length - 1; i >= 0; i--) {
       const ex = this.explosions[i];
@@ -499,15 +512,17 @@ export class EntityField {
     }
   }
 
-  _stepProjectiles(list, dt) {
+  _stepProjectiles(list, dt, path) {
     for (const b of list) {
       if (!b.alive) continue;
       b.life -= dt;
-      b.mesh.position.addScaledVector(b.vel, dt);
-      if (b.life <= 0) {
+      b.pathDist += (b.along || 1) * (b.speed || 100) * dt;
+      if (b.life <= 0 || b.pathDist < 12) {
         b.alive = false;
         b.mesh.visible = false;
+        continue;
       }
+      this._placeRailShot(b, path);
     }
   }
 

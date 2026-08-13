@@ -315,7 +315,7 @@ export class EntityField {
   }
 
   _seedPickups() {
-    for (let i = 0; i < 48; i++) {
+    for (let i = 0; i < 64; i++) {
       const mesh = new THREE.Mesh(
         new THREE.TetrahedronGeometry(1.15, 0),
         new THREE.MeshBasicMaterial({ color: 0x7af0ff })
@@ -343,6 +343,7 @@ export class EntityField {
         value: 1,
         magnet: 0,
         grace: 0,
+        kind: 'mote',
       });
     }
   }
@@ -461,11 +462,11 @@ export class EntityField {
     }
   }
 
-  spawnNamed(path, traveled, id, ahead = 96, step = 0) {
+  spawnNamed(path, traveled, id, ahead = 96, step = 0, loadout = null) {
     const idle = this.enemies.find((e) => !e.alive);
     if (!idle) return;
     this._placeOne(idle, path, traveled + ahead, 'enemy');
-    this._dressEnemy(idle, id, 1, 0, this.laneLimit || 24, step);
+    this._dressEnemy(idle, id, 1, 0, this.laneLimit || 24, step, loadout);
   }
 
   spawnGateAt(path, traveled, ahead = 72) {
@@ -490,9 +491,9 @@ export class EntityField {
     }
   }
 
-  spawnFinale(path, traveled, ahead = 96, step = 0) {
+  spawnFinale(path, traveled, ahead = 96, step = 0, loadout = null) {
     if (this.boss?.alive) return;
-    this._spawnBoss(path, traveled + ahead, step);
+    this._spawnBoss(path, traveled + ahead, step, loadout);
   }
 
   _placeInactive(list, path, traveled, spacing, count, kind) {
@@ -548,7 +549,7 @@ export class EntityField {
     item.mesh.lookAt(sample.pos.clone().add(sample.tangent));
   }
 
-  _dressEnemy(en, role, difficulty, lane, span, step = 0) {
+  _dressEnemy(en, role, difficulty, lane, span, step = 0, loadout = null) {
     this._bindCraft(en, role);
     en.role = role;
     en.nearMiss = false;
@@ -564,7 +565,7 @@ export class EntityField {
     en.mesh.scale.setScalar(1);
     if (en.craft) setCraftPhase(en.craft, 1);
     if (role === 'queen') {
-      en.hp = eliteHp('queen', step);
+      en.hp = eliteHp('queen', step, loadout);
       en.maxHp = en.hp;
       en.radius = 7.4;
       en.descent = 0.52;
@@ -573,7 +574,7 @@ export class EntityField {
       en.drop = 4;
       en.bombDrop = 1;
     } else if (role === 'warden') {
-      en.hp = eliteHp('warden', step);
+      en.hp = eliteHp('warden', step, loadout);
       en.maxHp = en.hp;
       en.radius = 7.6;
       en.descent = 0.38;
@@ -582,7 +583,7 @@ export class EntityField {
       en.drop = 5;
       en.bombDrop = 1;
     } else if (role === 'coil') {
-      en.hp = eliteHp('coil', step);
+      en.hp = eliteHp('coil', step, loadout);
       en.maxHp = en.hp;
       en.radius = 6.4;
       en.descent = 0.44;
@@ -591,7 +592,7 @@ export class EntityField {
       en.drop = 4;
       en.bombDrop = 1;
     } else if (role === 'empress') {
-      en.hp = eliteHp('empress', step);
+      en.hp = eliteHp('empress', step, loadout);
       en.maxHp = en.hp;
       en.radius = 7.4;
       en.descent = 0.48;
@@ -667,7 +668,7 @@ export class EntityField {
     en.weak = craft.weak;
   }
 
-  _spawnBoss(path, dist, step = 0) {
+  _spawnBoss(path, dist, step = 0, loadout = null) {
     const craft = createSentinel();
     this.scene.add(craft.mesh);
     this.boss = {
@@ -680,8 +681,8 @@ export class EntityField {
       weak: craft.weak,
       shell: craft.ring,
       pathDist: dist,
-      hp: eliteHp('finale', step),
-      maxHp: eliteHp('finale', step),
+      hp: eliteHp('finale', step, loadout),
+      maxHp: eliteHp('finale', step, loadout),
       cooldown: 0.6,
       windup: 0,
       windMax: 0.42,
@@ -887,10 +888,10 @@ export class EntityField {
     for (let i = 0; i < n; i++) {
       const p = this.pickups.find((x) => !x.alive);
       if (!p) break;
+      this._paintPickup(p, 'mote');
       p.alive = true;
       p.pathDist = pathDist + (Math.random() - 0.5) * 3;
       p.laneX = laneX + (i - (n - 1) / 2) * spread + (Math.random() - 0.5) * 1.6;
-      p.value = 1;
       p.magnet = 0;
       p.grace = opts.grace ?? 0;
       p.mesh.visible = true;
@@ -899,6 +900,36 @@ export class EntityField {
       spawned.push(p);
     }
     return spawned;
+  }
+
+  spawnCoins(path, pathDist, laneX, n = 1, opts = {}) {
+    const spawned = [];
+    const spread = opts.spread ?? 4.2;
+    for (let i = 0; i < n; i++) {
+      const p = this.pickups.find((x) => !x.alive);
+      if (!p) break;
+      this._paintPickup(p, 'coin');
+      p.alive = true;
+      p.pathDist = pathDist + (Math.random() - 0.5) * 4;
+      p.laneX = laneX + (i - (n - 1) / 2) * spread + (Math.random() - 0.5) * 1.8;
+      p.magnet = 0;
+      p.grace = opts.grace ?? 0;
+      p.mesh.visible = true;
+      p.mesh.scale.setScalar(1.08);
+      this._placeMote(p, path);
+      spawned.push(p);
+    }
+    return spawned;
+  }
+
+  _paintPickup(p, kind) {
+    const coin = kind === 'coin';
+    p.kind = coin ? 'coin' : 'mote';
+    p.value = coin ? 8 : 1;
+    p.radius = coin ? 2.45 : 2.1;
+    p.mesh.material.color.set(coin ? 0xffd166 : 0x7af0ff);
+    p.glow.material.color.set(coin ? 0xffb703 : 0x5ce1ff);
+    p.glow.material.opacity = coin ? 0.42 : 0.28;
   }
 
   _placeMote(p, path) {

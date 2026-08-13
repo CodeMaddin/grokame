@@ -366,6 +366,23 @@ export class AudioBus {
     this._osc('sine', 1180, t + 0.05, 0.14, 0.06);
   }
 
+  coin() {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    this._osc('triangle', 620, t, 0.08, 0.05);
+    this._osc('sine', 880, t + 0.03, 0.1, 0.06);
+    this._osc('triangle', 1320, t + 0.07, 0.12, 0.045);
+  }
+
+  buy() {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    this._osc('sine', 196, t, 0.14, 0.07);
+    this._osc('triangle', 392, t + 0.05, 0.16, 0.06);
+    this._osc('sine', 784, t + 0.1, 0.2, 0.05);
+    this._osc('triangle', 1175, t + 0.16, 0.18, 0.04);
+  }
+
   gate() {
     if (!this.enabled) return;
     const ctx = this.ctx;

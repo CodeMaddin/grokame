@@ -108,6 +108,14 @@ ok(CAMPAIGNS.length === 5 && CAMPAIGNS.every((c) => c.levels.length >= 5 && c.le
 ok(CAMPAIGNS[0].levels[0].script.some((e) => e.kind === 'finale' && e.at === 1320), 'campaign 1 level 1 is the original MVP run');
 ok(game.includes('_openMap') && game.includes('_deployLevel') && game.includes('_clearLevel'), 'campaign flow is wired');
 ok(src('src/campaigns.js').includes('MVP_SCRIPT'), 'MVP script is preserved');
+ok(html.includes('hangar-screen') && html.includes('hangar-list'), 'shipyard screen exists');
+ok(html.includes('id="gold"'), 'gold is on the HUD');
+ok(src('src/hangar.js').includes('buyModule') && src('src/hangar.js').includes('mergeLoadout'), 'hangar persistence exists');
+ok(src('src/ship.js').includes('dressShip') && src('src/ship.js').includes('buildTitanKit'), 'ship wears purchased systems');
+ok(src('src/shipyard.js').includes('class Shipyard'), 'drydock renderer exists');
+ok(entities.includes('spawnCoins') && game.includes('_gainGold'), 'gold can be collected');
+ok(game.includes('_openHangar') && game.includes('applyMotes'), 'clears open the shipyard; motes charge owned guns');
+ok(arsenal(starterLoadout()).primary.shots.every((s) => Math.abs(s.x) < 1.2), 'starter blasters stay forward');
 
 const dir = new StageDirector();
 dir.reset();

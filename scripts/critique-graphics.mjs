@@ -114,6 +114,9 @@ if (!read('src/crafts.js').includes('createEmpressCraft')) fail('empress is stil
 if (!read('src/crafts.js').includes('createCinderHunter')) fail('campaigns share one hunter roster');
 if (!entities.includes('createSentinel')) fail('sentinel is still a generic icosa');
 if (!entities.includes('nextVolley')) fail('elites still dump the same 3–5 fan');
+if (!read('src/ship.js').includes('dressShip')) fail('the hull does not wear purchased guns');
+if (!html.includes('hangar-screen')) fail('no shipyard screen');
+if (!read('src/shipyard.js').includes('UnrealBloomPass')) fail('drydock has no lighting pass');
 
 if (!audio.includes('_scheduleBeat')) fail('no sequenced score — still a pad drone');
 if (!audio.includes('setPaused')) fail('pause cannot mute');

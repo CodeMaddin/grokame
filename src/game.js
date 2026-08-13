@@ -8,7 +8,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { cinematicShader } from './shaders.js';
 import { InfinitePath, createFrenet, sampleRail, clamp, lerp } from './math.js';
 import { World } from './world.js';
-import { createShip, EngineTrail } from './ship.js';
+import { createShip, EngineTrail, dressShip } from './ship.js';
 import { EntityField } from './entities.js';
 import { AudioBus } from './audio.js';
 import { StageDirector, gradeRun, loadScores, saveScore } from './stage.js';
@@ -19,9 +19,24 @@ import {
   loadProgress,
   saveProgress,
   markCleared,
-  catchupStep,
 } from './campaigns.js';
-import { STEP_MAX, SEQUENCE, starterLoadout, loadoutFromStep, costToNext, hudName, arsenal } from './weapons.js';
+import { MODULES, MODULE_ORDER, hudName, arsenal } from './weapons.js';
+import {
+  CATALOG,
+  loadHangar,
+  emptyBonus,
+  mergeLoadout,
+  loadoutPower,
+  nextCost,
+  buyModule,
+  addGold,
+  applyMotes,
+  shedBonus,
+  runFill,
+  clearPayout,
+  buyLabel,
+} from './hangar.js';
+import { Shipyard } from './shipyard.js';
 
 export class Game {
   constructor(canvas) {
@@ -46,6 +61,8 @@ export class Game {
     this._chaseX = 0;
     this.stage = new StageDirector();
     this.progress = loadProgress();
+    this.hangar = loadHangar();
+    this.runBonus = emptyBonus();
     this.campaignIndex = this.progress.nextC || 0;
     this.levelIndex = this.progress.nextL || 0;
     this._runLive = false;
@@ -57,11 +74,14 @@ export class Game {
     this.bombs = 3;
     this.bombMax = 5;
     this.bombCd = 0;
-    this._padPrev = { fire: false, bomb: false, start: false };
+    this._padPrev = { fire: false, bomb: false, start: false, y: 0 };
     this._setupRenderer();
     this._setupScene();
     this._setupPost();
     this._setupWorld();
+    this.shipyard = new Shipyard(this.renderer);
+    this._hangarCursor = 0;
+    this._hangarFrom = 'map';
     this._bindInput();
     this._bindUI();
     this.reset(false);
@@ -116,6 +136,7 @@ export class Game {
     this.world.attachRibbon(this.path.rebuildRibbon());
     this.entities = new EntityField(this.scene);
     const ship = createShip();
+    this.shipCraft = ship;
     this.ship = ship.group;
     this.shipRig = ship.rig;
     this.exhausts = ship.exhausts;
@@ -166,6 +187,10 @@ export class Game {
       if (moveKeys.has(e.code)) e.preventDefault();
       this._setKey(e, true);
       if (this.state === 'playing' && !e.repeat) this._releaseUiFocus();
+      if (this.state === 'hangar') {
+        this._onHangarKey(e);
+        return;
+      }
       if (e.code === 'KeyP' && this.state === 'playing') this.pause();
       if ((e.code === 'KeyB' || e.code === 'KeyC') && this.state === 'playing' && !e.repeat) this._tryBomb();
       if (e.code === 'Digit1' || e.code === 'Numpad1') this.setView('chase');
@@ -330,6 +355,20 @@ export class Game {
       mapTag: document.getElementById('map-tag'),
       deployBtn: document.getElementById('deploy-btn'),
       mapMenuBtn: document.getElementById('map-menu-btn'),
+      hangarMapBtn: document.getElementById('hangar-map-btn'),
+      hangar: document.getElementById('hangar-screen'),
+      hangarList: document.getElementById('hangar-list'),
+      hangarGold: document.getElementById('hangar-gold'),
+      hangarBuy: document.getElementById('hangar-buy'),
+      hangarDone: document.getElementById('hangar-done'),
+      hangarName: document.getElementById('hangar-item-name'),
+      hangarBlurb: document.getElementById('hangar-item-blurb'),
+      hangarCost: document.getElementById('hangar-item-cost'),
+      hangarKicker: document.getElementById('hangar-kicker'),
+      hangarTitle: document.getElementById('hangar-title'),
+      hangarHint: document.getElementById('hangar-hint'),
+      hangarPayout: document.getElementById('hangar-payout'),
+      gold: document.getElementById('gold'),
       bossMeter: document.getElementById('boss-meter'),
       bossFill: document.getElementById('boss-fill'),
       bossName: document.getElementById('boss-name'),
@@ -346,6 +385,16 @@ export class Game {
     document.getElementById('retry-btn').addEventListener('click', () => this.startPlay());
     this.ui.deployBtn?.addEventListener('click', () => this._deployLevel());
     this.ui.mapMenuBtn?.addEventListener('click', () => this.goToMenu({ resumeable: this._runLive }));
+    this.ui.hangarMapBtn?.addEventListener('click', () => this._openHangar({ from: 'map' }));
+    this.ui.hangarBuy?.addEventListener('click', () => this._hangarBuy());
+    this.ui.hangarDone?.addEventListener('click', () => this._hangarDone());
+    this.ui.hangarList?.addEventListener('click', (e) => {
+      const row = e.target.closest('[data-mod]');
+      if (!row) return;
+      this._hangarCursor = MODULE_ORDER.indexOf(row.dataset.mod);
+      if (this._hangarCursor < 0) this._hangarCursor = 0;
+      this._renderHangar();
+    });
     document.getElementById('continue-yes')?.addEventListener('click', () => this._acceptContinue());
     document.getElementById('continue-no')?.addEventListener('click', () => this._declineContinue());
     this.ui.pauseBtn?.addEventListener('click', () => {
@@ -363,6 +412,9 @@ export class Game {
       document.getElementById('continue-no'),
       this.ui.deployBtn,
       this.ui.mapMenuBtn,
+      this.ui.hangarMapBtn,
+      this.ui.hangarBuy,
+      this.ui.hangarDone,
       this.ui.pauseBtn,
       this.ui.bombBtn,
     ].filter(Boolean);
@@ -426,6 +478,10 @@ export class Game {
   }
 
   _onEscape() {
+    if (this.state === 'hangar') {
+      this._hangarDone();
+      return;
+    }
     if (this.state === 'map') {
       this.goToMenu({ resumeable: this._runLive });
       return;
@@ -452,6 +508,7 @@ export class Game {
     this.ui.dead.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
     this.ui.map?.classList.add('hidden');
+    this.ui.hangar?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.title.classList.remove('hidden');
     this._syncTitleActions();
@@ -475,6 +532,7 @@ export class Game {
     this.ui.dead.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
     this.ui.map?.classList.add('hidden');
+    this.ui.hangar?.classList.add('hidden');
     this.ui.hud.classList.add('visible');
     this.audio.setPaused(false);
     this.clock.getDelta();
@@ -584,7 +642,9 @@ export class Game {
     this.rank = 0;
     this.step = 0;
     this.charge = 0;
-    this.loadout = starterLoadout();
+    this.hangar = loadHangar();
+    this.runBonus = emptyBonus();
+    this._applyLoadout();
     this.gunCd = { primary: 0, missile: 0, titan: 0, mine: 0, nova: 0 };
     this.score = 0;
     this.combo = 1;
@@ -625,6 +685,10 @@ export class Game {
     this.bombCd = 0;
     this._chapterAt = -1;
     this.muzzleFlash = 0;
+    this._midsThisLevel = 0;
+    this.hangar = loadHangar();
+    this.runBonus = emptyBonus();
+    this._applyLoadout();
     if (this.traces) {
       for (const mote of this.traces) mote.visible = false;
     }
@@ -761,6 +825,7 @@ export class Game {
     this.ui.hud.classList.remove('visible');
     this.ui.continue?.classList.add('hidden');
     this.ui.map?.classList.add('hidden');
+    this.ui.hangar?.classList.add('hidden');
     this.ui.dead.classList.remove('hidden');
     const slot = getLevel(this.campaignIndex, this.levelIndex);
     const last = slot?.lv.boss === 'finale';
@@ -771,7 +836,7 @@ export class Game {
         : 'HULL BREACH';
     }
     if (this.ui.resultRank) this.ui.resultRank.textContent = rank;
-    this.ui.stats.textContent = `SCORE ${this.score}   BEST ${this.best}   KILLS ${this.kills}   ARSENAL ${this.maxStep}/${STEP_MAX}   BOMBS ${this.bombsUsed}`;
+    this.ui.stats.textContent = `SCORE ${this.score}   BEST ${this.best}   KILLS ${this.kills}   GOLD ${this.hangar?.gold || 0}   BOMBS ${this.bombsUsed}`;
     this._renderScoreboard(this.ui.resultBoard, board, this.score);
   }
 
@@ -802,6 +867,7 @@ export class Game {
     this.ui.dead.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
+    this.ui.hangar?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.map?.classList.remove('hidden');
     this.progress = loadProgress();
@@ -842,6 +908,138 @@ export class Game {
     }
   }
 
+  _openHangar({ from = 'map', payout = null, slot = null } = {}) {
+    this._clearInput();
+    this._hangarFrom = from;
+    this.state = 'hangar';
+    this.hangar = loadHangar();
+    this.audio.setPaused(false);
+    this.audio.setIntensity(0.16);
+    this.ui.title.classList.add('hidden');
+    this.ui.dead.classList.add('hidden');
+    this.ui.pause.classList.add('hidden');
+    this.ui.continue?.classList.add('hidden');
+    this.ui.map?.classList.add('hidden');
+    this.ui.hud.classList.remove('visible');
+    this.ui.hangar?.classList.remove('hidden');
+    if (this.ui.hangarKicker) {
+      this.ui.hangarKicker.textContent = from === 'win' ? 'CAMPAIGN COMPLETE' : from === 'clear' ? 'SECTOR CLEAR' : 'DRYDOCK';
+    }
+    if (this.ui.hangarTitle) {
+      this.ui.hangarTitle.textContent = from === 'win' ? 'THE RIFT HOLDS' : 'SHIPYARD';
+    }
+    if (this.ui.hangarPayout) {
+      this.ui.hangarPayout.textContent = payout
+        ? `CLEAR ₡${payout.clear}   BOSS ₡${payout.boss}   MINIS ₡${payout.mid}   BANKED ₡${payout.total}`
+        : '';
+    }
+    if (this.ui.hangarHint && slot && from !== 'map') {
+      this.ui.hangarHint.textContent = `${slot.lv.id} ${slot.lv.name} is done. Spend it. The next hull starts with what you buy here.`;
+    } else if (this.ui.hangarHint) {
+      this.ui.hangarHint.textContent = 'Preview a system on the hull. Install it. Powerups in the rift only charge what you bought.';
+    }
+    if (this.ui.hangarDone) {
+      this.ui.hangarDone.textContent = from === 'win' ? 'RESULTS' : from === 'clear' ? 'CAMPAIGN MAP' : 'RETURN';
+    }
+    this._hangarCursor = Math.max(0, Math.min(MODULE_ORDER.length - 1, this._hangarCursor || 0));
+    this._renderHangar();
+    this.clock.getDelta();
+  }
+
+  _hangarSelected() {
+    return MODULE_ORDER[this._hangarCursor] || 'spark';
+  }
+
+  _renderHangar() {
+    const id = this._hangarSelected();
+    const levels = this.hangar.levels;
+    const preview = (levels[id] | 0) > 0 ? null : id;
+    this.shipyard.setLoadout(mergeLoadout(levels, emptyBonus()), preview);
+    if (this.ui.hangarGold) this.ui.hangarGold.textContent = String(this.hangar.gold);
+    if (this.ui.hangarList) {
+      this.ui.hangarList.innerHTML = MODULE_ORDER.map((mod, i) => {
+        const lv = levels[mod] | 0;
+        const max = MODULES[mod].max;
+        const cost = nextCost(levels, mod);
+        const selected = i === this._hangarCursor;
+        const locked = lv <= 0;
+        const maxed = lv >= max;
+        const pips = Array.from({ length: max }, (_, p) => {
+          const on = p < lv;
+          const ghost = selected && locked && p === 0;
+          return `<span class="pip${on ? ' on' : ''}${ghost ? ' ghost' : ''}"></span>`;
+        }).join('');
+        const meta = maxed ? 'MAX' : locked ? `₡${cost}` : `${lv}/${max}  ₡${cost}`;
+        return `<button type="button" class="hangar-row${selected ? ' selected' : ''}${locked ? ' locked' : ''}${maxed ? ' maxed' : ''}" data-mod="${mod}" role="option" aria-selected="${selected}"><span><strong>${CATALOG[mod].title}</strong><div class="pips">${pips}</div></span><span class="meta">${meta}</span></button>`;
+      }).join('');
+      const sel = this.ui.hangarList.querySelector('.selected');
+      sel?.scrollIntoView({ block: 'nearest' });
+    }
+    const spec = CATALOG[id];
+    const lv = levels[id] | 0;
+    const cost = nextCost(levels, id);
+    const poor = cost > 0 && this.hangar.gold < cost;
+    if (this.ui.hangarName) this.ui.hangarName.textContent = spec.title;
+    if (this.ui.hangarBlurb) {
+      this.ui.hangarBlurb.textContent = lv <= 0
+        ? `Not fitted. ${spec.blurb}`
+        : lv >= MODULES[id].max
+          ? `Mark ${lv}. The bay is glowing. ${spec.blurb}`
+          : `Mark ${lv}. ${spec.blurb}`;
+    }
+    if (this.ui.hangarCost) {
+      this.ui.hangarCost.classList.toggle('poor', poor);
+      this.ui.hangarCost.textContent = cost <= 0 ? 'SYSTEM MAXED' : poor ? `₡${cost}  —  NOT ENOUGH` : `₡${cost}`;
+    }
+    if (this.ui.hangarBuy) {
+      this.ui.hangarBuy.textContent = buyLabel(levels, id);
+      this.ui.hangarBuy.disabled = cost <= 0 || poor;
+    }
+  }
+
+  _hangarMove(dir) {
+    const n = MODULE_ORDER.length;
+    this._hangarCursor = (this._hangarCursor + dir + n) % n;
+    this._renderHangar();
+  }
+
+  _hangarBuy() {
+    const id = this._hangarSelected();
+    const result = buyModule(this.hangar, id);
+    this.hangar = result.hangar;
+    if (!result.ok) {
+      this.audio.hit?.();
+      return;
+    }
+    this.audio.buy();
+    this._applyLoadout();
+    this._renderHangar();
+  }
+
+  _hangarDone() {
+    this.ui.hangar?.classList.add('hidden');
+    if (this._hangarFrom === 'win') {
+      this.win();
+      return;
+    }
+    this._openMap({ keepRun: this._runLive });
+  }
+
+  _onHangarKey(e) {
+    if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Numpad8') {
+      e.preventDefault();
+      this._hangarMove(-1);
+    }
+    if (e.code === 'ArrowDown' || e.code === 'KeyS' || e.code === 'Numpad2') {
+      e.preventDefault();
+      this._hangarMove(1);
+    }
+    if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
+      e.preventDefault();
+      this._hangarBuy();
+    }
+  }
+
   async _deployLevel() {
     const c = this._mapCursor.c;
     const l = this._mapCursor.l;
@@ -854,10 +1052,6 @@ export class Game {
       this._resetRun();
       this.campaignIndex = c;
       this.levelIndex = l;
-      const step = catchupStep(c, l);
-      this.step = step;
-      this.maxStep = step;
-      this.loadout = loadoutFromStep(step);
     }
     this._resetLevel(true);
     this._runLive = true;
@@ -869,6 +1063,7 @@ export class Game {
     this.ui.dead.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
+    this.ui.hangar?.classList.add('hidden');
     this.ui.hud.classList.add('visible');
     this._viewSnap = 1;
     this.audio.setPaused(false);
@@ -882,18 +1077,23 @@ export class Game {
     if (this.state !== 'playing') return;
     this.stage.cleared = true;
     const slot = this._currentLevel();
-    this.progress = saveProgress(markCleared(this.progress, this.campaignIndex, this.levelIndex));
-    const nxt = nextSlot(this.campaignIndex, this.levelIndex);
-    if (!nxt) {
-      this.win();
-      return;
+    const ci = this.campaignIndex;
+    const li = this.levelIndex;
+    this.progress = saveProgress(markCleared(this.progress, ci, li));
+    const nxt = nextSlot(ci, li);
+    if (nxt) {
+      this.campaignIndex = nxt.ci;
+      this.levelIndex = nxt.li;
+      this._mapCursor = { c: nxt.ci, l: nxt.li };
     }
-    this.campaignIndex = nxt.ci;
-    this.levelIndex = nxt.li;
-    this._mapCursor = { c: nxt.ci, l: nxt.li };
     this.audio.sting('chapter');
-    if (!slot?.lv.boss) this.toast(`${slot?.lv.id || 'SECTOR'} CLEAR`);
-    this._openMap({ keepRun: true });
+    const payout = clearPayout(ci, li, {
+      superBoss: slot?.lv.chapters?.some((ch) => /SUPER/.test(ch.toast || '')),
+      finale: slot?.lv.boss === 'finale',
+      mids: this._midsThisLevel || 2,
+    });
+    this.hangar = addGold(this.hangar, payout.total);
+    this._openHangar({ from: nxt ? 'clear' : 'win', payout, slot });
   }
 
   win() {
@@ -909,7 +1109,12 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this._pollPad();
     this.audio.tick();
-    if (this.state === 'paused' || this.state === 'dead' || this.state === 'continue' || this.state === 'map' || (this.state === 'title' && this._hasRun)) {
+    if (this.state === 'paused' || this.state === 'dead' || this.state === 'continue' || this.state === 'map' || this.state === 'hangar' || (this.state === 'title' && this._hasRun)) {
+      if (this.state === 'hangar') {
+        this.shipyard.update(dt);
+        this.shipyard.render();
+        return;
+      }
       this._render();
       return;
     }
@@ -1116,8 +1321,11 @@ export class Game {
         this.health = Math.min(1, this.health + 0.05);
       }
 
-      const motes = this.entities.collectMotes(this.ship.position, 2.4);
+      const pickups = this.entities.collectMotes(this.ship.position, 2.4);
+      const motes = pickups.filter((p) => p.kind !== 'coin');
+      const coins = pickups.filter((p) => p.kind === 'coin');
       if (motes.length) this._gainMotes(motes.length);
+      if (coins.length) this._gainGold(coins.reduce((n, p) => n + (p.value || 8), 0), coins.length);
 
       const gateHits = this.entities.collectGates(this.ship.position);
       for (const hit of gateHits) {
@@ -1152,6 +1360,7 @@ export class Game {
           this.boost = Math.min(1, this.boost + 0.18);
           this._dropLoot(k);
           if (k.type === 'midboss') {
+            this._midsThisLevel = (this._midsThisLevel || 0) + 1;
             this.toast(this._bossToast(k.role));
             if (this._isLevelBossKill(k)) {
               this._clearLevel();
@@ -1270,46 +1479,59 @@ export class Game {
 
   _dropLoot(src) {
     const n = src?.drop ?? 0;
-    if (n > 0) {
-      const dist = src.pathDist ?? (this.traveled + this.holdY + 6);
-      const lane = src.laneX ?? this.offset.x;
-      this.entities.spawnMote(this.path, dist, lane, n);
-    }
+    const dist = src.pathDist ?? (this.traveled + this.holdY + 6);
+    const lane = src.laneX ?? this.offset.x;
+    if (n > 0) this.entities.spawnMote(this.path, dist, lane, n);
     if (src?.bombDrop) this._gainBomb(src.bombDrop);
+    const role = src?.role;
+    let coins = 0;
+    if (src?.type === 'boss' || role === 'finale') coins = 5;
+    else if (src?.type === 'midboss' || src?.elite) coins = 3;
+    else if (role === 'heavy' || role === 'slag' || role === 'chime') coins = 1;
+    else if (Math.random() < 0.2) coins = 1;
+    if (coins) this.entities.spawnCoins(this.path, dist, lane, coins, { grace: 0.12 });
+  }
+
+  _applyLoadout() {
+    this.loadout = mergeLoadout(this.hangar?.levels || { spark: 1 }, this.runBonus);
+    this.step = MODULE_ORDER.reduce((n, m) => n + (this.runBonus[m] | 0), 0);
+    this.rank = loadoutPower(this.loadout);
+    this.maxStep = Math.max(this.maxStep || 0, this.rank);
+    dressShip(this.shipCraft, this.loadout);
+  }
+
+  _gainGold(amount, count = 1) {
+    if (amount <= 0) return;
+    this.hangar = addGold(this.hangar, amount);
+    this.audio.coin();
+    if (count > 2) this.toast(`+₡${amount}`);
   }
 
   _gainMotes(n) {
     if (n <= 0) return;
     this.audio.mote(n > 1);
-    if (this.step >= STEP_MAX) {
+    const fill = runFill(this.hangar.levels, this.runBonus);
+    if (fill.cap <= 0 || fill.used >= fill.cap) {
       this._combatScore(36 * n);
       return;
     }
     this.charge += n;
-    let toast = null;
-    while (this.step < STEP_MAX) {
-      const need = costToNext(this.step);
-      if (this.charge < need) break;
-      this.charge -= need;
-      toast = SEQUENCE[this.step].toast || toast;
-      this.step += 1;
-    }
-    this.loadout = loadoutFromStep(this.step);
-    this.rank = this.step;
-    this.maxStep = Math.max(this.maxStep || 0, this.step);
-    if (toast) {
+    const result = applyMotes(this.hangar.levels, this.runBonus, n);
+    this.runBonus = result.runBonus;
+    this._applyLoadout();
+    if (result.toast) {
       this.audio.powerup();
-      this.toast(toast);
+      this.toast(result.toast);
     }
   }
 
   _shedResonance() {
-    if (this.step <= 0 && this.charge <= 0) return;
-    const shed = Math.min(6, 2 + Math.floor(this.step / 14));
-    this.step = Math.max(0, this.step - shed);
+    const used = runFill(this.hangar.levels, this.runBonus).used;
+    if (used <= 0 && this.charge <= 0) return;
+    const shed = Math.min(6, 2 + Math.floor(used / 14));
+    this.runBonus = shedBonus(this.runBonus, shed);
     this.charge = 0;
-    this.loadout = loadoutFromStep(this.step);
-    this.rank = this.step;
+    this._applyLoadout();
     this.entities.spawnMote(
       this.path,
       this.traveled + this.holdY + 12,
@@ -1390,11 +1612,13 @@ export class Game {
     if (this.ui.threat) this.ui.threat.textContent = String(this.entities.hunterCount());
     this.ui.health.style.transform = `scaleX(${clamp(this.health, 0, 1)})`;
     this.ui.boost.style.transform = `scaleX(${clamp(this.boost, 0, 1)})`;
+    if (this.ui.gold) this.ui.gold.textContent = String(this.hangar?.gold || 0);
     if (this.ui.riftName) this.ui.riftName.textContent = hudName(this.loadout);
     if (this.ui.riftFill) {
-      const fill = this.step >= STEP_MAX ? 1 : clamp(this.step / STEP_MAX, 0, 1);
-      this.ui.riftFill.style.transform = `scaleX(${Math.max(0.03, fill)})`;
-      this.ui.riftWrap?.classList.toggle('rift-max', this.step >= STEP_MAX);
+      const fill = runFill(this.hangar.levels, this.runBonus);
+      const ratio = fill.ratio;
+      this.ui.riftFill.style.transform = `scaleX(${Math.max(0.03, ratio)})`;
+      this.ui.riftWrap?.classList.toggle('rift-max', fill.cap > 0 && fill.used >= fill.cap);
       this.ui.riftWrap?.classList.toggle('rift-wings', (this.loadout.seeker || 0) > 0 && (this.loadout.titan || 0) === 0);
       this.ui.riftWrap?.classList.toggle('rift-titan', (this.loadout.titan || 0) > 0);
     }
@@ -1489,6 +1713,7 @@ export class Game {
     this.composer.setSize(w, h);
     this.bloom.setSize(w, h);
     this.fx.uniforms.uResolution.value.set(w, h);
+    this.shipyard?.resize(w, h);
   }
 
   _runStage() {
@@ -1509,17 +1734,18 @@ export class Game {
         this.entities.spawnGateAt(this.path, this.traveled);
       } else if (ev.kind === 'orbs') {
         this.entities.spawnOrbsAt(this.path, this.traveled, 5);
+        this.entities.spawnCoins(this.path, this.traveled + 48, 0, 3);
       } else if (ev.kind === 'blockers') {
         this.entities.spawnBlockersAt(this.path, this.traveled, ev.n || 2);
       } else if (ev.kind === 'midboss') {
-        this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step);
+        this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step, this.loadout);
         this.stage.finaleAlive = false;
       } else if (ev.kind === 'boss' || ev.kind === 'finale') {
         const id = ev.id || 'finale';
         if (ev.kind === 'finale' || id === 'finale' || id === 'sentinel') {
-          this.entities.spawnFinale(this.path, this.traveled, 96, this.step);
+          this.entities.spawnFinale(this.path, this.traveled, 96, this.step, this.loadout);
         } else {
-          this.entities.spawnNamed(this.path, this.traveled, id, 96, this.step);
+          this.entities.spawnNamed(this.path, this.traveled, id, 96, this.step, this.loadout);
         }
         this.stage.finaleAlive = true;
       }
@@ -1668,21 +1894,28 @@ export class Game {
     if (pad.start && !prev.start) {
       if (this.state === 'playing') this.pause();
       else if (this.state === 'paused') this.resume();
+      else if (this.state === 'hangar') this._hangarDone();
       else if (this.state === 'title') {
         if (this._hasRun) this.resumeFromMenu();
         else this.startPlay();
-      }       else if (this.state === 'map') this._deployLevel();
+      } else if (this.state === 'map') this._deployLevel();
       else if (this.state === 'continue') this._acceptContinue();
       else if (this.state === 'dead') this.startPlay();
     }
     if (pad.bomb && !prev.bomb) {
       if (this.state === 'continue') this._declineContinue();
+      else if (this.state === 'hangar') this._hangarDone();
       else if (this.state === 'map') this.goToMenu({ resumeable: this._runLive });
       else this._tryBomb();
+    }
+    if (pad.fire && this.state === 'hangar' && !prev.fire) this._hangarBuy();
+    if (this.state === 'hangar') {
+      if (pad.y > 0.55 && prev.y <= 0.55) this._hangarMove(-1);
+      if (pad.y < -0.55 && prev.y >= -0.55) this._hangarMove(1);
     }
     if (pad.fire && this.state === 'title' && !this._hasRun && !prev.fire) this.startPlay();
     if (pad.fire && this.state === 'map' && !prev.fire) this._deployLevel();
     if (pad.fire && this.state === 'continue' && !prev.fire) this._acceptContinue();
-    this._padPrev = { fire: pad.fire, bomb: pad.bomb, start: pad.start };
+    this._padPrev = { fire: pad.fire, bomb: pad.bomb, start: pad.start, y: pad.y };
   }
 }

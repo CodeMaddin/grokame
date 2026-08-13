@@ -21,7 +21,7 @@ export const UNLOCK_ORDER = [
   'drone', 'mine', 'shear', 'spire', 'nova', 'prism',
 ];
 
-function emptyLevels() {
+export function emptyLevels() {
   const lv = {};
   for (const m of MODULE_ORDER) lv[m] = 0;
   return lv;
@@ -117,7 +117,7 @@ export function arsenal(loadout, t = 0) {
     const n = 1 + Math.min(sp, 7);
     for (let i = 0; i < n; i++) {
       const u = n === 1 ? 0 : i / (n - 1) - 0.5;
-      primary.push(pellet(u * (1.4 + sp * 0.4), u * (10 + sp * 3), {
+      primary.push(pellet(u * (0.16 + sp * 0.04), u * (1.4 + sp * 0.28), {
         kind: 'spark',
         scale: 0.82 + sp * 0.04,
         speed: 84 + sp * 4,
@@ -301,8 +301,8 @@ export function peakLiveBullets(step) {
   return n;
 }
 
-export function estimateDps(step) {
-  const arms = arsenal(loadoutFromStep(step), 0);
+export function estimateDps(step, loadout) {
+  const arms = arsenal(loadout || loadoutFromStep(step), 0);
   let dps = 0;
   for (const g of Object.values(arms)) {
     if (!g.shots.length) continue;
@@ -312,8 +312,8 @@ export function estimateDps(step) {
   return dps;
 }
 
-export function eliteHp(kind, step) {
-  const dps = estimateBossDps(step);
+export function eliteHp(kind, step, loadout) {
+  const dps = estimateBossDps(step, loadout);
   if (kind === 'queen') return Math.round(90 + dps * 6.2);
   if (kind === 'coil') return Math.round(110 + dps * 6.8);
   if (kind === 'warden') return Math.round(140 + dps * 7.5);
@@ -321,8 +321,8 @@ export function eliteHp(kind, step) {
   return Math.round(220 + dps * 9.5);
 }
 
-export function estimateBossDps(step) {
-  const arms = arsenal(loadoutFromStep(step), 0);
+export function estimateBossDps(step, loadout) {
+  const arms = arsenal(loadout || loadoutFromStep(step), 0);
   const group = (g, w) => {
     if (!g.shots.length) return 0;
     const dmg = g.shots.reduce((s, sh) => s + (sh.damage || 1), 0);

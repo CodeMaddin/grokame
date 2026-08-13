@@ -178,6 +178,11 @@ if (live && live < peakSquad + 4) fail(`enemy pool ${live} cannot hold a ${peakS
 
 if (diveHp > 12) fail(`trash HP ${diveHp} is in mid-boss territory`);
 
+if (!game.includes('_openHangar')) fail('no shipyard after a clear');
+if (!game.includes('applyMotes')) fail('in-run motes do not charge the hangar loadout');
+if (!entities.includes('spawnCoins')) fail('no gold in the stage');
+if (!readFileSync(resolve(root, 'src/hangar.js'), 'utf8').includes('buyModule')) fail('systems cannot be bought');
+
 if (fails.length) {
   console.error('GAMEPLAY CRITIQUE FAIL\n' + notes.map((n) => `  · ${n}`).join('\n') + '\n' + fails.map((f) => `  ✖ ${f}`).join('\n'));
   process.exit(1);

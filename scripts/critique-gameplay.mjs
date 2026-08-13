@@ -110,6 +110,10 @@ if (!game.includes('_applySlide')) fail('8-way slide missing');
 if (!game.includes('_depthLimit')) fail('scroll depth limits missing');
 if (!/_axisHeld\(/.test(game)) fail('keyboard axes missing');
 if (!game.includes('_padState')) fail('stick/d-pad not mapped');
+if (!game.includes('lives = 3')) fail('no arcade lives');
+if (!game.includes('_acceptContinue')) fail('no continue after the last life');
+if (!entities.includes('nextVolley')) fail('elite patterns are not authored timelines');
+if (!readFileSync(resolve(root, 'src/patterns.js'), 'utf8').includes('queenVolley')) fail('queen has no volley timeline');
 
 if (game.includes("toast('NEAR MISS')")) fail('near-miss toast still screams over the gun');
 if (CHAPTERS.length < 4) fail('no chapter banners for mid-bosses/finale');

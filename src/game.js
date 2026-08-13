@@ -100,9 +100,13 @@ export class Game {
     this.entities = new EntityField(this.scene);
     const ship = createShip();
     this.ship = ship.group;
+    this.shipRig = ship.rig;
     this.exhausts = ship.exhausts;
     this.shipLights = ship.lights;
     this.shipCore = ship.core;
+    this.muzzle = ship.muzzle;
+    this.muzzleSpike = ship.muzzleSpike;
+    this.muzzleFlash = 0;
     this.scene.add(this.ship);
     this.trail = new EngineTrail(this.scene);
     this.traces = [];
@@ -209,6 +213,9 @@ export class Game {
       resultBoard: document.getElementById('result-board'),
       titleScores: document.getElementById('title-scores'),
       bombs: document.getElementById('bomb-pips'),
+      lives: document.getElementById('life-pips'),
+      continue: document.getElementById('continue-screen'),
+      continueLeft: document.getElementById('continue-left'),
       bossMeter: document.getElementById('boss-meter'),
       bossFill: document.getElementById('boss-fill'),
       bossName: document.getElementById('boss-name'),
@@ -221,13 +228,17 @@ export class Game {
     document.getElementById('resume-btn').addEventListener('click', () => this.resume());
     document.getElementById('menu-btn').addEventListener('click', () => this.goToMenu({ resumeable: true }));
     document.getElementById('retry-btn').addEventListener('click', () => this.startPlay());
+    document.getElementById('continue-yes')?.addEventListener('click', () => this._acceptContinue());
+    document.getElementById('continue-no')?.addEventListener('click', () => this._declineContinue());
     const menuButtons = [
       this.ui.startBtn,
       this.ui.resumeTitleBtn,
       document.getElementById('resume-btn'),
       document.getElementById('menu-btn'),
       document.getElementById('retry-btn'),
-    ];
+      document.getElementById('continue-yes'),
+      document.getElementById('continue-no'),
+    ].filter(Boolean);
     for (const btn of menuButtons) {
       btn.addEventListener('mousedown', (e) => e.stopPropagation());
       btn.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -287,6 +298,7 @@ export class Game {
       return;
     }
     if (this.state === 'dead') this.goToMenu({ resumeable: false });
+    if (this.state === 'continue') this._declineContinue();
   }
 
   goToMenu({ resumeable = false } = {}) {
@@ -296,6 +308,7 @@ export class Game {
     this.audio.setPaused(true);
     this.ui.pause.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
+    this.ui.continue?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.title.classList.remove('hidden');
     this._syncTitleActions();
@@ -310,6 +323,7 @@ export class Game {
     this.ui.title.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
+    this.ui.continue?.classList.add('hidden');
     this.ui.hud.classList.add('visible');
     this.audio.setPaused(false);
     this.clock.getDelta();
@@ -413,6 +427,9 @@ export class Game {
     this.throttle = 0.55;
     this.boost = 1;
     this.health = 1;
+    this.lives = 3;
+    this.continues = 2;
+    this.spawnIn = 0.65;
     this.rank = 0;
     this.step = 0;
     this.charge = 0;
@@ -424,8 +441,9 @@ export class Game {
     this.score = 0;
     this.combo = 1;
     this.comboTimer = 0;
+    this._lastCombo = 1;
     this.hurt = 0;
-    this.invuln = 0;
+    this.invuln = 2.2;
     this.gateFx = 0;
     this.fireCd = 0;
     this.kills = 0;
@@ -448,10 +466,15 @@ export class Game {
     this.nearMisses = 0;
     this.bombsUsed = 0;
     this._chapterAt = -1;
+    this._chapterId = 'default';
+    this.muzzleFlash = 0;
     this.entities.reset();
     this.world.layoutFromPath(this.path, this.traveled, this._laneLimit());
     this.world.attachRibbon(this._localRibbon());
+    this.world.setChapter('default');
+    this.audio.setChapter('default');
     this._syncBombs();
+    this._syncLives();
   }
 
   _localRibbon() {
@@ -471,6 +494,7 @@ export class Game {
     this.ui.title.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
+    this.ui.continue?.classList.add('hidden');
     this.ui.hud.classList.add('visible');
     this._syncTitleActions();
     this._viewSnap = 1;
@@ -494,6 +518,58 @@ export class Game {
   }
 
   die() {
+    this.audio.sting('death');
+    this.entities.explode(this.ship.position.clone(), 0xff3bd4);
+    this.lives -= 1;
+    this._syncLives();
+    if (this.lives > 0) {
+      this._respawn();
+      return;
+    }
+    if (this.continues > 0) {
+      this._showContinue();
+      return;
+    }
+    this._endRun(false);
+  }
+
+  _respawn() {
+    this.health = 1;
+    this.hurt = 0;
+    this.invuln = 2.2;
+    this.spawnIn = 0.65;
+    this.offset.x = 0;
+    this.holdY = 8;
+    this.slide.set(0, 0);
+    this.muzzleFlash = 0;
+    this.audio.sting('life');
+    this._syncLives();
+  }
+
+  _showContinue() {
+    this.state = 'continue';
+    this.audio.setPaused(true);
+    this.audio.sting('continue');
+    if (this.ui.continueLeft) {
+      this.ui.continueLeft.textContent = `${this.continues} CREDIT${this.continues === 1 ? '' : 'S'} REMAIN`;
+    }
+    this.ui.continue?.classList.remove('hidden');
+  }
+
+  _acceptContinue() {
+    if (this.state !== 'continue' || this.continues <= 0) return;
+    this.continues -= 1;
+    this.lives = 3;
+    this.ui.continue?.classList.add('hidden');
+    this.state = 'playing';
+    this.audio.setPaused(false);
+    this._respawn();
+    this.clock.getDelta();
+    this._releaseUiFocus();
+  }
+
+  _declineContinue() {
+    if (this.ui.continue) this.ui.continue.classList.add('hidden');
     this._endRun(false);
   }
 
@@ -507,7 +583,6 @@ export class Game {
     this._syncTitleActions();
     this.audio.setPaused(false);
     this.audio.explosion(true);
-    if (!victory) this.entities.explode(this.ship.position.clone(), 0xff3bd4);
     this.best = Math.max(this.best, this.score);
     localStorage.setItem('aether-best', String(this.best));
     const rank = gradeRun({
@@ -528,6 +603,7 @@ export class Game {
       at: Date.now(),
     });
     this.ui.hud.classList.remove('visible');
+    this.ui.continue?.classList.add('hidden');
     this.ui.dead.classList.remove('hidden');
     if (this.ui.resultKicker) this.ui.resultKicker.textContent = victory ? 'RIFT CLEARED' : 'SIGNAL LOST';
     if (this.ui.resultTitle) this.ui.resultTitle.textContent = victory ? 'SENTINEL FALLS' : 'HULL BREACH';
@@ -552,7 +628,7 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this._pollPad();
     this.audio.tick();
-    if (this.state === 'paused' || this.state === 'dead' || (this.state === 'title' && this._hasRun)) {
+    if (this.state === 'paused' || this.state === 'dead' || this.state === 'continue' || (this.state === 'title' && this._hasRun)) {
       this._render();
       return;
     }
@@ -634,14 +710,39 @@ export class Game {
     this.ship.position.copy(rail.pos);
     this.ship.up.copy(shipFrame.normal);
     this.ship.lookAt(this.ship.position.clone().add(shipSample.tangent));
+    if (this.shipRig) {
+      const bank = 1 - Math.exp(-dt * 9);
+      this.shipRig.rotation.z = lerp(this.shipRig.rotation.z, -this.steer.x * 0.35, bank);
+      this.shipRig.rotation.x = lerp(this.shipRig.rotation.x, this.steer.y * 0.12, bank);
+      const flickering = this.invuln > 0 && Math.sin(this.clock.elapsedTime * 28) < 0;
+      this.shipRig.visible = !flickering;
+    }
+    if (this.spawnIn > 0) {
+      this.spawnIn = Math.max(0, this.spawnIn - dt);
+      const t = 1 - this.spawnIn / 0.65;
+      const ease = 1 - (1 - t) * (1 - t);
+      this.ship.scale.setScalar(3.1 * Math.max(0.04, ease));
+    } else {
+      this.ship.scale.setScalar(3.1);
+    }
 
     this._applyCamera(dt, sample, frame, shipSample, shipFrame);
 
     const boostAmt = wantBoost;
+    const firingNow = this.state === 'playing' && (this.input.firing || this.input.keys.has('Space') || pad.fire);
     for (const ex of this.exhausts) {
-      const pulse = 1 + boostAmt * 0.8;
+      const pulse = 1 + boostAmt * 0.8 + (firingNow ? 0.22 : 0) + this.muzzleFlash * 0.35;
       ex.scale.setScalar(pulse);
       ex.material.color.set(boostAmt > 0.2 ? 0xffd166 : 0x9be7ff);
+    }
+    this.muzzleFlash = Math.max(0, this.muzzleFlash - dt * 8);
+    if (this.muzzle) {
+      this.muzzle.material.opacity = this.muzzleFlash * 0.9;
+      this.muzzle.scale.setScalar(0.7 + this.muzzleFlash * 1.6);
+    }
+    if (this.muzzleSpike) {
+      this.muzzleSpike.material.opacity = this.muzzleFlash * 0.7;
+      this.muzzleSpike.scale.set(1, 1, 0.6 + this.muzzleFlash * 1.8);
     }
     for (const l of this.shipLights) l.intensity = 3.2 + boostAmt * 3;
     this.trail.push(this.ship.position.clone().addScaledVector(shipSample.tangent, -1.4), boostAmt);
@@ -706,6 +807,7 @@ export class Game {
           }
           if (any) {
             this.gunCd[group] = bank.cd;
+            if (group === 'primary' || group === 'titan') this.muzzleFlash = 1;
             if (!voiced) {
               this.audio.guns(group, this.loadout);
               voiced = group === 'primary';
@@ -730,7 +832,7 @@ export class Game {
       for (const hit of gateHits) {
         if (hit.blocked) {
           if (this.invuln <= 0) {
-            this._damage(0.34);
+            if (this._damage(0.34)) return;
             this.toast('SHIELD LOCK');
           }
         } else {
@@ -796,7 +898,7 @@ export class Game {
           }
           this.audio.explosion();
           this._punch(0.05, 1.1);
-          this._damage(0.42);
+          if (this._damage(0.42)) return;
         } else if (rammed.length) {
           let ramDmg = 0.3;
           for (const en of rammed) {
@@ -835,9 +937,12 @@ export class Game {
           }
           this.audio.explosion();
           this._punch(0.045, 0.9);
-          this._damage(ramDmg);
-        } else if (shotHit) this._damage(0.16);
-        else if (crystalHit) this._damage(0.12);
+          if (this._damage(ramDmg)) return;
+        } else if (shotHit) {
+          if (this._damage(0.16)) return;
+        } else if (crystalHit) {
+          if (this._damage(0.12)) return;
+        }
       }
     }
 
@@ -962,7 +1067,11 @@ export class Game {
     this.audio.hit();
     this._punch(0.04, 1.15);
     this._shedResonance();
-    if (this.health <= 0) this.die();
+    if (this.health <= 0) {
+      this.die();
+      return true;
+    }
+    return false;
   }
 
   _syncHud() {
@@ -970,6 +1079,13 @@ export class Game {
     if (this.state !== 'playing') return;
     this.ui.score.textContent = this.score.toLocaleString();
     this.ui.combo.textContent = `×${this.combo.toFixed(1)}`;
+    this.ui.combo.classList.toggle('combo-quiet', this.combo <= 1.05);
+    if (this.combo > (this._lastCombo || 1) + 0.02) {
+      this.ui.combo.classList.remove('combo-pop');
+      void this.ui.combo.offsetWidth;
+      this.ui.combo.classList.add('combo-pop');
+    }
+    this._lastCombo = this.combo;
     this.ui.depth.textContent = `${(this.traveled / 10).toFixed(0)} km`;
     if (this.ui.threat) this.ui.threat.textContent = String(this.entities.hunterCount());
     this.ui.health.style.transform = `scaleX(${clamp(this.health, 0, 1)})`;
@@ -983,6 +1099,7 @@ export class Game {
       this.ui.riftWrap?.classList.toggle('rift-titan', (this.loadout.titan || 0) > 0);
     }
     this._syncBombs();
+    this._syncLives();
   }
 
   _syncBossMeter() {
@@ -1073,8 +1190,13 @@ export class Game {
       if (this.traveled >= ch.at && this._chapterAt < ch.at) {
         this._chapterAt = ch.at;
         this.toast(ch.toast);
+        const id = ch.at >= 1320 ? 'finale' : ch.at >= 820 ? 'warden' : ch.at >= 380 ? 'queen' : 'default';
+        this._setChapter(id, ch.at >= 380 ? 'boss' : 'chapter');
       }
     }
+    this._setChapter(
+      this.traveled >= 1320 ? 'finale' : this.traveled >= 820 ? 'warden' : this.traveled >= 380 ? 'queen' : 'default',
+    );
     while (this.stage.peek() && this.stage.peek().at <= this.traveled) {
       const ev = this.stage.consume();
       if (ev.kind === 'squad') {
@@ -1092,6 +1214,27 @@ export class Game {
         this.entities.spawnFinale(this.path, this.traveled, 96, this.step);
         this.stage.finaleAlive = true;
       }
+    }
+  }
+
+  _setChapter(id, sting) {
+    if (!id) return;
+    if (this._chapterId !== id) {
+      this._chapterId = id;
+      this.world.setChapter(id);
+      this.audio.setChapter(id);
+    }
+    if (sting) this.audio.sting(sting);
+  }
+
+  _syncLives() {
+    const el = this.ui?.lives;
+    if (!el) return;
+    el.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const pip = document.createElement('div');
+      pip.className = 'life-pip' + (i < this.lives ? ' lit' : '');
+      el.appendChild(pip);
     }
   }
 
@@ -1191,10 +1334,15 @@ export class Game {
       else if (this.state === 'title') {
         if (this._hasRun) this.resumeFromMenu();
         else this.startPlay();
-      } else if (this.state === 'dead') this.startPlay();
+      } else if (this.state === 'continue') this._acceptContinue();
+      else if (this.state === 'dead') this.startPlay();
     }
-    if (pad.bomb && !prev.bomb) this._tryBomb();
+    if (pad.bomb && !prev.bomb) {
+      if (this.state === 'continue') this._declineContinue();
+      else this._tryBomb();
+    }
     if (pad.fire && this.state === 'title' && !this._hasRun && !prev.fire) this.startPlay();
+    if (pad.fire && this.state === 'continue' && !prev.fire) this._acceptContinue();
     this._padPrev = { fire: pad.fire, bomb: pad.bomb, start: pad.start };
   }
 }

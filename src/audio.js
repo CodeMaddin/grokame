@@ -14,6 +14,9 @@ export class AudioBus {
     this._step = 0;
     this._noise = null;
     this._whooshOn = false;
+    this._chapter = 'default';
+    this._arpGain = null;
+    this._choirGain = null;
   }
 
   async resume() {
@@ -34,6 +37,7 @@ export class AudioBus {
       this._noise = this._makeNoise(2);
       this._startEngine();
       this._startPad();
+      this._startStems();
       this._nextBeat = this.ctx.currentTime + 0.05;
     }
     if (this.ctx.state === 'suspended') await this.ctx.resume();
@@ -68,6 +72,11 @@ export class AudioBus {
       this._padFilt.frequency.setTargetAtTime(220 + this.intensity * 920, t, 0.2);
       this._padGain.gain.setTargetAtTime(0.045 + this.intensity * 0.05, t, 0.25);
     }
+    this._mixStems(now);
+  }
+
+  setChapter(id) {
+    this._chapter = id || 'default';
   }
 
   _makeNoise(seconds) {
@@ -157,6 +166,44 @@ export class AudioBus {
     this._padGain = g;
   }
 
+  _startStems() {
+    const ctx = this.ctx;
+    const choir1 = ctx.createOscillator();
+    const choir2 = ctx.createOscillator();
+    choir1.type = 'sine';
+    choir2.type = 'sine';
+    choir1.frequency.value = 110;
+    choir2.frequency.value = 164.81;
+    choir2.detune.value = 6;
+    const choirG = ctx.createGain();
+    choirG.gain.value = 0.008;
+    choir1.connect(choirG);
+    choir2.connect(choirG);
+    choirG.connect(this.music);
+    choir1.start();
+    choir2.start();
+    this._choirGain = choirG;
+    this._choirOsc = [choir1, choir2];
+
+    const arpG = ctx.createGain();
+    arpG.gain.value = 0.01;
+    arpG.connect(this.music);
+    this._arpGain = arpG;
+  }
+
+  _mixStems(now) {
+    const id = this._chapter;
+    const choir = id === 'finale' ? 0.055 : id === 'queen' ? 0.042 : id === 'warden' ? 0.03 : 0.01;
+    const arp = id === 'finale' ? 0.038 : id === 'warden' ? 0.032 : id === 'queen' ? 0.024 : 0.008;
+    if (this._choirGain) this._choirGain.gain.setTargetAtTime(choir + this.intensity * 0.02, now, 0.35);
+    if (this._arpGain) this._arpGain.gain.setTargetAtTime(arp + this.intensity * 0.015, now, 0.35);
+    if (this._choirOsc) {
+      const base = id === 'warden' ? 98 : id === 'finale' ? 82.5 : id === 'queen' ? 130.81 : 110;
+      this._choirOsc[0].frequency.setTargetAtTime(base, now, 0.4);
+      this._choirOsc[1].frequency.setTargetAtTime(base * 1.5, now, 0.4);
+    }
+  }
+
   _scheduleBeat(t, step) {
     const i = this.intensity;
     const scale = [110, 130.81, 146.83, 164.81, 196, 220, 246.94, 261.63];
@@ -185,6 +232,47 @@ export class AudioBus {
     if (i > 0.7 && step % 16 === 12) {
       this._osc('triangle', 55, t, 0.28, 0.05, this.music);
     }
+    if (this._arpGain && (this._chapter === 'queen' || this._chapter === 'warden' || this._chapter === 'finale')) {
+      if (step % 2 === 0) {
+        const arpNote = scale[(step + 4) % scale.length] * (this._chapter === 'finale' ? 2 : 1);
+        this._osc('square', arpNote * 2, t, 0.06, 0.018 + i * 0.012, this._arpGain);
+      }
+    }
+  }
+
+  sting(kind = 'chapter') {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    if (kind === 'boss') {
+      this._osc('sawtooth', 55, t, 0.42, 0.12);
+      this._osc('triangle', 82.5, t + 0.04, 0.5, 0.08);
+      this._osc('sine', 110, t + 0.12, 0.55, 0.07);
+      this._noiseBurst(t, 0.28, 180, 0.8, 0.1);
+      this._duck(0.45, 0.4);
+      return;
+    }
+    if (kind === 'death') {
+      this._osc('sine', 220, t, 0.35, 0.1);
+      this._osc('triangle', 164.81, t + 0.08, 0.4, 0.08);
+      this._osc('sine', 110, t + 0.16, 0.55, 0.09);
+      this._osc('sawtooth', 55, t + 0.2, 0.45, 0.07);
+      this._duck(0.55, 0.5);
+      return;
+    }
+    if (kind === 'continue') {
+      this._osc('sine', 196, t, 0.22, 0.08);
+      this._osc('triangle', 246.94, t + 0.08, 0.28, 0.07);
+      this._osc('sine', 329.63, t + 0.16, 0.4, 0.06);
+      return;
+    }
+    if (kind === 'life') {
+      this._osc('sine', 523.25, t, 0.12, 0.07);
+      this._osc('triangle', 659.25, t + 0.05, 0.16, 0.05);
+      return;
+    }
+    this._osc('triangle', 196, t, 0.16, 0.07);
+    this._osc('sine', 293.66, t + 0.06, 0.22, 0.06);
+    this._osc('triangle', 392, t + 0.12, 0.28, 0.05);
   }
 
   _duck(amount = 0.35, dur = 0.22) {

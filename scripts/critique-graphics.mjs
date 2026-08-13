@@ -99,6 +99,16 @@ if (!html.includes('boss-meter') || !css.includes('boss-meter')) fail('boss has 
 if (!html.includes('bomb-pips')) fail('no bomb pips — panic stock is invisible');
 if (!html.includes('result-rank')) fail('results screen has no rank mark');
 if (!html.includes('title-scores')) fail('title has no hi-score board');
+if (!html.includes('continue-screen')) fail('no continue beat after lives are gone');
+if (!html.includes('life-pips')) fail('lives are invisible');
+if (!css.includes('#hud.visible #view-switcher')) fail('view chips still clutter the play HUD');
+if (!css.includes('combo-pop')) fail('combo has no pop');
+if (!game.includes('lives = 3')) fail('arcade lives missing');
+if (!read('src/world.js').includes('setChapter')) fail('chapters do not recolor the rift');
+if (!audio.includes('sting(')) fail('no score stings');
+if (!read('src/crafts.js').includes('createQueen')) fail('queen has no authored craft');
+if (!entities.includes('createSentinel')) fail('sentinel is still a generic icosa');
+if (!entities.includes('nextVolley')) fail('elites still dump the same 3–5 fan');
 
 if (!audio.includes('_scheduleBeat')) fail('no sequenced score — still a pad drone');
 if (!audio.includes('setPaused')) fail('pause cannot mute');

@@ -64,6 +64,10 @@ canvas {
   opacity: 1;
 }
 
+#hud.visible #view-switcher {
+  display: none;
+}
+
 .hud-top,
 .hud-bottom {
   position: absolute;
@@ -99,6 +103,20 @@ canvas {
 .combo-panel .value {
   color: var(--gold);
   text-shadow: 0 0 18px rgba(255, 209, 102, 0.9);
+}
+
+.combo-panel .value.combo-quiet {
+  opacity: 0.28;
+  text-shadow: none;
+}
+
+.combo-panel .value.combo-pop {
+  animation: combo-pop 0.28s ease-out;
+}
+
+@keyframes combo-pop {
+  0% { transform: scale(1.45); filter: brightness(1.8); }
+  100% { transform: none; filter: none; }
 }
 
 .threat-panel .value {
@@ -180,6 +198,31 @@ canvas {
   background: linear-gradient(180deg, #ffe29a, #ffd166);
   box-shadow: 0 0 12px rgba(255, 209, 102, 0.9);
   border-color: #ffd166;
+}
+
+.life-wrap {
+  min-width: 72px;
+}
+
+.life-pips {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.life-pip {
+  width: 12px;
+  height: 12px;
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+  background: rgba(255, 59, 212, 0.12);
+  border: 1px solid rgba(255, 59, 212, 0.35);
+  box-shadow: none;
+}
+
+.life-pip.lit {
+  background: linear-gradient(180deg, #ff9be0, #ff3bd4);
+  box-shadow: 0 0 12px rgba(255, 59, 212, 0.85);
+  border-color: #ff3bd4;
 }
 
 #toast {

@@ -42,6 +42,10 @@
             <div id="health-fill"></div>
           </div>
         </div>
+        <div class="life-wrap">
+          <div class="label">LIVES</div>
+          <div id="life-pips" class="life-pips"></div>
+        </div>
         <div class="bar-wrap rift-wrap">
           <div class="label">ARSENAL · <span id="rift-name">SPARK</span></div>
           <div class="bar">
@@ -90,7 +94,7 @@
         <div><kbd>WASD</kbd> / stick slide eight ways · <kbd>Click</kbd> / <kbd>Space</kbd> / RT fire</div>
         <div><kbd>Shift</kbd> / LT boost · <kbd>B</kbd> / <kbd>C</kbd> / face B bomb · <kbd>P</kbd> / Start pause</div>
         <div><kbd>1</kbd> chase · <kbd>2</kbd> cockpit · <kbd>3</kbd> scroll · <kbd>V</kbd> cycle · <kbd>Esc</kbd> menu</div>
-        <div>Authored waves. Filaments stack eighty weapons. Three bombs. Survive the Sentinel.</div>
+        <div>Arcade lives. Limited continues. Filaments stack eighty weapons. Three bombs. Survive the Sentinel.</div>
       </div>
     </div>
 
@@ -100,6 +104,16 @@
       <div class="menu-actions">
         <button id="resume-btn" type="button">RESUME</button>
         <button id="menu-btn" type="button">MAIN MENU</button>
+      </div>
+    </div>
+
+    <div id="continue-screen" class="screen hidden">
+      <p class="kicker">SIGNAL FADING</p>
+      <h2>CONTINUE?</h2>
+      <p id="continue-left" class="tagline">2 CREDITS REMAIN</p>
+      <div class="menu-actions">
+        <button id="continue-yes" type="button">CONTINUE</button>
+        <button id="continue-no" type="button">GIVE UP</button>
       </div>
     </div>
 

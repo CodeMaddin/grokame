@@ -1,0 +1,135 @@
+/** Authored elite volleys. `fire(pathDist, laneX, speed, fat)` shoots one rail bullet. */
+
+export function nextVolley(en, span, playerLane, time, fire) {
+  const x = en.offset?.x ?? 0;
+  const s = en.pathDist - 4;
+  const aim = playerLane ?? x;
+  en.patternI = (en.patternI || 0) % 12;
+  const i = en.patternI;
+  en.patternI += 1;
+
+  if (en.role === 'queen') return queenVolley(i, s, x, aim, span, fire);
+  if (en.role === 'warden') return wardenVolley(i, s, x, aim, span, fire);
+  if (en.role === 'finale') return finaleVolley(en, s, span, aim, time, fire);
+  if (en.role === 'heavy') {
+    const spread = Math.min(8, span * 0.08);
+    if (i % 3 === 0) {
+      fire(s, x - spread, 7, false);
+      fire(s, x + spread, 7, false);
+    } else if (i % 3 === 1) {
+      fire(s, aim, 7.4, true);
+      fire(s, x, 7, false);
+    } else {
+      fire(s, x - spread * 0.5, 6.8, false);
+      fire(s, x + spread * 0.5, 6.8, false);
+      fire(s - 3, x, 7.2, true);
+    }
+    return 0;
+  }
+  fire(s + 1, x, 8, false);
+  return 0;
+}
+
+function queenVolley(i, s, x, aim, span, fire) {
+  const step = i % 6;
+  const fan = span * 0.16;
+  const curtain = span * 0.12;
+  if (step === 0) {
+    for (let k = -2; k <= 2; k++) fire(s, x + k * fan, 7.2, k === 0);
+    return 0;
+  }
+  if (step === 1) {
+    fire(s, aim, 7.6, true);
+    fire(s, aim - span * 0.06, 7.2, false);
+    fire(s, aim + span * 0.06, 7.2, false);
+    return 0;
+  }
+  if (step === 2) return 0.55;
+  if (step === 3) {
+    for (let k = -3; k <= 3; k++) fire(s - Math.abs(k) * 2, x + k * curtain, 6.4, false);
+    return 0;
+  }
+  if (step === 4) {
+    fire(s, x - fan * 1.4, 6.8, true);
+    fire(s, x + fan * 1.4, 6.8, true);
+    fire(s - 5, aim, 7.4, true);
+    return 0;
+  }
+  return 0.4;
+}
+
+function wardenVolley(i, s, x, aim, span, fire) {
+  const step = i % 6;
+  const cross = span * 0.22;
+  if (step === 0) {
+    fire(s, x - cross, 6.4, true);
+    fire(s, x + cross, 6.4, true);
+    fire(s, x, 7.5, true);
+    fire(s - 6, x - cross * 0.5, 6.8, false);
+    fire(s - 6, x + cross * 0.5, 6.8, false);
+    return 0;
+  }
+  if (step === 1) {
+    fire(s, aim - 4, 6.8, true);
+    fire(s, aim + 4, 6.8, true);
+    fire(s, aim, 7.2, true);
+    return 0;
+  }
+  if (step === 2) return 0.62;
+  if (step === 3) {
+    for (let k = -2; k <= 2; k++) fire(s, x + k * cross * 0.55, 6.2, k === 0);
+    return 0;
+  }
+  if (step === 4) {
+    fire(s, x - cross, 6.2, true);
+    fire(s, x + cross, 6.2, true);
+    fire(s - 8, aim - 6, 6.6, false);
+    fire(s - 8, aim + 6, 6.6, false);
+    fire(s - 4, aim, 7, true);
+    return 0;
+  }
+  return 0.48;
+}
+
+function finaleVolley(en, s, span, aim, time, fire) {
+  const phase = en.phase || 1;
+  const spread = span * (phase === 3 ? 0.34 : 0.26);
+  const beat = (en.patternI || 0) % 4;
+  if (phase === 1) {
+    if (beat === 2) return 0.42;
+    const n = 3;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1) - 0.5;
+      fire(s, t * spread * 2, 8, true);
+    }
+    fire(s - 3, aim, 7.4, true);
+    return 0;
+  }
+  if (phase === 2) {
+    if (beat % 2 === 0) {
+      for (let i = 0; i < 5; i++) {
+        const t = i / 4 - 0.5;
+        fire(s, t * spread * 2, 7.6, true);
+      }
+      return 0;
+    }
+    if (beat === 1) {
+      fire(s, aim - spread * 0.35, 7.2, true);
+      fire(s, aim + spread * 0.35, 7.2, true);
+      fire(s - 5, aim, 6.8, true);
+      return 0;
+    }
+    return 0.4;
+  }
+  for (let i = 0; i < 5; i++) {
+    const t = i / 4 - 0.5;
+    fire(s, t * spread * 2, 7.2, true);
+  }
+  fire(s - 8, Math.sin(time * 2.4) * spread, 6.6, true);
+  fire(s - 4, aim, 6.8, true);
+  if (beat === 3) {
+    fire(s - 10, -spread * 0.7, 6.4, true);
+    fire(s - 10, spread * 0.7, 6.4, true);
+  }
+  return 0;
+}

@@ -73,6 +73,7 @@ export class Game {
     this.composer.addPass(this.bloom);
     this.fx = new ShaderPass(cinematicShader);
     this.fx.uniforms.uSunPos.value = new THREE.Vector2(0.72, 0.68);
+    this.fx.uniforms.uFlare.value = 1;
     this.fx.uniforms.uResolution.value = size.clone();
     this.composer.addPass(this.fx);
     this.composer.addPass(new OutputPass());
@@ -483,10 +484,14 @@ export class Game {
     this.entities.update(dt, this.path, this.traveled, this.ship.position, this.offset, difficulty);
 
     const extras = [
-      { pos: this.shipLights[0].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
-      { pos: this.shipLights[1].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
       { pos: this.world.sun.position, color: new THREE.Color('#ffe29a'), intensity: 22 },
     ];
+    if (this._activeView() !== 'cockpit') {
+      extras.unshift(
+        { pos: this.shipLights[0].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
+        { pos: this.shipLights[1].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
+      );
+    }
     this.world.setLights(this.entities.nearestLights(this.ship.position, extras));
 
     this.hurt = Math.max(0, this.hurt - dt * 1.8);
@@ -598,8 +603,18 @@ export class Game {
     this.fx.uniforms.uTime.value = this.clock.elapsedTime;
     this.fx.uniforms.uBoost.value = boostAmt;
     this.fx.uniforms.uHurt.value = this.hurt;
+    const view = this._activeView();
     const sunNdc = this.world.sun.position.clone().project(this.camera);
     this.fx.uniforms.uSunPos.value.set(sunNdc.x * 0.5 + 0.5, sunNdc.y * 0.5 + 0.5);
+    const sunInView = sunNdc.z < 1
+      && sunNdc.x > -1.2 && sunNdc.x < 1.2
+      && sunNdc.y > -1.2 && sunNdc.y < 1.2;
+    const flare = sunInView ? (view === 'cockpit' ? 0.07 : 1) : 0;
+    this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
+    const bloomStr = view === 'cockpit' ? 0.18 : 0.48;
+    const bloomThr = view === 'cockpit' ? 0.58 : 0.42;
+    this.bloom.strength = lerp(this.bloom.strength, bloomStr, 1 - Math.exp(-dt * 6));
+    this.bloom.threshold = lerp(this.bloom.threshold, bloomThr, 1 - Math.exp(-dt * 6));
 
     this._syncHud();
   }

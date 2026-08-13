@@ -382,6 +382,7 @@ export const cinematicShader = {
     uHurt: { value: 0 },
     uSunPos: { value: new THREE.Vector2(0.72, 0.68) },
     uResolution: { value: new THREE.Vector2(1, 1) },
+    uFlare: { value: 1 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -397,6 +398,7 @@ export const cinematicShader = {
     uniform float uHurt;
     uniform vec2 uSunPos;
     uniform vec2 uResolution;
+    uniform float uFlare;
     varying vec2 vUv;
 
     void main() {
@@ -413,19 +415,20 @@ export const cinematicShader = {
       vec2 sun = uSunPos;
       float onScreen = step(0.0, sun.x) * step(sun.x, 1.0) * step(0.0, sun.y) * step(sun.y, 1.0);
       vec2 dir = sun - uv;
-      float decay = 0.96;
-      vec2 stepDir = dir / 12.0;
+      float decay = 0.93;
+      vec2 stepDir = dir / 10.0;
       vec3 shafts = vec3(0.0);
       vec2 suv = uv;
       float w = 1.0;
-      for (int i = 0; i < 12; i++) {
+      for (int i = 0; i < 10; i++) {
         suv += stepDir;
         vec3 s = texture2D(tDiffuse, clamp(suv, 0.0, 1.0)).rgb;
-        float lum = max(max(s.r, s.g), s.b);
-        shafts += s * step(1.15, lum) * w;
+        float lum = dot(s, vec3(0.299, 0.587, 0.114));
+        float sunProx = smoothstep(0.12, 0.018, length(suv - sun));
+        shafts += s * step(1.55, lum) * w * sunProx;
         w *= decay;
       }
-      col += shafts * 0.045 * onScreen;
+      col += shafts * 0.03 * onScreen * uFlare;
 
       float vig = smoothstep(0.95, 0.28, dist);
       col *= mix(0.55, 1.0, vig);

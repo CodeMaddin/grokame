@@ -109,7 +109,8 @@ if (game.includes('this.bombs = 99') || /bombs = [6-9]/.test(game)) fail('bomb s
 if (!game.includes('_applySlide')) fail('8-way slide missing');
 if (!game.includes('_depthLimit')) fail('scroll depth limits missing');
 if (!/_axisHeld\(/.test(game)) fail('keyboard axes missing');
-if (!game.includes('_padState')) fail('stick/d-pad not mapped');
+if (!game.includes('_applyTouchDrag')) fail('mobile has no drag-to-slide');
+if (!game.includes('_onTouchStart')) fail('touch does not hold-to-fire');
 if (!game.includes('lives = 3')) fail('no arcade lives');
 if (!game.includes('_acceptContinue')) fail('no continue after the last life');
 if (!entities.includes('nextVolley')) fail('elite patterns are not authored timelines');

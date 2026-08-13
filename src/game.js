@@ -24,6 +24,8 @@ export class Game {
       mouse: new THREE.Vector2(0, 0),
       firing: false,
     };
+    this._touch = { id: null, x: 0, y: 0, held: false, steerX: 0, steerY: 0 };
+    this._mouseFromTouch = 0;
     this.audio = new AudioBus();
     this.view = localStorage.getItem('aether-view') || 'scroll';
     if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'scroll';
@@ -170,24 +172,98 @@ export class Game {
       this.input.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       this.input.mouse.y = -((e.clientY / window.innerHeight) * 2 - 1);
     });
-    window.addEventListener('mousedown', () => {
+    window.addEventListener('mousedown', (e) => {
+      if (performance.now() < this._mouseFromTouch) return;
+      if (e.sourceCapabilities?.firesTouchEvents) return;
       this.input.firing = true;
     });
     window.addEventListener('mouseup', () => {
+      if (performance.now() < this._mouseFromTouch) return;
       this.input.firing = false;
     });
-    window.addEventListener('touchmove', (e) => {
-      const t = e.touches[0];
-      if (!t) return;
-      this.input.mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-      this.input.mouse.y = -((t.clientY / window.innerHeight) * 2 - 1);
-    }, { passive: true });
-    window.addEventListener('touchstart', () => {
-      this.input.firing = true;
-    }, { passive: true });
-    window.addEventListener('touchend', () => {
-      this.input.firing = false;
-    });
+    const touchOpts = { passive: false };
+    window.addEventListener('touchstart', (e) => this._onTouchStart(e), touchOpts);
+    window.addEventListener('touchmove', (e) => this._onTouchMove(e), touchOpts);
+    window.addEventListener('touchend', (e) => this._onTouchEnd(e), touchOpts);
+    window.addEventListener('touchcancel', (e) => this._onTouchEnd(e), touchOpts);
+  }
+
+  _isUiTouch(e) {
+    const el = e.target;
+    if (!(el instanceof Element)) return false;
+    return !!el.closest('button, .screen, a, input, textarea, label');
+  }
+
+  _touchFromList(list, id) {
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].identifier === id) return list[i];
+    }
+    return null;
+  }
+
+  _onTouchStart(e) {
+    if (this._isUiTouch(e)) return;
+    if (this.state !== 'playing') return;
+    if (this._touch.held) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    e.preventDefault();
+    this._touch.id = t.identifier;
+    this._touch.x = t.clientX;
+    this._touch.y = t.clientY;
+    this._touch.held = true;
+    this._touch.steerX = 0;
+    this._touch.steerY = 0;
+    this.input.firing = true;
+    this.slide.set(0, 0);
+    this.input.mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
+    this.input.mouse.y = -((t.clientY / window.innerHeight) * 2 - 1);
+    this.audio.resume?.();
+  }
+
+  _onTouchMove(e) {
+    if (!this._touch.held) return;
+    const t = this._touchFromList(e.changedTouches, this._touch.id)
+      || this._touchFromList(e.touches, this._touch.id);
+    if (!t) return;
+    e.preventDefault();
+    const dx = t.clientX - this._touch.x;
+    const dy = t.clientY - this._touch.y;
+    this._touch.x = t.clientX;
+    this._touch.y = t.clientY;
+    this._applyTouchDrag(dx, dy);
+    this.input.mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
+    this.input.mouse.y = -((t.clientY / window.innerHeight) * 2 - 1);
+  }
+
+  _applyTouchDrag(dx, dy) {
+    const lane = this._laneLimit();
+    const depth = this._depthLimit();
+    const spanX = Math.max(1, lane * 2);
+    const spanY = Math.max(1, depth.max - depth.min);
+    const w = Math.max(1, window.innerWidth);
+    const h = Math.max(1, window.innerHeight);
+    this.offset.x = clamp(this.offset.x + (dx / w) * spanX, -lane, lane);
+    this.holdY = clamp(this.holdY + (-dy / h) * spanY, depth.min, depth.max);
+    this._touch.steerX = clamp(dx / 10, -1, 1);
+    this._touch.steerY = clamp(-dy / 10, -1, 1);
+  }
+
+  _onTouchEnd(e) {
+    this._mouseFromTouch = performance.now() + 800;
+    if (!this._touch.held) return;
+    const ended = this._touchFromList(e.changedTouches, this._touch.id)
+      || e.touches.length === 0;
+    if (!ended) return;
+    this._endTouch();
+  }
+
+  _endTouch() {
+    this._touch.held = false;
+    this._touch.id = null;
+    this._touch.steerX = 0;
+    this._touch.steerY = 0;
+    this.input.firing = false;
   }
 
   _bindUI() {
@@ -286,6 +362,7 @@ export class Game {
     this.input.keys.clear();
     this.input.firing = false;
     this.slide?.set(0, 0);
+    this._endTouch?.();
   }
 
   _onEscape() {
@@ -676,27 +753,37 @@ export class Game {
     const frame = createFrenet(sample.tangent);
 
     if (this.state === 'playing') {
-      let keyX = this._axisHeld(
-        ['KeyA', 'ArrowLeft', 'Numpad4', 'a'],
-        ['KeyD', 'ArrowRight', 'Numpad6', 'd'],
-      );
-      let keyY = this._axisHeld(
-        ['KeyS', 'ArrowDown', 'Numpad2', 's'],
-        ['KeyW', 'ArrowUp', 'Numpad8', 'w'],
-      );
-      if (Math.abs(pad.x) > Math.abs(keyX)) keyX = pad.x;
-      if (Math.abs(pad.y) > Math.abs(keyY)) keyY = pad.y;
-      this._applySlide(keyX, keyY, dt);
       const lane = this._laneLimit();
       const depth = this._depthLimit();
-      this.offset.x = clamp(this.offset.x + this.slide.x * dt, -lane, lane);
-      this.holdY = clamp(this.holdY + this.slide.y * dt, depth.min, depth.max);
-      if (this.offset.x <= -lane && this.slide.x < 0) this.slide.x = 0;
-      if (this.offset.x >= lane && this.slide.x > 0) this.slide.x = 0;
-      if (this.holdY <= depth.min && this.slide.y < 0) this.slide.y = 0;
-      if (this.holdY >= depth.max && this.slide.y > 0) this.slide.y = 0;
+      if (this._touch.held) {
+        this.slide.set(0, 0);
+        const decay = Math.exp(-dt * 12);
+        this._touch.steerX *= decay;
+        this._touch.steerY *= decay;
+        this.steer.set(this._touch.steerX, this._touch.steerY);
+      } else {
+        let keyX = this._axisHeld(
+          ['KeyA', 'ArrowLeft', 'Numpad4', 'a'],
+          ['KeyD', 'ArrowRight', 'Numpad6', 'd'],
+        );
+        let keyY = this._axisHeld(
+          ['KeyS', 'ArrowDown', 'Numpad2', 's'],
+          ['KeyW', 'ArrowUp', 'Numpad8', 'w'],
+        );
+        if (Math.abs(pad.x) > Math.abs(keyX)) keyX = pad.x;
+        if (Math.abs(pad.y) > Math.abs(keyY)) keyY = pad.y;
+        this._applySlide(keyX, keyY, dt);
+        this.offset.x = clamp(this.offset.x + this.slide.x * dt, -lane, lane);
+        this.holdY = clamp(this.holdY + this.slide.y * dt, depth.min, depth.max);
+        if (this.offset.x <= -lane && this.slide.x < 0) this.slide.x = 0;
+        if (this.offset.x >= lane && this.slide.x > 0) this.slide.x = 0;
+        if (this.holdY <= depth.min && this.slide.y < 0) this.slide.y = 0;
+        if (this.holdY >= depth.max && this.slide.y > 0) this.slide.y = 0;
+        this.steer.set(keyX, keyY);
+      }
+      this.offset.x = clamp(this.offset.x, -lane, lane);
+      this.holdY = clamp(this.holdY, depth.min, depth.max);
       this.offset.y = 0;
-      this.steer.set(keyX, keyY);
     } else {
       this.slide.set(0, 0);
       this.offset.x = Math.sin(this.clock.elapsedTime * 0.35) * this._laneLimit() * 0.42;

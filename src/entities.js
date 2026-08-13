@@ -69,9 +69,13 @@ export class EntityField {
   }
 
   _seedGates() {
+    const shockGeo = new THREE.TorusGeometry(6.4, 0.12, 8, 48);
+    const flareGeo = new THREE.SphereGeometry(1.4, 16, 12);
+    const tunnelGeo = new THREE.CylinderGeometry(5.6, 5.6, 4, 28, 1, true);
     for (let i = 0; i < 8; i++) {
+      const group = new THREE.Group();
       const torus = new THREE.Mesh(
-        new THREE.TorusGeometry(6.4, 0.2, 12, 48),
+        new THREE.TorusGeometry(6.4, 0.22, 12, 48),
         new THREE.MeshStandardMaterial({
           color: 0x102030,
           emissive: 0xff3bd4,
@@ -91,17 +95,61 @@ export class EntityField {
           side: THREE.DoubleSide,
         })
       );
-      torus.add(inner);
-      torus.visible = false;
-      this.scene.add(torus);
+      const shockMatA = new THREE.MeshBasicMaterial({
+        color: 0x7af7ff,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const shockMatB = shockMatA.clone();
+      shockMatB.color.set(0xff64e8);
+      const shockA = new THREE.Mesh(shockGeo, shockMatA);
+      const shockB = new THREE.Mesh(shockGeo, shockMatB);
+      const flare = new THREE.Mesh(
+        flareGeo,
+        new THREE.MeshBasicMaterial({
+          color: 0xdcffff,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      );
+      const tunnel = new THREE.Mesh(
+        tunnelGeo,
+        new THREE.MeshBasicMaterial({
+          color: 0x5ce1ff,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        })
+      );
+      tunnel.rotation.x = Math.PI / 2;
+      shockA.visible = false;
+      shockB.visible = false;
+      flare.visible = false;
+      tunnel.visible = false;
+      group.add(torus, inner, shockA, shockB, flare, tunnel);
+      group.visible = false;
+      this.scene.add(group);
       this.gates.push({
-        mesh: torus,
+        mesh: group,
+        ring: torus,
         shield: inner,
+        shockA,
+        shockB,
+        flare,
+        tunnel,
         alive: false,
         pathDist: 0,
         passed: false,
         locked: true,
         hp: 4,
+        burst: 0,
       });
     }
   }
@@ -267,6 +315,7 @@ export class EntityField {
         if ('passed' in item) item.passed = false;
         if ('locked' in item) item.locked = true;
         if ('nearMiss' in item) item.nearMiss = false;
+        if ('burst' in item) item.burst = 0;
       }
     }
     if (this.boss) {
@@ -349,10 +398,20 @@ export class EntityField {
       item.passed = false;
       item.locked = true;
       item.hp = 4;
+      item.burst = 0;
       item.shield.visible = true;
       item.shield.material.color.set(0xff3bd4);
       item.shield.material.opacity = 0.32;
-      item.mesh.material.emissive.set(0xff3bd4);
+      item.ring.material.emissive.set(0xff3bd4);
+      item.ring.material.emissiveIntensity = 3.4;
+      item.ring.scale.setScalar(1);
+      item.shockA.visible = false;
+      item.shockB.visible = false;
+      item.flare.visible = false;
+      item.tunnel.visible = false;
+      item.shockA.scale.setScalar(1);
+      item.shockB.scale.setScalar(1);
+      item.tunnel.scale.set(1, 1, 1);
     }
     item.mesh.position.copy(sample.pos)
       .addScaledVector(frame.binormal, ox)
@@ -465,6 +524,7 @@ export class EntityField {
     for (const list of [this.orbs, this.gates, this.enemies, this.blockers]) {
       for (const item of list) {
         if (item.alive && item.pathDist < traveled - 18) {
+          if (item.burst > 0) continue;
           item.alive = false;
           item.mesh.visible = false;
         }
@@ -494,10 +554,41 @@ export class EntityField {
     }
     for (const gate of this.gates) {
       if (!gate.alive) continue;
-      gate.mesh.rotation.z += dt * 0.8;
       const sample = path.sample(gate.pathDist);
       gate.mesh.position.copy(sample.pos);
       gate.mesh.lookAt(sample.pos.clone().add(sample.tangent));
+      if (gate.burst > 0) {
+        gate.burst = Math.max(0, gate.burst - dt * 1.15);
+        const t = 1 - gate.burst;
+        const pulse = gate.burst;
+        gate.ring.rotation.z += dt * (2.2 + t * 14);
+        gate.ring.scale.setScalar(1 + t * 1.8);
+        gate.ring.material.emissive.set(0xdcffff);
+        gate.ring.material.emissiveIntensity = 2 + pulse * 10;
+        gate.shockA.visible = true;
+        gate.shockB.visible = true;
+        gate.flare.visible = true;
+        gate.tunnel.visible = true;
+        gate.shockA.scale.setScalar(1 + t * 4.8);
+        gate.shockB.scale.setScalar(1 + t * 7.2);
+        gate.shockA.material.opacity = pulse * 0.85;
+        gate.shockB.material.opacity = pulse * 0.55;
+        gate.flare.scale.setScalar(1 + t * 18);
+        gate.flare.material.opacity = pulse * 0.7;
+        gate.tunnel.scale.set(1 + t * 0.35, 1 + t * 14, 1 + t * 0.35);
+        gate.tunnel.material.opacity = pulse * 0.45;
+        if (gate.burst <= 0) {
+          gate.alive = false;
+          gate.mesh.visible = false;
+          gate.shockA.visible = false;
+          gate.shockB.visible = false;
+          gate.flare.visible = false;
+          gate.tunnel.visible = false;
+          gate.ring.scale.setScalar(1);
+        }
+        continue;
+      }
+      gate.ring.rotation.z += dt * 0.8;
       if (gate.locked) {
         gate.shield.material.opacity = 0.22 + 0.12 * Math.sin(this.time * 6);
       }
@@ -607,8 +698,7 @@ export class EntityField {
           hits.push({ gate, blocked: true });
         } else {
           gate.passed = true;
-          gate.alive = false;
-          gate.mesh.visible = false;
+          gate.burst = 1;
           hits.push({ gate, blocked: false });
         }
       }
@@ -709,7 +799,8 @@ export class EntityField {
           if (gate.hp <= 0) {
             gate.locked = false;
             gate.shield.visible = false;
-            gate.mesh.material.emissive.set(0x5ce1ff);
+            gate.ring.material.emissive.set(0x5ce1ff);
+            gate.ring.material.emissiveIntensity = 5.2;
             events.push({ type: 'unlock', pos: gate.mesh.position.clone() });
           } else {
             events.push({ type: 'ping', pos: gate.mesh.position.clone() });
@@ -761,6 +852,14 @@ export class EntityField {
           intensity: 14,
         });
       }
+    }
+    for (const gate of this.gates) {
+      if (!gate.alive) continue;
+      candidates.push({
+        pos: gate.mesh.position,
+        color: new THREE.Color(gate.burst > 0 ? '#dcffff' : gate.locked ? '#ff3bd4' : '#5ce1ff'),
+        intensity: gate.burst > 0 ? 48 * gate.burst + 10 : gate.locked ? 10 : 16,
+      });
     }
     if (this.boss?.alive) {
       candidates.push({

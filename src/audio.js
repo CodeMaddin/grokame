@@ -102,10 +102,25 @@ export class AudioBus {
 
   gate() {
     if (!this.enabled) return;
-    const t = this.ctx.currentTime;
-    this._osc('triangle', 320, t, 0.22, 0.1);
-    this._osc('sine', 640, t + 0.04, 0.28, 0.08);
-    this._osc('sine', 960, t + 0.08, 0.3, 0.06);
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    this._osc('sine', 180, t, 0.55, 0.14);
+    this._osc('triangle', 360, t, 0.48, 0.1);
+    this._osc('sine', 720, t + 0.04, 0.5, 0.09);
+    this._osc('sine', 1080, t + 0.08, 0.4, 0.07);
+    this._osc('sine', 1480, t + 0.12, 0.32, 0.05);
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(140, t);
+    o.frequency.exponentialRampToValueAtTime(1600, t + 0.42);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.09, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    o.connect(g);
+    g.connect(this.master);
+    o.start(t);
+    o.stop(t + 0.52);
   }
 
   hit() {

@@ -26,6 +26,7 @@ export class Game {
     this.view = localStorage.getItem('aether-view') || 'scroll';
     if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'scroll';
     this._hasRun = false;
+    this.gateFx = 0;
     this._viewSnap = 1;
     this._camLook = new THREE.Vector3();
     this._camUp = new THREE.Vector3(0, 1, 0);
@@ -75,6 +76,7 @@ export class Game {
     this.fx.uniforms.uSunPos.value = new THREE.Vector2(0.72, 0.68);
     this.fx.uniforms.uFlare.value = 1;
     this.fx.uniforms.uCockpit.value = 0;
+    this.fx.uniforms.uGate.value = 0;
     this.fx.uniforms.uResolution.value = size.clone();
     this.composer.addPass(this.fx);
     this.composer.addPass(new OutputPass());
@@ -324,6 +326,7 @@ export class Game {
     this.comboTimer = 0;
     this.hurt = 0;
     this.invuln = 0;
+    this.gateFx = 0;
     this.fireCd = 0;
     this.kills = 0;
     this._blockWarn = false;
@@ -497,6 +500,7 @@ export class Game {
 
     this.hurt = Math.max(0, this.hurt - dt * 1.8);
     this.invuln = Math.max(0, this.invuln - dt);
+    this.gateFx = Math.max(0, this.gateFx - dt * 1.05);
     this.comboTimer -= dt;
     if (this.comboTimer <= 0) this.combo = 1;
     this.fireCd = Math.max(0, this.fireCd - dt);
@@ -530,6 +534,7 @@ export class Game {
         } else {
           this._combatScore(500);
           this.boost = 1;
+          this.gateFx = 1;
           this.audio.gate();
           this.toast('GATE BREAK');
         }
@@ -604,6 +609,7 @@ export class Game {
     this.fx.uniforms.uTime.value = this.clock.elapsedTime;
     this.fx.uniforms.uBoost.value = boostAmt;
     this.fx.uniforms.uHurt.value = this.hurt;
+    this.fx.uniforms.uGate.value = this.gateFx;
     const view = this._activeView();
     const sunNdc = this.world.sun.position.clone().project(this.camera);
     this.fx.uniforms.uSunPos.value.set(sunNdc.x * 0.5 + 0.5, sunNdc.y * 0.5 + 0.5);
@@ -613,9 +619,9 @@ export class Game {
     const flare = sunInView ? (view === 'cockpit' ? 0 : 0.85) : 0;
     this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
     this.fx.uniforms.uCockpit.value = lerp(this.fx.uniforms.uCockpit.value, view === 'cockpit' ? 1 : 0, 1 - Math.exp(-dt * 8));
-    const bloomStr = view === 'cockpit' ? 0.08 : 0.48;
+    const bloomStr = (view === 'cockpit' ? 0.08 : 0.48) + this.gateFx * 0.7;
     const bloomThr = view === 'cockpit' ? 0.72 : 0.42;
-    const bloomRad = view === 'cockpit' ? 0.18 : 0.5;
+    const bloomRad = (view === 'cockpit' ? 0.18 : 0.5) + this.gateFx * 0.35;
     this.bloom.strength = lerp(this.bloom.strength, bloomStr, 1 - Math.exp(-dt * 6));
     this.bloom.threshold = lerp(this.bloom.threshold, bloomThr, 1 - Math.exp(-dt * 6));
     this.bloom.radius = lerp(this.bloom.radius, bloomRad, 1 - Math.exp(-dt * 6));

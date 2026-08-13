@@ -101,6 +101,11 @@ canvas {
   text-shadow: 0 0 18px rgba(255, 209, 102, 0.9);
 }
 
+.threat-panel .value {
+  color: var(--magenta);
+  text-shadow: 0 0 18px rgba(255, 59, 212, 0.9);
+}
+
 .bar-wrap {
   flex: 1;
 }

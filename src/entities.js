@@ -23,6 +23,7 @@ export class EntityField {
     this.orbs = [];
     this.gates = [];
     this.enemies = [];
+    this.blockers = [];
     this.bullets = [];
     this.enemyShots = [];
     this.explosions = [];
@@ -31,6 +32,7 @@ export class EntityField {
     this._seedOrbs();
     this._seedGates();
     this._seedEnemies();
+    this._seedBlockers();
     this._seedBullets();
   }
 
@@ -57,8 +59,9 @@ export class EntityField {
         alive: false,
         pathDist: 0,
         radius: 1.4,
-        value: i % 3 === 0 ? 50 : 20,
+        value: i % 3 === 0 ? 40 : 12,
         color: new THREE.Color(color),
+        offset: new THREE.Vector3(),
       });
     }
   }
@@ -66,47 +69,56 @@ export class EntityField {
   _seedGates() {
     for (let i = 0; i < 8; i++) {
       const torus = new THREE.Mesh(
-        new THREE.TorusGeometry(5.2, 0.18, 12, 48),
+        new THREE.TorusGeometry(6.4, 0.2, 12, 48),
         new THREE.MeshStandardMaterial({
           color: 0x102030,
-          emissive: 0x5ce1ff,
+          emissive: 0xff3bd4,
           emissiveIntensity: 3.4,
           metalness: 0.4,
           roughness: 0.25,
         })
       );
       const inner = new THREE.Mesh(
-        new THREE.TorusGeometry(5.2, 0.55, 8, 40),
+        new THREE.CircleGeometry(6.0, 32),
         new THREE.MeshBasicMaterial({
           color: 0xff3bd4,
           transparent: true,
-          opacity: 0.18,
+          opacity: 0.28,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
+          side: THREE.DoubleSide,
         })
       );
       torus.add(inner);
       torus.visible = false;
       this.scene.add(torus);
-      this.gates.push({ mesh: torus, alive: false, pathDist: 0, passed: false });
+      this.gates.push({
+        mesh: torus,
+        shield: inner,
+        alive: false,
+        pathDist: 0,
+        passed: false,
+        locked: true,
+        hp: 4,
+      });
     }
   }
 
   _seedEnemies() {
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 16; i++) {
       const g = new THREE.Group();
       const body = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.9, 0),
+        new THREE.OctahedronGeometry(0.95, 0),
         new THREE.MeshStandardMaterial({
           color: 0x1a0508,
           metalness: 0.7,
           roughness: 0.3,
           emissive: 0xff2458,
-          emissiveIntensity: 2.2,
+          emissiveIntensity: 2.4,
         })
       );
       const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(1.15, 0.07, 8, 24),
+        new THREE.TorusGeometry(1.2, 0.08, 8, 24),
         new THREE.MeshBasicMaterial({ color: 0xff6b8a })
       );
       ring.rotation.x = Math.PI / 2;
@@ -115,20 +127,59 @@ export class EntityField {
       this.scene.add(g);
       this.enemies.push({
         mesh: g,
+        ring,
         alive: false,
         pathDist: 0,
-        hp: 2,
-        radius: 1.4,
+        hp: 3,
+        radius: 1.5,
         cooldown: 0,
+        offset: new THREE.Vector3(),
+        role: 'hunter',
+        nearMiss: false,
+      });
+    }
+  }
+
+  _seedBlockers() {
+    for (let i = 0; i < 12; i++) {
+      const mesh = new THREE.Mesh(
+        new THREE.OctahedronGeometry(1, 0),
+        new THREE.MeshStandardMaterial({
+          color: 0x2a1200,
+          metalness: 0.45,
+          roughness: 0.28,
+          emissive: 0xff8a1a,
+          emissiveIntensity: 3.2,
+        })
+      );
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(1.35, 16, 12),
+        new THREE.MeshBasicMaterial({
+          color: 0xff9a3a,
+          transparent: true,
+          opacity: 0.16,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      );
+      mesh.add(halo);
+      mesh.visible = false;
+      this.scene.add(mesh);
+      this.blockers.push({
+        mesh,
+        alive: false,
+        pathDist: 0,
+        hp: 3,
+        radius: 3.2,
         offset: new THREE.Vector3(),
       });
     }
   }
 
   _seedBullets() {
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 48; i++) {
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.45, 0.45, 11),
+        new THREE.BoxGeometry(0.38, 0.38, 9),
         new THREE.MeshBasicMaterial({ color: 0xe8ffff })
       );
       mesh.visible = false;
@@ -138,12 +189,11 @@ export class EntityField {
         vel: new THREE.Vector3(),
         alive: false,
         life: 0,
-        fromPlayer: true,
       });
     }
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 32; i++) {
       const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.16, 8, 8),
+        new THREE.SphereGeometry(0.22, 8, 8),
         new THREE.MeshBasicMaterial({ color: 0xff4d6d })
       );
       mesh.visible = false;
@@ -158,11 +208,13 @@ export class EntityField {
   }
 
   reset() {
-    for (const list of [this.orbs, this.gates, this.enemies, this.bullets, this.enemyShots]) {
+    for (const list of [this.orbs, this.gates, this.enemies, this.blockers, this.bullets, this.enemyShots]) {
       for (const item of list) {
         item.alive = false;
         item.mesh.visible = false;
         if ('passed' in item) item.passed = false;
+        if ('locked' in item) item.locked = true;
+        if ('nearMiss' in item) item.nearMiss = false;
       }
     }
     if (this.boss) {
@@ -178,41 +230,67 @@ export class EntityField {
   }
 
   spawnAhead(path, traveled, difficulty) {
-    this._placeInactive(this.orbs, path, traveled, 70, 18);
-    this._placeInactive(this.gates, path, traveled, 220, 4, true);
-    const enemyNeed = Math.min(3 + Math.floor(difficulty), 8);
+    this._placeInactive(this.orbs, path, traveled, 55, 14, 'orb');
+    this._placeInactive(this.gates, path, traveled, 260, 3, 'gate');
+    this._placeInactive(this.blockers, path, traveled, 95, Math.min(4 + Math.floor(difficulty), 8), 'blocker');
+
+    const enemyNeed = Math.min(4 + Math.floor(difficulty * 1.2), 12);
     let liveEnemies = this.enemies.filter((e) => e.alive).length;
     while (liveEnemies < enemyNeed) {
       const idle = this.enemies.find((e) => !e.alive);
       if (!idle) break;
-      this._placeOne(idle, path, traveled + 80 + Math.random() * 240, true);
-      idle.hp = 2 + (difficulty > 3 ? 1 : 0);
-      idle.cooldown = 1 + Math.random();
+      this._placeOne(idle, path, traveled + 50 + Math.random() * 220, 'enemy');
+      idle.hp = 3 + (difficulty > 2.5 ? 1 : 0);
+      idle.cooldown = 0.4 + Math.random() * 0.6;
+      idle.role = Math.random() < 0.65 ? 'hunter' : 'gunship';
+      idle.nearMiss = false;
+      idle.ring.material.color.set(idle.role === 'hunter' ? 0xff6b8a : 0xffd166);
       liveEnemies++;
     }
 
-    if (!this.boss && traveled > 900 && Math.floor(traveled / 1400) !== this._lastBossAt) {
-      this._lastBossAt = Math.floor(traveled / 1400);
-      this._spawnBoss(path, traveled + 160);
+    if (!this.boss && traveled > 700 && Math.floor(traveled / 1200) !== this._lastBossAt) {
+      this._lastBossAt = Math.floor(traveled / 1200);
+      this._spawnBoss(path, traveled + 140);
     }
   }
 
-  _placeInactive(list, path, traveled, spacing, count, isGate = false) {
+  _placeInactive(list, path, traveled, spacing, count, kind) {
     let live = list.filter((x) => x.alive).length;
     while (live < Math.min(count, list.length)) {
       const idle = list.find((x) => !x.alive);
       if (!idle) break;
-      this._placeOne(idle, path, traveled + 50 + live * spacing + Math.random() * 20, !isGate);
-      if (isGate) idle.passed = false;
+      this._placeOne(idle, path, traveled + 70 + live * spacing + Math.random() * 24, kind);
       live++;
     }
   }
 
-  _placeOne(item, path, dist, offset) {
+  _placeOne(item, path, dist, kind) {
     const sample = path.sample(dist);
     const frame = createFrenet(sample.tangent);
-    const ox = offset ? (Math.random() - 0.5) * 10 : 0;
-    const oy = offset ? (Math.random() - 0.5) * 6 : 0;
+    let ox = 0;
+    let oy = 0;
+    if (kind === 'orb') {
+      ox = (Math.random() - 0.5) * 28;
+      oy = (Math.random() - 0.5) * 16;
+    } else if (kind === 'enemy') {
+      ox = (Math.random() - 0.5) * 22;
+      oy = (Math.random() - 0.5) * 12;
+    } else if (kind === 'blocker') {
+      ox = (Math.random() - 0.5) * 7;
+      oy = (Math.random() - 0.5) * 4;
+      const scale = 2.4 + Math.random() * 1.6;
+      item.mesh.scale.setScalar(scale);
+      item.radius = 1.15 * scale;
+      item.hp = 3;
+    } else if (kind === 'gate') {
+      item.passed = false;
+      item.locked = true;
+      item.hp = 4;
+      item.shield.visible = true;
+      item.shield.material.color.set(0xff3bd4);
+      item.shield.material.opacity = 0.32;
+      item.mesh.material.emissive.set(0xff3bd4);
+    }
     item.mesh.position.copy(sample.pos)
       .addScaledVector(frame.binormal, ox)
       .addScaledVector(frame.normal, oy);
@@ -250,9 +328,9 @@ export class EntityField {
       mesh: group,
       shell,
       pathDist: dist,
-      hp: 28,
-      maxHp: 28,
-      cooldown: 0.6,
+      hp: 22,
+      maxHp: 22,
+      cooldown: 0.5,
       radius: 4.6,
       alive: true,
     };
@@ -264,24 +342,23 @@ export class EntityField {
     const b = this.bullets.find((x) => !x.alive);
     if (!b) return false;
     b.alive = true;
-    b.life = 1.15;
+    b.life = 1.05;
     b.mesh.visible = true;
     b.mesh.position.copy(origin);
-    b.vel.copy(dir).setLength(78);
-    b.mesh.scale.set(1, 1, 1);
+    b.vel.copy(dir).setLength(96);
     const aim = origin.clone().add(dir);
     b.mesh.lookAt(aim);
     return true;
   }
 
-  enemyFire(origin, target) {
+  enemyFire(origin, target, speed = 38) {
     const b = this.enemyShots.find((x) => !x.alive);
     if (!b) return;
     b.alive = true;
-    b.life = 2.2;
+    b.life = 2.4;
     b.mesh.visible = true;
     b.mesh.position.copy(origin);
-    b.vel.copy(target).sub(origin).normalize().multiplyScalar(28);
+    b.vel.copy(target).sub(origin).normalize().multiplyScalar(speed);
   }
 
   explode(pos, color = 0x5ce1ff) {
@@ -304,9 +381,9 @@ export class EntityField {
   }
 
   recycleBehind(traveled) {
-    for (const list of [this.orbs, this.gates, this.enemies]) {
+    for (const list of [this.orbs, this.gates, this.enemies, this.blockers]) {
       for (const item of list) {
-        if (item.alive && item.pathDist < traveled - 25) {
+        if (item.alive && item.pathDist < traveled - 40) {
           item.alive = false;
           item.mesh.visible = false;
         }
@@ -314,50 +391,92 @@ export class EntityField {
     }
   }
 
-  update(dt, path, traveled, shipPos, difficulty) {
+  hunterCount() {
+    return this.enemies.filter((e) => e.alive).length + (this.boss?.alive ? 1 : 0);
+  }
+
+  blockerAhead(traveled) {
+    return this.blockers.some((b) => b.alive && b.pathDist - traveled < 70 && b.pathDist > traveled);
+  }
+
+  update(dt, path, traveled, shipPos, playerOffset, difficulty) {
     this.time += dt;
     for (const orb of this.orbs) {
       if (!orb.alive) continue;
       orb.mesh.material.uniforms.uTime.value = this.time;
       orb.mesh.rotation.y += dt * 1.4;
-      orb.mesh.position.y += Math.sin(this.time * 3 + orb.pathDist) * dt * 0.4;
+      const sample = path.sample(orb.pathDist);
+      const frame = createFrenet(sample.tangent);
+      orb.mesh.position.copy(sample.pos)
+        .addScaledVector(frame.binormal, orb.offset.x)
+        .addScaledVector(frame.normal, orb.offset.y + Math.sin(this.time * 3 + orb.pathDist) * 0.35);
     }
     for (const gate of this.gates) {
       if (!gate.alive) continue;
-      gate.mesh.rotation.z += dt * 1.2;
+      gate.mesh.rotation.z += dt * 0.8;
       const sample = path.sample(gate.pathDist);
       gate.mesh.position.copy(sample.pos);
       gate.mesh.lookAt(sample.pos.clone().add(sample.tangent));
+      if (gate.locked) {
+        gate.shield.material.opacity = 0.22 + 0.12 * Math.sin(this.time * 6);
+      }
+    }
+    for (const blk of this.blockers) {
+      if (!blk.alive) continue;
+      blk.mesh.rotation.y += dt * 0.9;
+      blk.mesh.rotation.x += dt * 0.4;
+      const sample = path.sample(blk.pathDist);
+      const frame = createFrenet(sample.tangent);
+      blk.mesh.position.copy(sample.pos)
+        .addScaledVector(frame.binormal, blk.offset.x)
+        .addScaledVector(frame.normal, blk.offset.y);
     }
     for (const en of this.enemies) {
       if (!en.alive) continue;
-      en.mesh.rotation.y += dt * 1.6;
-      const sample = path.sample(en.pathDist);
+      en.mesh.rotation.y += dt * 2.2;
+      if (en.role === 'hunter') {
+        const desired = traveled + 5;
+        const delta = desired - en.pathDist;
+        en.pathDist += Math.max(-36, Math.min(26, delta)) * dt;
+        en.offset.x += (playerOffset.x - en.offset.x) * dt * 2.1;
+        en.offset.y += (playerOffset.y - en.offset.y) * dt * 2.1;
+      } else {
+        const desired = traveled + 40;
+        const delta = desired - en.pathDist;
+        en.pathDist += Math.max(-22, Math.min(18, delta)) * dt;
+        en.offset.x += Math.sin(this.time * 1.4 + en.pathDist) * dt * 3;
+      }
+      const sample = path.sample(Math.max(10, en.pathDist));
       const frame = createFrenet(sample.tangent);
-      const wobble = Math.sin(this.time * 1.7 + en.pathDist) * 2.2;
       en.mesh.position.copy(sample.pos)
-        .addScaledVector(frame.binormal, (en.offset?.x || 0) + wobble)
-        .addScaledVector(frame.normal, en.offset?.y || 0);
+        .addScaledVector(frame.binormal, en.offset.x)
+        .addScaledVector(frame.normal, en.offset.y);
+      en.mesh.lookAt(shipPos);
       en.cooldown -= dt;
-      if (en.cooldown <= 0 && en.mesh.position.distanceTo(shipPos) < 70) {
-        this.enemyFire(en.mesh.position, shipPos);
-        en.cooldown = Math.max(0.7, 1.6 - difficulty * 0.12);
+      const dist = en.mesh.position.distanceTo(shipPos);
+      if (en.cooldown <= 0 && dist < 90) {
+        const lead = shipPos.clone().addScaledVector(sample.tangent, 6);
+        this.enemyFire(en.mesh.position, lead, en.role === 'hunter' ? 46 : 34);
+        en.cooldown = Math.max(0.38, (en.role === 'hunter' ? 0.7 : 1.05) - difficulty * 0.08);
       }
     }
     if (this.boss?.alive) {
       this.boss.mesh.rotation.x += dt * 0.4;
       this.boss.mesh.rotation.y += dt * 0.7;
       this.boss.shell.rotation.z -= dt * 0.9;
-      const sample = path.sample(this.boss.pathDist);
-      this.boss.mesh.position.copy(sample.pos).add(new THREE.Vector3(0, 2.5, 0));
+      this.boss.pathDist += (traveled + 28 - this.boss.pathDist) * dt * 0.7;
+      const sample = path.sample(Math.max(10, this.boss.pathDist));
+      this.boss.mesh.position.copy(sample.pos).add(new THREE.Vector3(0, 2.2, 0));
+      this.boss.mesh.lookAt(shipPos);
       this.boss.cooldown -= dt;
       if (this.boss.cooldown <= 0) {
-        for (let i = 0; i < 8; i++) {
-          const a = (i / 8) * Math.PI * 2 + this.time;
-          const dir = new THREE.Vector3(Math.cos(a), Math.sin(a) * 0.4, Math.sin(a * 0.3));
-          this.enemyFire(this.boss.mesh.position, this.boss.mesh.position.clone().add(dir));
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2 + this.time;
+          const dir = shipPos.clone().sub(this.boss.mesh.position).normalize()
+            .add(new THREE.Vector3(Math.cos(a) * 0.35, Math.sin(a) * 0.25, 0));
+          this.enemyFire(this.boss.mesh.position, this.boss.mesh.position.clone().add(dir), 32);
         }
-        this.boss.cooldown = 1.15;
+        this.boss.cooldown = 0.95;
       }
     }
 
@@ -406,17 +525,21 @@ export class EntityField {
   }
 
   collectGates(shipPos) {
-    const got = [];
+    const hits = [];
     for (const gate of this.gates) {
       if (!gate.alive || gate.passed) continue;
-      if (gate.mesh.position.distanceTo(shipPos) < 5.4) {
-        gate.passed = true;
-        gate.alive = false;
-        gate.mesh.visible = false;
-        got.push(gate);
+      if (gate.mesh.position.distanceTo(shipPos) < 6.2) {
+        if (gate.locked) {
+          hits.push({ gate, blocked: true });
+        } else {
+          gate.passed = true;
+          gate.alive = false;
+          gate.mesh.visible = false;
+          hits.push({ gate, blocked: false });
+        }
       }
     }
-    return got;
+    return hits;
   }
 
   collideEnemies(shipPos, radius) {
@@ -431,38 +554,111 @@ export class EntityField {
     return hits;
   }
 
+  collideBlockers(shipPos, radius) {
+    const hits = [];
+    for (const blk of this.blockers) {
+      if (!blk.alive) continue;
+      if (blk.mesh.position.distanceTo(shipPos) < radius + blk.radius) hits.push(blk);
+    }
+    return hits;
+  }
+
+  nearMisses(shipPos) {
+    const got = [];
+    for (const en of this.enemies) {
+      if (!en.alive || en.nearMiss) continue;
+      const d = en.mesh.position.distanceTo(shipPos);
+      if (d > 2.6 && d < 5.8) {
+        en.nearMiss = true;
+        got.push(en);
+      }
+    }
+    return got;
+  }
+
+  _hitPoint(bullet) {
+    return bullet.mesh.position.clone().addScaledVector(bullet.vel, 0.04);
+  }
+
   bulletHits() {
-    const kills = [];
+    const events = [];
     for (const b of this.bullets) {
       if (!b.alive) continue;
+      const tip = this._hitPoint(b);
+      let consumed = false;
+
       for (const en of this.enemies) {
         if (!en.alive) continue;
-        if (b.mesh.position.distanceTo(en.mesh.position) < en.radius + 0.6) {
+        if (tip.distanceTo(en.mesh.position) < en.radius + 1.8) {
           b.alive = false;
           b.mesh.visible = false;
           en.hp -= 1;
+          consumed = true;
           if (en.hp <= 0) {
             en.alive = false;
             en.mesh.visible = false;
-            kills.push({ pos: en.mesh.position.clone(), boss: false });
+            events.push({ type: 'enemy', pos: en.mesh.position.clone(), role: en.role });
+          } else {
+            events.push({ type: 'ping', pos: en.mesh.position.clone() });
           }
           break;
         }
       }
-      if (b.alive && this.boss?.alive) {
-        if (b.mesh.position.distanceTo(this.boss.mesh.position) < this.boss.radius) {
+      if (consumed) continue;
+
+      for (const blk of this.blockers) {
+        if (!blk.alive) continue;
+        if (tip.distanceTo(blk.mesh.position) < blk.radius + 1.6) {
           b.alive = false;
           b.mesh.visible = false;
-          this.boss.hp -= 1;
-          if (this.boss.hp <= 0) {
-            this.boss.alive = false;
-            this.boss.mesh.visible = false;
-            kills.push({ pos: this.boss.mesh.position.clone(), boss: true });
+          blk.hp -= 1;
+          consumed = true;
+          if (blk.hp <= 0) {
+            blk.alive = false;
+            blk.mesh.visible = false;
+            events.push({ type: 'blocker', pos: blk.mesh.position.clone() });
+          } else {
+            events.push({ type: 'ping', pos: blk.mesh.position.clone() });
           }
+          break;
+        }
+      }
+      if (consumed) continue;
+
+      for (const gate of this.gates) {
+        if (!gate.alive || !gate.locked) continue;
+        if (tip.distanceTo(gate.mesh.position) < 6.4) {
+          b.alive = false;
+          b.mesh.visible = false;
+          gate.hp -= 1;
+          consumed = true;
+          if (gate.hp <= 0) {
+            gate.locked = false;
+            gate.shield.visible = false;
+            gate.mesh.material.emissive.set(0x5ce1ff);
+            events.push({ type: 'unlock', pos: gate.mesh.position.clone() });
+          } else {
+            events.push({ type: 'ping', pos: gate.mesh.position.clone() });
+          }
+          break;
+        }
+      }
+      if (consumed) continue;
+
+      if (this.boss?.alive && tip.distanceTo(this.boss.mesh.position) < this.boss.radius + 1.2) {
+        b.alive = false;
+        b.mesh.visible = false;
+        this.boss.hp -= 1;
+        if (this.boss.hp <= 0) {
+          this.boss.alive = false;
+          this.boss.mesh.visible = false;
+          events.push({ type: 'boss', pos: this.boss.mesh.position.clone() });
+        } else {
+          events.push({ type: 'ping', pos: this.boss.mesh.position.clone() });
         }
       }
     }
-    return kills;
+    return events;
   }
 
   shotsHitPlayer(shipPos, radius) {
@@ -482,6 +678,15 @@ export class EntityField {
     const candidates = [...extras];
     for (const orb of this.orbs) {
       if (orb.alive) candidates.push({ pos: orb.mesh.position, color: orb.color, intensity: 9 });
+    }
+    for (const blk of this.blockers) {
+      if (blk.alive) {
+        candidates.push({
+          pos: blk.mesh.position,
+          color: new THREE.Color('#ff9a3a'),
+          intensity: 14,
+        });
+      }
     }
     if (this.boss?.alive) {
       candidates.push({

@@ -20,12 +20,14 @@ npm run preview
 
 | Input | Action |
 | --- | --- |
-| Mouse / WASD / Arrows | Steer |
+| Mouse | Look / aim |
+| A / D | Strafe |
+| W / S | Throttle / brake |
 | Click / Space | Fire |
 | Shift | Boost |
 | P | Pause |
 
-Collect cyan and gold cores, thread the neon gates, and burn down red sentinels before a crystal shears your hull. Combo multiplies everything. Survive the rift.
+The cyan ribbon is a guide, not a cage — fly out into the canyon. Amber cores sit in your path and will wreck the hull unless you shoot them. Red hunters chase you; gold gunships sit ahead and fire. Locked magenta gates have to be shot open. Combat is the score. Orbs off the path are just snacks.
 
 ## Why this stack
 

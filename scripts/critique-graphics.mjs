@@ -95,6 +95,7 @@ if (css.includes('Trebuchet MS') && !css.includes('Rajdhani')) fail('Trebuchet i
 
 if (!css.includes('@keyframes title-fly')) fail('title does not fly in');
 if (!css.includes('pause-dim')) fail('pause does not dim the world');
+if (!html.includes('boss-meter') || !css.includes('boss-meter')) fail('boss has no health meter');
 if (!html.includes('bomb-pips')) fail('no bomb pips — panic stock is invisible');
 if (!html.includes('result-rank')) fail('results screen has no rank mark');
 if (!html.includes('title-scores')) fail('title has no hi-score board');

@@ -202,6 +202,46 @@ canvas {
   transform: translateY(0);
 }
 
+.boss-meter {
+  position: absolute;
+  top: 11vh;
+  left: 16vw;
+  right: 16vw;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.boss-meter.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.boss-meter .label {
+  text-align: center;
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.42em;
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(255, 209, 102, 0.7);
+}
+
+.boss-bar {
+  margin-top: 8px;
+  height: 12px;
+  border-color: rgba(255, 209, 102, 0.55);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+#boss-fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #ff3bd4, #ffd166);
+  box-shadow: 0 0 16px rgba(255, 59, 212, 0.65);
+}
+
 #view-switcher {
   position: absolute;
   right: 4vw;

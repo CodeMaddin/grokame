@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { orbVertex, orbFragment } from './shaders.js';
 import { createFrenet, sampleRail } from './math.js';
 import { lanesFor, rowStagger } from './stage.js';
+import { eliteHp } from './weapons.js';
 
 function makeOrbMaterial(color) {
   return new THREE.ShaderMaterial({
@@ -426,11 +427,11 @@ export class EntityField {
     }
   }
 
-  spawnNamed(path, traveled, id, ahead = 108) {
+  spawnNamed(path, traveled, id, ahead = 96, step = 0) {
     const idle = this.enemies.find((e) => !e.alive);
     if (!idle) return;
     this._placeOne(idle, path, traveled + ahead, 'enemy');
-    this._dressEnemy(idle, id, 1, 0, this.laneLimit || 24);
+    this._dressEnemy(idle, id, 1, 0, this.laneLimit || 24, step);
   }
 
   spawnGateAt(path, traveled, ahead = 72) {
@@ -455,9 +456,9 @@ export class EntityField {
     }
   }
 
-  spawnFinale(path, traveled, ahead = 118) {
+  spawnFinale(path, traveled, ahead = 96, step = 0) {
     if (this.boss?.alive) return;
-    this._spawnBoss(path, traveled + ahead);
+    this._spawnBoss(path, traveled + ahead, step);
   }
 
   _placeInactive(list, path, traveled, spacing, count, kind) {
@@ -513,7 +514,7 @@ export class EntityField {
     item.mesh.lookAt(sample.pos.clone().add(sample.tangent));
   }
 
-  _dressEnemy(en, role, difficulty, lane, span) {
+  _dressEnemy(en, role, difficulty, lane, span, step = 0) {
     en.role = role;
     en.nearMiss = false;
     en.flash = 0;
@@ -524,8 +525,8 @@ export class EntityField {
     en.weave = 0.55 + Math.random() * 0.7;
     const extra = difficulty > 2.4 ? 1 : 0;
     if (role === 'queen') {
-      en.hp = 1100;
-      en.maxHp = 1100;
+      en.hp = eliteHp('queen', step);
+      en.maxHp = en.hp;
       en.radius = 7.1;
       en.descent = 0.52;
       en.cooldown = 0.85;
@@ -538,8 +539,8 @@ export class EntityField {
       en.drop = 4;
       en.bombDrop = 1;
     } else if (role === 'warden') {
-      en.hp = 2400;
-      en.maxHp = 2400;
+      en.hp = eliteHp('warden', step);
+      en.maxHp = en.hp;
       en.radius = 7.8;
       en.descent = 0.38;
       en.cooldown = 1.05;
@@ -596,7 +597,7 @@ export class EntityField {
     }
   }
 
-  _spawnBoss(path, dist) {
+  _spawnBoss(path, dist, step = 0) {
     const group = new THREE.Group();
     const core = new THREE.Mesh(
       new THREE.IcosahedronGeometry(3.4, 1),
@@ -624,8 +625,8 @@ export class EntityField {
       mesh: group,
       shell,
       pathDist: dist,
-      hp: 3200,
-      maxHp: 3200,
+      hp: eliteHp('finale', step),
+      maxHp: eliteHp('finale', step),
       cooldown: 0.6,
       windup: 0,
       windMax: 0.42,
@@ -854,6 +855,13 @@ export class EntityField {
     return this.enemies.filter((e) => e.alive).length + (this.boss?.alive ? 1 : 0);
   }
 
+  activeBoss() {
+    const elite = this.enemies.find((e) => e.alive && e.elite);
+    if (elite) return elite;
+    if (this.boss?.alive) return this.boss;
+    return null;
+  }
+
   blockerAhead(traveled) {
     return this.blockers.some((b) => b.alive && b.pathDist - traveled < 70 && b.pathDist > traveled);
   }
@@ -1003,6 +1011,10 @@ export class EntityField {
       if (!en.alive) continue;
       en.ring.rotation.z += dt * 2.2;
       en.pathDist -= (en.descent || 2) * dt;
+      if (en.elite) {
+        const park = traveled + 32;
+        if (en.pathDist < park) en.pathDist = park;
+      }
       if (en.role === 'sine' || en.role === 'queen') {
         const weave = (this.laneLimit || 24) * (en.role === 'queen' ? 0.22 : 0.08);
         en.offset.x = (en.baseX || 0) + Math.sin(this.time * (en.weave || 0.9) + en.pathDist * 0.03) * weave;
@@ -1021,12 +1033,14 @@ export class EntityField {
       this.boss.mesh.rotation.y += dt * 0.7;
       this.boss.shell.rotation.z -= dt * 0.9;
       this.boss.pathDist -= 1.15 * dt;
-      if (this.boss.pathDist < traveled + 28) this.boss.pathDist = traveled + 28;
+      if (this.boss.pathDist < traveled + 32) this.boss.pathDist = traveled + 32;
       const rail = sampleRail(path, this.boss.pathDist, 0, 1.2);
       this.boss.mesh.position.copy(rail.pos);
       this.boss.mesh.lookAt(rail.pos.clone().addScaledVector(rail.sample.tangent, -16));
       const ratio = this.boss.hp / this.boss.maxHp;
       this.boss.phase = ratio > 0.62 ? 1 : ratio > 0.32 ? 2 : 3;
+      this.boss.flash = Math.max(0, (this.boss.flash || 0) - dt);
+      if (this.boss.flash > 0) this.boss.shell.material.opacity = 0.7 + this.boss.flash * 1.4;
       const inRange = this.boss.pathDist > traveled + 8 && this.boss.pathDist < traveled + 90;
       this._telegraphAndFire(this.boss, dt, path, difficulty, inRange);
     }
@@ -1219,6 +1233,13 @@ export class EntityField {
     return bullet.mesh.position.clone().addScaledVector(bullet.vel, 0.04);
   }
 
+  _railHit(b, pathDist, laneX, radius) {
+    const pad = b.hitR ?? 1.6;
+    const along = Math.abs((b.pathDist || 0) - pathDist);
+    const side = Math.abs((b.laneX || 0) - (laneX || 0));
+    return along < radius + pad + 6 && side < radius + pad;
+  }
+
   _strike(b, pos, radius) {
     const pad = b.hitR ?? 1.6;
     return this._hitPoint(b).distanceTo(pos) < radius + pad;
@@ -1248,7 +1269,7 @@ export class EntityField {
 
       for (const en of this.enemies) {
         if (!en.alive || this._alreadyHit(b, en)) continue;
-        if (this._strike(b, en.mesh.position, en.radius)) {
+        if (this._railHit(b, en.pathDist, en.offset?.x ?? 0, en.radius)) {
           en.hp -= b.damage || 1;
           consumed = this._applyHit(b, en);
           if (en.hp <= 0) {
@@ -1264,8 +1285,8 @@ export class EntityField {
               bombDrop: en.bombDrop ?? 0,
             });
           } else {
-            en.flash = 0.12;
-            events.push({ type: 'ping', pos: en.mesh.position.clone(), color: 0x9af7ff });
+            en.flash = en.elite ? 0.22 : 0.12;
+            events.push({ type: 'ping', pos: en.mesh.position.clone(), color: en.elite ? 0xffe08a : 0x9af7ff });
           }
           if (consumed) break;
         }
@@ -1274,7 +1295,7 @@ export class EntityField {
 
       for (const blk of this.blockers) {
         if (!blk.alive || this._alreadyHit(b, blk)) continue;
-        if (this._strike(b, blk.mesh.position, blk.radius)) {
+        if (this._railHit(b, blk.pathDist, blk.offset?.x ?? 0, blk.radius)) {
           blk.hp -= b.damage || 1;
           consumed = this._applyHit(b, blk);
           if (blk.hp <= 0) {
@@ -1297,7 +1318,7 @@ export class EntityField {
 
       for (const gate of this.gates) {
         if (!gate.alive || !gate.locked || this._alreadyHit(b, gate)) continue;
-        if (this._strike(b, gate.mesh.position, 5.2)) {
+        if (this._railHit(b, gate.pathDist, 0, 5.2)) {
           gate.hp -= b.damage || 1;
           consumed = this._applyHit(b, gate);
           if (gate.hp <= 0) {
@@ -1320,7 +1341,7 @@ export class EntityField {
       }
       if (consumed) continue;
 
-      if (this.boss?.alive && !this._alreadyHit(b, this.boss) && this._strike(b, this.boss.mesh.position, this.boss.radius)) {
+      if (this.boss?.alive && !this._alreadyHit(b, this.boss) && this._railHit(b, this.boss.pathDist, 0, this.boss.radius)) {
         this.boss.hp -= b.damage || 1;
         this._applyHit(b, this.boss);
         if (this.boss.hp <= 0) {
@@ -1334,6 +1355,7 @@ export class EntityField {
             drop: 8,
           });
         } else {
+          this.boss.flash = 0.22;
           events.push({ type: 'ping', pos: this.boss.mesh.position.clone(), color: 0xffd166 });
         }
       }

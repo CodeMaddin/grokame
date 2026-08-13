@@ -209,6 +209,9 @@ export class Game {
       resultBoard: document.getElementById('result-board'),
       titleScores: document.getElementById('title-scores'),
       bombs: document.getElementById('bomb-pips'),
+      bossMeter: document.getElementById('boss-meter'),
+      bossFill: document.getElementById('boss-fill'),
+      bossName: document.getElementById('boss-name'),
       startBtn: document.getElementById('start-btn'),
       resumeTitleBtn: document.getElementById('resume-title-btn'),
       viewBtns: [...document.querySelectorAll('[data-view]')],
@@ -963,6 +966,7 @@ export class Game {
   }
 
   _syncHud() {
+    this._syncBossMeter();
     if (this.state !== 'playing') return;
     this.ui.score.textContent = this.score.toLocaleString();
     this.ui.combo.textContent = `×${this.combo.toFixed(1)}`;
@@ -979,6 +983,21 @@ export class Game {
       this.ui.riftWrap?.classList.toggle('rift-titan', (this.loadout.titan || 0) > 0);
     }
     this._syncBombs();
+  }
+
+  _syncBossMeter() {
+    const el = this.ui?.bossMeter;
+    if (!el) return;
+    const boss = this.state === 'playing' ? this.entities.activeBoss() : null;
+    if (!boss) {
+      el.classList.remove('show');
+      return;
+    }
+    el.classList.add('show');
+    const names = { queen: 'WEAVER QUEEN', warden: 'WARDEN', finale: 'SENTINEL' };
+    if (this.ui.bossName) this.ui.bossName.textContent = names[boss.role] || 'HUNTER';
+    const ratio = clamp(boss.hp / Math.max(1, boss.maxHp || boss.hp), 0, 1);
+    if (this.ui.bossFill) this.ui.bossFill.style.transform = `scaleX(${Math.max(0.02, ratio)})`;
   }
 
   _render() {
@@ -1061,10 +1080,10 @@ export class Game {
       } else if (ev.kind === 'blockers') {
         this.entities.spawnBlockersAt(this.path, this.traveled, ev.n || 2);
       } else if (ev.kind === 'midboss') {
-        this.entities.spawnNamed(this.path, this.traveled, ev.id);
+        this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step);
         this.stage.finaleAlive = false;
       } else if (ev.kind === 'finale') {
-        this.entities.spawnFinale(this.path, this.traveled);
+        this.entities.spawnFinale(this.path, this.traveled, 96, this.step);
         this.stage.finaleAlive = true;
       }
     }

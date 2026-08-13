@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SCRIPT, CHAPTERS } from '../src/stage.js';
-import { estimateDps, estimateBossDps, loadoutFromStep, arsenal } from '../src/weapons.js';
+import { estimateDps, estimateBossDps, eliteHp, loadoutFromStep, arsenal } from '../src/weapons.js';
 
 const root = resolve(import.meta.dirname, '..');
 const entities = readFileSync(resolve(root, 'src/entities.js'), 'utf8');
@@ -19,17 +19,26 @@ const notes = [];
 function fail(msg) { fails.push(msg); }
 function note(msg) { notes.push(msg); }
 
-function hpFor(role) {
-  const block = entities.split(`role === '${role}'`)[1] || entities.split(`en.hp = `)[0];
-  const nearby = entities.slice(Math.max(0, entities.indexOf(`role === '${role}'`) - 80), entities.indexOf(`role === '${role}'`) + 400);
-  const m = nearby.match(/en\.hp = (\d+)/) || nearby.match(/hp: (\d+)/);
-  return m ? Number(m[1]) : null;
+function motesBefore(at) {
+  let n = 0;
+  for (const ev of SCRIPT) {
+    if (ev.at >= at) break;
+    if (ev.kind === 'squad') n += ev.n * (ev.role === 'heavy' ? 2 : 1);
+    if (ev.kind === 'midboss') n += 5;
+    if (ev.kind === 'orbs') n += 3;
+  }
+  return n;
 }
 
-const queenHp = Number((entities.match(/if \(role === 'queen'\) \{[\s\S]*?en\.hp = (\d+)/) || [])[1]);
-const wardenHp = Number((entities.match(/if \(role === 'warden'\) \{[\s\S]*?en\.hp = (\d+)/) || [])[1]);
-const finaleHp = Number((entities.match(/this\.boss = \{[\s\S]*?hp: (\d+)/) || [])[1]);
+const queenStep = motesBefore(380);
+const wardenStep = motesBefore(820);
+const finaleStep = motesBefore(1320);
+const queenHp = eliteHp('queen', queenStep);
+const wardenHp = eliteHp('warden', wardenStep);
+const finaleHp = eliteHp('finale', finaleStep);
 const diveHp = Number((entities.match(/\} else \{\s*en\.hp = (\d+)/) || [])[1]);
+const starterQueen = eliteHp('queen', 0);
+const starterTtk = starterQueen / Math.max(1, estimateDps(0));
 
 const kinds = SCRIPT.map((e) => e.kind);
 if (!kinds.includes('breath')) fail('no breaths — the script never lets the player read the board');
@@ -55,36 +64,29 @@ for (let i = 1; i < squads.length; i++) {
 if (overlap > 4) fail(`too many stacked squads (${overlap} gaps under 22u) — this will read as a faucet`);
 if (squads.length < 10) fail('not enough authored squads to carry a run');
 
-function motesBefore(at) {
-  let n = 0;
-  for (const ev of SCRIPT) {
-    if (ev.at >= at) break;
-    if (ev.kind === 'squad') n += ev.n * (ev.role === 'heavy' ? 2 : 1);
-    if (ev.kind === 'midboss') n += 5;
-    if (ev.kind === 'orbs') n += 3;
-  }
-  return n;
-}
-
 function ttk(hp, step) {
   const dps = estimateBossDps(step);
   return hp / Math.max(1, dps);
 }
 
-const queenStep = motesBefore(380);
-const wardenStep = motesBefore(820);
-const finaleStep = motesBefore(1320);
 const qTtk = ttk(queenHp, queenStep);
 const wTtk = ttk(wardenHp, wardenStep);
 const fTtk = ttk(finaleHp, finaleStep);
 
-note(`queen hp ${queenHp} @ step ~${queenStep} focus-dps ${estimateBossDps(queenStep).toFixed(0)} (raw ${estimateDps(queenStep).toFixed(0)}) ttk ${qTtk.toFixed(1)}s`);
-note(`warden hp ${wardenHp} @ step ~${wardenStep} focus-dps ${estimateBossDps(wardenStep).toFixed(0)} (raw ${estimateDps(wardenStep).toFixed(0)}) ttk ${wTtk.toFixed(1)}s`);
-note(`finale hp ${finaleHp} @ step ~${finaleStep} focus-dps ${estimateBossDps(finaleStep).toFixed(0)} (raw ${estimateDps(finaleStep).toFixed(0)}) ttk ${fTtk.toFixed(1)}s`);
+note(`queen hp ${queenHp} @ step ~${queenStep} focus-dps ${estimateBossDps(queenStep).toFixed(0)} ttk ${qTtk.toFixed(1)}s`);
+note(`warden hp ${wardenHp} @ step ~${wardenStep} focus-dps ${estimateBossDps(wardenStep).toFixed(0)} ttk ${wTtk.toFixed(1)}s`);
+note(`finale hp ${finaleHp} @ step ~${finaleStep} focus-dps ${estimateBossDps(finaleStep).toFixed(0)} ttk ${fTtk.toFixed(1)}s`);
+note(`starter sparks vs queen: ${starterQueen} hp, raw dps ${estimateDps(0).toFixed(0)}, ttk ${starterTtk.toFixed(1)}s`);
 
-if (!(queenHp > 400)) fail(`queen hp ${queenHp} will evaporate under stacked guns`);
-if (!(wardenHp > queenHp)) fail('warden is not a step up from the queen');
-if (!(finaleHp > wardenHp * 1.3)) fail('finale is not a climax soak');
+if (!weapons.includes('eliteHp')) fail('boss HP is not scaled to the gun you actually have');
+if (!entities.includes('_railHit')) fail('boss hits are world-space — they miss on the ribbon');
+if (!entities.includes('traveled + 32')) fail('elites are not parked in gun range');
+if (!game.includes('_syncBossMeter') || !readFileSync(resolve(root, 'index.html'), 'utf8').includes('boss-meter')) {
+  fail('no boss health meter — damage is invisible');
+}
+
+if (starterTtk < 4) fail(`starter vs queen TTK ${starterTtk.toFixed(1)}s — sparks should be able to kill her without a stacked arsenal`);
+if (starterTtk > 14) fail(`starter vs queen TTK ${starterTtk.toFixed(1)}s — feels like you cannot damage her`);
 
 if (qTtk < 4.5) fail(`queen TTK ${qTtk.toFixed(1)}s — not a mid-boss, just a fat dive`);
 if (qTtk > 14) fail(`queen TTK ${qTtk.toFixed(1)}s — sponge`);

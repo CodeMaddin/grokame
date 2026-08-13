@@ -86,11 +86,28 @@ export class AudioBus {
     this.engine.g.gain.setTargetAtTime(0.12 + amount * 0.08, t, 0.08);
   }
 
-  laser() {
+  laser(rank = 0) {
     if (!this.enabled) return;
     const t = this.ctx.currentTime;
-    this._osc('square', 880, t, 0.09, 0.08);
-    this._osc('sawtooth', 420, t, 0.12, 0.05);
+    const pitch = 880 + Math.min(6, rank) * 70;
+    this._osc('square', pitch, t, 0.08, 0.07);
+    this._osc('sawtooth', 420 + rank * 36, t, 0.11, 0.045);
+    if (rank >= 5) this._osc('triangle', 1320 + rank * 40, t, 0.07, 0.03);
+  }
+
+  mote(chord = false) {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    this._osc('sine', 920, t, 0.09, 0.07);
+    this._osc('sine', chord ? 1460 : 1240, t + 0.04, 0.12, 0.06);
+  }
+
+  powerup() {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    this._osc('sine', 520, t, 0.16, 0.1);
+    this._osc('triangle', 780, t + 0.05, 0.18, 0.08);
+    this._osc('sine', 1170, t + 0.1, 0.22, 0.07);
   }
 
   collect() {

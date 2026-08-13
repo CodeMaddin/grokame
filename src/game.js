@@ -11,6 +11,7 @@ import { World } from './world.js';
 import { createShip, EngineTrail } from './ship.js';
 import { EntityField } from './entities.js';
 import { AudioBus } from './audio.js';
+import { RESONANCE_MAX, RANK_META, costToNext, volley } from './weapons.js';
 
 export class Game {
   constructor(canvas) {
@@ -94,6 +95,27 @@ export class Game {
     this.shipCore = ship.core;
     this.scene.add(this.ship);
     this.trail = new EngineTrail(this.scene);
+    this.traces = [];
+    for (let i = 0; i < 2; i++) {
+      const mote = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 10, 8),
+        new THREE.MeshBasicMaterial({ color: 0xff64e8 })
+      );
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.85, 10, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0xff64e8,
+          transparent: true,
+          opacity: 0.32,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      );
+      mote.add(halo);
+      mote.visible = false;
+      this.scene.add(mote);
+      this.traces.push(mote);
+    }
   }
 
   _bindInput() {
@@ -162,6 +184,9 @@ export class Game {
       threat: document.getElementById('threat'),
       health: document.getElementById('health-fill'),
       boost: document.getElementById('boost-fill'),
+      riftFill: document.getElementById('rift-fill'),
+      riftName: document.getElementById('rift-name'),
+      riftWrap: document.querySelector('.rift-wrap'),
       toast: document.getElementById('toast'),
       title: document.getElementById('title-screen'),
       pause: document.getElementById('pause-screen'),
@@ -362,6 +387,11 @@ export class Game {
     this.throttle = 0.55;
     this.boost = 1;
     this.health = 1;
+    this.rank = 0;
+    this.charge = 0;
+    if (this.traces) {
+      for (const mote of this.traces) mote.visible = false;
+    }
     this.score = 0;
     this.combo = 1;
     this.comboTimer = 0;
@@ -537,8 +567,18 @@ export class Game {
     const difficulty = 1 + this.traveled / 900;
     this.entities.laneLimit = this._laneLimit();
     this.entities.spawnAhead(this.path, this.traveled, difficulty);
-    this.entities.recycleBehind(this.traveled);
-    this.entities.update(dt, this.path, this.traveled, this.ship.position, this.offset, difficulty);
+    this.entities.recycleBehind(this.traveled, this.holdY);
+    this.entities.update(
+      dt,
+      this.path,
+      this.traveled,
+      this.ship.position,
+      this.offset,
+      difficulty,
+      this.holdY,
+    );
+
+    this._updateTraces(shipFrame, dt);
 
     const extras = [
       { pos: this.shipLights[0].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
@@ -561,12 +601,15 @@ export class Game {
     if (this.state === 'playing') {
       const firing = this.input.firing || this.input.keys.has('Space');
       if (firing && this.fireCd <= 0) {
+        const spec = volley(this.rank);
         const muzzle = this.traveled + this.holdY + 6.2;
-        const shotA = this.entities.fireRail(this.path, muzzle, this.offset.x - 1.8, 1);
-        const shotB = this.entities.fireRail(this.path, muzzle, this.offset.x + 1.8, 1);
-        if (shotA || shotB) {
-          this.audio.laser();
-          this.fireCd = 0.09;
+        let any = false;
+        for (const shot of spec.shots) {
+          if (this.entities.fireRail(this.path, muzzle, this.offset.x + shot.x, 1, shot)) any = true;
+        }
+        if (any) {
+          this.audio.laser(this.rank);
+          this.fireCd = spec.fireCd;
         }
       }
 
@@ -576,6 +619,9 @@ export class Game {
         this.audio.collect();
         this.health = Math.min(1, this.health + 0.05);
       }
+
+      const motes = this.entities.collectMotes(this.ship.position, 2.4);
+      if (motes.length) this._gainMotes(motes.length);
 
       const gateHits = this.entities.collectGates(this.ship.position);
       for (const hit of gateHits) {
@@ -601,17 +647,21 @@ export class Game {
           this.kills += 1;
           this._combatScore(220);
           this.boost = Math.min(1, this.boost + 0.18);
+          this._dropLoot(k);
         } else if (k.type === 'blocker') {
           this._combatScore(160);
           this.toast('PATH CLEAR');
+          this._dropLoot(k);
         } else if (k.type === 'unlock') {
           this._combatScore(220);
           this.audio.gate();
           this.toast('LOCK SHATTERED');
+          this._dropLoot(k);
         } else if (k.type === 'boss') {
           this.kills += 1;
           this._combatScore(3200);
           this.toast('SENTINEL DOWN');
+          this._dropLoot(k);
         }
       }
 
@@ -649,6 +699,11 @@ export class Game {
               en.mesh.visible = false;
               this.entities.explode(en.mesh.position.clone(), 0xff2458);
               this.kills += 1;
+              this._dropLoot({
+                drop: en.drop ?? 1,
+                pathDist: en.pathDist,
+                laneX: en.offset?.x ?? this.offset.x,
+              });
             }
           }
           this.audio.explosion();
@@ -680,6 +735,77 @@ export class Game {
     this._syncHud();
   }
 
+  _dropLoot(src) {
+    const n = src?.drop ?? 0;
+    if (n <= 0) return;
+    const dist = src.pathDist ?? (this.traveled + this.holdY + 6);
+    const lane = src.laneX ?? this.offset.x;
+    this.entities.spawnMote(this.path, dist, lane, n);
+  }
+
+  _gainMotes(n) {
+    if (n <= 0) return;
+    this.audio.mote(n > 1);
+    if (this.rank >= RESONANCE_MAX) {
+      this._combatScore(36 * n);
+      return;
+    }
+    this.charge += n;
+    let leveled = false;
+    while (this.rank < RESONANCE_MAX) {
+      const need = costToNext(this.rank);
+      if (this.charge < need) break;
+      this.charge -= need;
+      this.rank += 1;
+      leveled = true;
+    }
+    if (leveled) {
+      this.audio.powerup();
+      this.toast(RANK_META[this.rank].toast);
+    }
+  }
+
+  _shedResonance() {
+    if (this.rank <= 0 && this.charge <= 0) return;
+    const shed = Math.min(3, 1 + Math.floor(this.rank / 2));
+    if (this.rank > 0) {
+      this.rank -= 1;
+      this.charge = Math.max(0, Math.floor(costToNext(this.rank) * 0.35));
+    } else {
+      this.charge = 0;
+    }
+    this.entities.spawnMote(
+      this.path,
+      this.traveled + this.holdY + 12,
+      this.offset.x,
+      shed,
+      { grace: 0.45, spread: 7.5 },
+    );
+  }
+
+  _updateTraces(shipFrame, dt) {
+    const show = this.state === 'playing' && this.rank >= 5;
+    const t = this.clock.elapsedTime;
+    for (let i = 0; i < this.traces.length; i++) {
+      const mote = this.traces[i];
+      mote.visible = show;
+      if (!show) continue;
+      const side = i === 0 ? -1 : 1;
+      const orbit = 4.6 + Math.sin(t * 3.2 + i) * 0.35;
+      const lift = 0.4 + Math.cos(t * 2.4 + i * 1.7) * 0.2;
+      mote.position.copy(this.ship.position)
+        .addScaledVector(shipFrame.binormal, side * orbit)
+        .addScaledVector(shipFrame.normal, lift);
+      const gold = this.rank >= 7;
+      mote.material.color.set(gold ? 0xffd166 : 0xff64e8);
+      mote.scale.setScalar(0.9 + (this.rank >= 7 ? 0.25 : 0) + Math.sin(t * 6 + i) * 0.08);
+    }
+    if (this.shipCore) {
+      const col = this.rank >= 7 ? 0xffd166 : this.rank >= 5 ? 0xff64e8 : this.rank >= 2 ? 0x9be7ff : 0xff5ad4;
+      this.shipCore.material.color.set(col);
+    }
+  }
+
   _combatScore(n) {
     this.score += Math.floor(n * this.combo);
     this.combo = Math.min(8, this.combo + 0.35);
@@ -696,6 +822,7 @@ export class Game {
     this.invuln = 0.7;
     this.combo = 1;
     this.audio.hit();
+    this._shedResonance();
     if (this.health <= 0) this.die();
   }
 
@@ -707,6 +834,14 @@ export class Game {
     if (this.ui.threat) this.ui.threat.textContent = String(this.entities.hunterCount());
     this.ui.health.style.transform = `scaleX(${clamp(this.health, 0, 1)})`;
     this.ui.boost.style.transform = `scaleX(${clamp(this.boost, 0, 1)})`;
+    if (this.ui.riftName) this.ui.riftName.textContent = RANK_META[this.rank]?.name || 'NEEDLES';
+    if (this.ui.riftFill) {
+      const need = costToNext(this.rank);
+      const fill = this.rank >= RESONANCE_MAX ? 1 : need <= 0 ? 0 : clamp(this.charge / need, 0, 1);
+      this.ui.riftFill.style.transform = `scaleX(${fill})`;
+      this.ui.riftWrap?.classList.toggle('rift-max', this.rank >= RESONANCE_MAX);
+      this.ui.riftWrap?.classList.toggle('rift-wings', this.rank >= 5 && this.rank < 7);
+    }
   }
 
   _render() {

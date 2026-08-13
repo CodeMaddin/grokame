@@ -11,12 +11,19 @@ export class Shipyard {
     this.renderer = renderer;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#07040f');
-    this.scene.fog = new THREE.Fog('#07040f', 20, 52);
-    this.camera = new THREE.PerspectiveCamera(34, 1, 0.12, 80);
+    this.scene.fog = new THREE.Fog('#07040f', 36, 90);
+    this.camera = new THREE.PerspectiveCamera(34, 1, 0.12, 140);
     this.time = 0;
     this._portrait = false;
     this._stageShift = 0;
     this._stage = null;
+    this._fitDirty = true;
+    this._hullRadius = 3.2;
+    this._hullTarget = new THREE.Vector3(0, 0.1, 0);
+    this._fitDir = new THREE.Vector3();
+    this._fitBox = new THREE.Box3();
+    this._fitTmp = new THREE.Box3();
+    this._fitSize = new THREE.Vector3();
 
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
@@ -128,6 +135,7 @@ export class Shipyard {
 
   setLoadout(loadout, previewId = null) {
     dressShip(this.craft, loadout, previewId);
+    this._fitDirty = true;
   }
 
   resize(w, h, stage = null, panel = null) {
@@ -143,7 +151,12 @@ export class Shipyard {
     this.camera.updateProjectionMatrix();
     this.composer.setSize(Math.max(2, filmW), Math.max(2, filmH));
     this.bloom.setSize(Math.max(2, filmW), Math.max(2, filmH));
-    this.craft.group.scale.setScalar(this._portrait ? 2.05 : 1.72);
+    const scale = this._portrait ? 1.78 : 1.72;
+    if (Math.abs(this.craft.group.scale.x - scale) > 0.001) {
+      this.craft.group.scale.setScalar(scale);
+      this._fitDirty = true;
+    }
+    this._fitCamera();
   }
 
   _stageViewport() {
@@ -173,13 +186,50 @@ export class Shipyard {
       }
     }
     spinShipKits(this.craft, dt);
-    if (this._portrait) {
-      this.camera.position.set(1.85, 1.45, 5.6);
-      this.camera.lookAt(0, 0.08, 0);
-    } else {
-      this.camera.position.set(2.6, 1.55, 7.4);
-      this.camera.lookAt(0, 0.12, 0);
+    this._fitCamera();
+  }
+
+  _measureHull() {
+    const root = this.craft.group;
+    root.updateWorldMatrix(true, true);
+    const box = this._fitBox.makeEmpty();
+    const tmp = this._fitTmp;
+    root.traverse((obj) => {
+      if (!obj.isMesh || !obj.geometry) return;
+      let p = obj;
+      while (p) {
+        if (p.visible === false) return;
+        p = p.parent;
+      }
+      tmp.setFromObject(obj);
+      if (!tmp.isEmpty()) box.union(tmp);
+    });
+    if (box.isEmpty()) {
+      this._hullRadius = 3.2;
+      this._hullTarget.set(0, 0.1, 0);
+      this._fitDirty = false;
+      return;
     }
+    box.getSize(this._fitSize);
+    box.getCenter(this._hullTarget);
+    const spinR = 0.5 * Math.hypot(this._fitSize.x, this._fitSize.z);
+    this._hullRadius = Math.max(2.2, Math.hypot(spinR, this._fitSize.y * 0.5));
+    this._fitDirty = false;
+  }
+
+  _fitCamera() {
+    if (this._fitDirty) this._measureHull();
+    const filmH = this._stage ? this._stage.height : this._h;
+    const titlePx = this._portrait ? 58 : 28;
+    const usableV = Math.max(0.6, 1 - titlePx / Math.max(1, filmH));
+    const vHalf = THREE.MathUtils.degToRad(this.camera.fov * 0.5);
+    const tanV = Math.tan(vHalf) * usableV;
+    const tanH = Math.tan(vHalf) * this.camera.aspect;
+    const dist = (this._hullRadius * 1.14) / Math.min(tanV, tanH);
+    this._fitDir.set(this._portrait ? 0.46 : 0.5, this._portrait ? 0.3 : 0.26, 1).normalize();
+    this.camera.position.copy(this._hullTarget).addScaledVector(this._fitDir, dist);
+    this.camera.lookAt(this._hullTarget);
+    this.camera.updateProjectionMatrix();
   }
 
   render() {

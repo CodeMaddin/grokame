@@ -281,17 +281,14 @@ if (!uncertain(pmrem, 'RoomEnvironment PMREM sigma not found')) {
   fail(`PMREM sigma ${pmrem[1]} smears the hangar environment`);
 }
 
-const portraitCam = yard.match(/_portrait\) \{\s*this\.camera\.position\.set\(([^)]+)\)/);
-if (!uncertain(portraitCam, 'portrait hangar camera position not found')) {
-  /* fail already */
-} else {
-  const parts = portraitCam[1].split(',').map((s) => Number(s.trim()));
-  note(`portrait hangar camera ${parts.join(', ')}`);
-  if (parts.some((n) => !Number.isFinite(n))) fail('uncertain: portrait camera is not numeric');
-  else {
-    if (Math.abs(parts[0]) < 1.2) fail('portrait hangar camera is head-on — wings will not read as a ship');
-    if (parts[2] > 8) fail(`portrait hangar camera z ${parts[2]} is too far — the hull is a postage stamp in the peek`);
-  }
+if (!yard.includes('_fitCamera') || !yard.includes('_measureHull')) {
+  fail('hangar does not auto-zoom the hull to the leftover stage');
+}
+if (!yard.includes('Box3')) fail('fit does not measure the visible hull');
+if (!/Math\.tan/.test(yard)) fail('fit does not use the camera frustum to keep the ship in frame');
+if (!/usableV|titlePx/.test(yard)) fail('fit ignores the DRYDOCK title overlay — the nose will clip under SHIPYARD');
+if (/_portrait\) \{\s*this\.camera\.position\.set\(/.test(yard)) {
+  fail('portrait hangar still hardcodes a zoom instead of fitting the viewable area');
 }
 
 const peekVh = vh(decl(stage, 'min-height'));

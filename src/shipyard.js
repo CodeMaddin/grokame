@@ -15,6 +15,7 @@ export class Shipyard {
     this.camera = new THREE.PerspectiveCamera(34, 1, 0.12, 80);
     this.time = 0;
     this._portrait = false;
+    this._stageShift = 0;
 
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.08).texture;
@@ -125,12 +126,24 @@ export class Shipyard {
     dressShip(this.craft, loadout, previewId);
   }
 
-  resize(w, h) {
-    this._portrait = h > w * 1.05;
+  resize(w, h, stage = null, panel = null) {
+    this._w = w;
+    this._h = h;
+    this._portrait = !!(panel && stage && panel.top > stage.bottom - 8);
     this.camera.aspect = w / Math.max(1, h);
+    if (stage && w > 0) {
+      const stageCenter = stage.left + stage.width * 0.5;
+      const shift = w * 0.5 - stageCenter;
+      this._stageShift = shift;
+      this.camera.setViewOffset(w, h, shift, 0, w, h);
+    } else {
+      this._stageShift = 0;
+      this.camera.clearViewOffset();
+    }
     this.camera.updateProjectionMatrix();
     this.composer.setSize(w, h);
     this.bloom.setSize(w, h);
+    this.craft.group.scale.setScalar(this._portrait ? 1.38 : 1.72);
   }
 
   update(dt) {
@@ -150,11 +163,11 @@ export class Shipyard {
       }
     }
     if (this._portrait) {
-      this.camera.position.set(0.2, 2.35, 11.2);
-      this.camera.lookAt(0, 0.35, 0);
+      this.camera.position.set(0.35, 1.85, 9.8);
+      this.camera.lookAt(0, 0.12, 0);
     } else {
-      this.camera.position.set(-3.4, 1.85, 8.6);
-      this.camera.lookAt(0.85, 0.2, 0);
+      this.camera.position.set(2.6, 1.55, 7.4);
+      this.camera.lookAt(0, 0.12, 0);
     }
   }
 

@@ -944,6 +944,7 @@ export class Game {
     this._hangarCursor = Math.max(0, Math.min(MODULE_ORDER.length - 1, this._hangarCursor || 0));
     this._renderHangar();
     this.clock.getDelta();
+    this._syncShipyardView();
   }
 
   _hangarSelected() {
@@ -1111,6 +1112,7 @@ export class Game {
     this.audio.tick();
     if (this.state === 'paused' || this.state === 'dead' || this.state === 'continue' || this.state === 'map' || this.state === 'hangar' || (this.state === 'title' && this._hasRun)) {
       if (this.state === 'hangar') {
+        this._syncShipyardView();
         this.shipyard.update(dt);
         this.shipyard.render();
         return;
@@ -1714,6 +1716,19 @@ export class Game {
     this.bloom.setSize(w, h);
     this.fx.uniforms.uResolution.value.set(w, h);
     this.shipyard?.resize(w, h);
+    this._syncShipyardView();
+  }
+
+  _syncShipyardView() {
+    if (this.state !== 'hangar' || !this.shipyard) return;
+    const stage = this.ui.hangar?.querySelector('.hangar-stage');
+    const panel = this.ui.hangar?.querySelector('.hangar-panel');
+    this.shipyard.resize(
+      window.innerWidth,
+      window.innerHeight,
+      stage?.getBoundingClientRect() ?? null,
+      panel?.getBoundingClientRect() ?? null,
+    );
   }
 
   _runStage() {

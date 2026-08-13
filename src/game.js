@@ -488,14 +488,10 @@ export class Game {
     this.entities.update(dt, this.path, this.traveled, this.ship.position, this.offset, difficulty);
 
     const extras = [
+      { pos: this.shipLights[0].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
+      { pos: this.shipLights[1].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
       { pos: this.world.sun.position, color: new THREE.Color('#ffe29a'), intensity: 22 },
     ];
-    if (this._activeView() !== 'cockpit') {
-      extras.unshift(
-        { pos: this.shipLights[0].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
-        { pos: this.shipLights[1].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
-      );
-    }
     this.world.setLights(this.entities.nearestLights(this.ship.position, extras));
 
     this.hurt = Math.max(0, this.hurt - dt * 1.8);
@@ -613,18 +609,17 @@ export class Game {
     this.fx.uniforms.uBoost.value = boostAmt;
     this.fx.uniforms.uHurt.value = this.hurt;
     this.fx.uniforms.uGate.value = this.gateFx;
-    const view = this._activeView();
     const sunNdc = this.world.sun.position.clone().project(this.camera);
     this.fx.uniforms.uSunPos.value.set(sunNdc.x * 0.5 + 0.5, sunNdc.y * 0.5 + 0.5);
     const sunInView = sunNdc.z < 1
       && sunNdc.x > -1.2 && sunNdc.x < 1.2
       && sunNdc.y > -1.2 && sunNdc.y < 1.2;
-    const flare = sunInView ? (view === 'cockpit' ? 0 : 0.85) : 0;
+    const flare = sunInView ? 0.85 : 0;
     this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
-    this.fx.uniforms.uCockpit.value = lerp(this.fx.uniforms.uCockpit.value, view === 'cockpit' ? 1 : 0, 1 - Math.exp(-dt * 8));
-    const bloomStr = (view === 'cockpit' ? 0.08 : 0.48) + this.gateFx * 0.28;
-    const bloomThr = view === 'cockpit' ? 0.72 : 0.42;
-    const bloomRad = (view === 'cockpit' ? 0.18 : 0.5) + this.gateFx * 0.12;
+    this.fx.uniforms.uCockpit.value = 0;
+    const bloomStr = 0.48 + this.gateFx * 0.28;
+    const bloomThr = 0.42;
+    const bloomRad = 0.5 + this.gateFx * 0.12;
     this.bloom.strength = lerp(this.bloom.strength, bloomStr, 1 - Math.exp(-dt * 6));
     this.bloom.threshold = lerp(this.bloom.threshold, bloomThr, 1 - Math.exp(-dt * 6));
     this.bloom.radius = lerp(this.bloom.radius, bloomRad, 1 - Math.exp(-dt * 6));

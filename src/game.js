@@ -11,7 +11,7 @@ import { World } from './world.js';
 import { createShip, EngineTrail } from './ship.js';
 import { EntityField } from './entities.js';
 import { AudioBus } from './audio.js';
-import { RESONANCE_MAX, RANK_META, costToNext, volley } from './weapons.js';
+import { STEP_MAX, SEQUENCE, starterLoadout, loadoutFromStep, costToNext, hudName, arsenal } from './weapons.js';
 
 export class Game {
   constructor(canvas) {
@@ -96,7 +96,7 @@ export class Game {
     this.scene.add(this.ship);
     this.trail = new EngineTrail(this.scene);
     this.traces = [];
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 4; i++) {
       const mote = new THREE.Mesh(
         new THREE.SphereGeometry(0.42, 10, 8),
         new THREE.MeshBasicMaterial({ color: 0xff64e8 })
@@ -388,7 +388,10 @@ export class Game {
     this.boost = 1;
     this.health = 1;
     this.rank = 0;
+    this.step = 0;
     this.charge = 0;
+    this.loadout = starterLoadout();
+    this.gunCd = { primary: 0, missile: 0, titan: 0, mine: 0, nova: 0 };
     if (this.traces) {
       for (const mote of this.traces) mote.visible = false;
     }
@@ -596,20 +599,30 @@ export class Game {
     this.gateFx = gatePulse;
     this.comboTimer -= dt;
     if (this.comboTimer <= 0) this.combo = 1;
-    this.fireCd = Math.max(0, this.fireCd - dt);
+    for (const k of Object.keys(this.gunCd)) this.gunCd[k] = Math.max(0, this.gunCd[k] - dt);
 
     if (this.state === 'playing') {
       const firing = this.input.firing || this.input.keys.has('Space');
-      if (firing && this.fireCd <= 0) {
-        const spec = volley(this.rank);
+      if (firing) {
+        const arms = arsenal(this.loadout, this.clock.elapsedTime);
         const muzzle = this.traveled + this.holdY + 6.2;
-        let any = false;
-        for (const shot of spec.shots) {
-          if (this.entities.fireRail(this.path, muzzle, this.offset.x + shot.x, 1, shot)) any = true;
-        }
-        if (any) {
-          this.audio.laser(this.rank);
-          this.fireCd = spec.fireCd;
+        let voiced = false;
+        for (const group of ['primary', 'missile', 'titan', 'mine', 'nova']) {
+          const bank = arms[group];
+          if (!bank.shots.length || this.gunCd[group] > 0) continue;
+          let any = false;
+          for (const shot of bank.shots) {
+            if (this.entities.fireRail(this.path, muzzle, this.offset.x + shot.x, 1, shot)) any = true;
+          }
+          if (any) {
+            this.gunCd[group] = bank.cd;
+            if (!voiced) {
+              this.audio.guns(group, this.loadout);
+              voiced = group === 'primary';
+            } else if (group === 'titan' || group === 'missile') {
+              this.audio.guns(group, this.loadout);
+            }
+          }
         }
       }
 
@@ -746,62 +759,67 @@ export class Game {
   _gainMotes(n) {
     if (n <= 0) return;
     this.audio.mote(n > 1);
-    if (this.rank >= RESONANCE_MAX) {
+    if (this.step >= STEP_MAX) {
       this._combatScore(36 * n);
       return;
     }
     this.charge += n;
-    let leveled = false;
-    while (this.rank < RESONANCE_MAX) {
-      const need = costToNext(this.rank);
+    let toast = null;
+    while (this.step < STEP_MAX) {
+      const need = costToNext(this.step);
       if (this.charge < need) break;
       this.charge -= need;
-      this.rank += 1;
-      leveled = true;
+      toast = SEQUENCE[this.step].toast || toast;
+      this.step += 1;
     }
-    if (leveled) {
+    this.loadout = loadoutFromStep(this.step);
+    this.rank = this.step;
+    if (toast) {
       this.audio.powerup();
-      this.toast(RANK_META[this.rank].toast);
+      this.toast(toast);
     }
   }
 
   _shedResonance() {
-    if (this.rank <= 0 && this.charge <= 0) return;
-    const shed = Math.min(3, 1 + Math.floor(this.rank / 2));
-    if (this.rank > 0) {
-      this.rank -= 1;
-      this.charge = Math.max(0, Math.floor(costToNext(this.rank) * 0.35));
-    } else {
-      this.charge = 0;
-    }
+    if (this.step <= 0 && this.charge <= 0) return;
+    const shed = Math.min(6, 2 + Math.floor(this.step / 14));
+    this.step = Math.max(0, this.step - shed);
+    this.charge = 0;
+    this.loadout = loadoutFromStep(this.step);
+    this.rank = this.step;
     this.entities.spawnMote(
       this.path,
       this.traveled + this.holdY + 12,
       this.offset.x,
-      shed,
+      Math.min(4, shed),
       { grace: 0.45, spread: 7.5 },
     );
   }
 
   _updateTraces(shipFrame, dt) {
-    const show = this.state === 'playing' && this.rank >= 5;
+    const drones = this.loadout?.drone || 0;
+    const showN = this.state === 'playing' ? Math.min(this.traces.length, drones >= 1 ? (drones >= 5 ? 4 : drones >= 3 ? 3 : 2) : 0) : 0;
     const t = this.clock.elapsedTime;
     for (let i = 0; i < this.traces.length; i++) {
       const mote = this.traces[i];
-      mote.visible = show;
-      if (!show) continue;
-      const side = i === 0 ? -1 : 1;
-      const orbit = 4.6 + Math.sin(t * 3.2 + i) * 0.35;
+      mote.visible = i < showN;
+      if (i >= showN) continue;
+      const side = i % 2 === 0 ? -1 : 1;
+      const row = Math.floor(i / 2);
+      const orbit = 4.4 + row * 1.6 + Math.sin(t * 3.2 + i) * 0.35;
       const lift = 0.4 + Math.cos(t * 2.4 + i * 1.7) * 0.2;
       mote.position.copy(this.ship.position)
         .addScaledVector(shipFrame.binormal, side * orbit)
         .addScaledVector(shipFrame.normal, lift);
-      const gold = this.rank >= 7;
+      const gold = (this.loadout.titan || 0) >= 1;
       mote.material.color.set(gold ? 0xffd166 : 0xff64e8);
-      mote.scale.setScalar(0.9 + (this.rank >= 7 ? 0.25 : 0) + Math.sin(t * 6 + i) * 0.08);
+      mote.scale.setScalar(0.85 + drones * 0.06 + Math.sin(t * 6 + i) * 0.08);
     }
     if (this.shipCore) {
-      const col = this.rank >= 7 ? 0xffd166 : this.rank >= 5 ? 0xff64e8 : this.rank >= 2 ? 0x9be7ff : 0xff5ad4;
+      const col = (this.loadout.titan || 0) > 0 ? 0xffd166
+        : (this.loadout.seeker || 0) > 0 ? 0xff8a4a
+          : (this.loadout.needle || 0) > 0 ? 0x9be7ff
+            : 0xc8fff6;
       this.shipCore.material.color.set(col);
     }
   }
@@ -834,13 +852,13 @@ export class Game {
     if (this.ui.threat) this.ui.threat.textContent = String(this.entities.hunterCount());
     this.ui.health.style.transform = `scaleX(${clamp(this.health, 0, 1)})`;
     this.ui.boost.style.transform = `scaleX(${clamp(this.boost, 0, 1)})`;
-    if (this.ui.riftName) this.ui.riftName.textContent = RANK_META[this.rank]?.name || 'NEEDLES';
+    if (this.ui.riftName) this.ui.riftName.textContent = hudName(this.loadout);
     if (this.ui.riftFill) {
-      const need = costToNext(this.rank);
-      const fill = this.rank >= RESONANCE_MAX ? 1 : need <= 0 ? 0 : clamp(this.charge / need, 0, 1);
-      this.ui.riftFill.style.transform = `scaleX(${fill})`;
-      this.ui.riftWrap?.classList.toggle('rift-max', this.rank >= RESONANCE_MAX);
-      this.ui.riftWrap?.classList.toggle('rift-wings', this.rank >= 5 && this.rank < 7);
+      const fill = this.step >= STEP_MAX ? 1 : clamp(this.step / STEP_MAX, 0, 1);
+      this.ui.riftFill.style.transform = `scaleX(${Math.max(0.03, fill)})`;
+      this.ui.riftWrap?.classList.toggle('rift-max', this.step >= STEP_MAX);
+      this.ui.riftWrap?.classList.toggle('rift-wings', (this.loadout.seeker || 0) > 0 && (this.loadout.titan || 0) === 0);
+      this.ui.riftWrap?.classList.toggle('rift-titan', (this.loadout.titan || 0) > 0);
     }
   }
 

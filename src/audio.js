@@ -87,12 +87,36 @@ export class AudioBus {
   }
 
   laser(rank = 0) {
+    this.guns('primary', { needle: Math.max(1, rank) });
+  }
+
+  guns(group = 'primary', loadout = {}) {
     if (!this.enabled) return;
     const t = this.ctx.currentTime;
-    const pitch = 880 + Math.min(6, rank) * 70;
-    this._osc('square', pitch, t, 0.08, 0.07);
-    this._osc('sawtooth', 420 + rank * 36, t, 0.11, 0.045);
-    if (rank >= 5) this._osc('triangle', 1320 + rank * 40, t, 0.07, 0.03);
+    if (group === 'titan') {
+      this._osc('sawtooth', 70, t, 0.22, 0.14);
+      this._osc('square', 140, t, 0.16, 0.08);
+      this._osc('triangle', 220, t, 0.18, 0.06);
+      return;
+    }
+    if (group === 'missile') {
+      this._osc('sawtooth', 180, t, 0.14, 0.07);
+      this._osc('square', 90, t, 0.12, 0.05);
+      return;
+    }
+    if (group === 'mine' || group === 'nova') {
+      this._osc('triangle', 420, t, 0.1, 0.05);
+      this._osc('sine', 640, t, 0.12, 0.04);
+      return;
+    }
+    if ((loadout.needle || 0) > 0) {
+      const pitch = 880 + Math.min(6, loadout.needle) * 55;
+      this._osc('square', pitch, t, 0.07, 0.06);
+      this._osc('sawtooth', 420 + loadout.needle * 28, t, 0.1, 0.04);
+      return;
+    }
+    this._osc('square', 520, t, 0.05, 0.045);
+    this._osc('triangle', 340, t, 0.07, 0.03);
   }
 
   mote(chord = false) {

@@ -142,6 +142,11 @@ canvas {
   box-shadow: 0 0 12px #ff3bd4;
 }
 
+.rift-wrap.rift-titan #rift-fill {
+  background: linear-gradient(90deg, #ff9a3a, #ffd166);
+  box-shadow: 0 0 12px #ffd166;
+}
+
 .rift-wrap.rift-max #rift-fill {
   background: linear-gradient(90deg, #ffd166, #fff3c4);
   box-shadow: 0 0 12px #ffd166;

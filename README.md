@@ -26,6 +26,7 @@ npm run preview
 | Shift | Boost |
 | 1 / 2 / 3 | Chase / cockpit / scroll camera |
 | V | Cycle camera |
+| Esc | Main menu — resume from there |
 | P | Pause |
 
 The rift auto-scrolls like a vertical shmup. Strafe across the playfield; the ship never yaws or springs back to center, and the guns always shoot up the screen. Enemies enter from the top in lanes and descend. Amber cores sit in your path and will wreck the hull unless you shoot them. Locked magenta gates have to be shot open. Combat is the score. Orbs off the path are just snacks.

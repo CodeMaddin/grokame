@@ -25,6 +25,7 @@ export class Game {
     this.audio = new AudioBus();
     this.view = localStorage.getItem('aether-view') || 'scroll';
     if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'scroll';
+    this._hasRun = false;
     this._viewSnap = 1;
     this._camLook = new THREE.Vector3();
     this._camUp = new THREE.Vector3(0, 1, 0);
@@ -92,6 +93,11 @@ export class Game {
 
   _bindInput() {
     window.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        if (!e.repeat) this._onEscape();
+        return;
+      }
       this.input.keys.add(e.code);
       if (e.code === 'KeyP' && this.state === 'playing') this.pause();
       if (e.code === 'Space') e.preventDefault();
@@ -139,17 +145,79 @@ export class Game {
       pause: document.getElementById('pause-screen'),
       dead: document.getElementById('dead-screen'),
       stats: document.getElementById('final-stats'),
+      startBtn: document.getElementById('start-btn'),
+      resumeTitleBtn: document.getElementById('resume-title-btn'),
       viewBtns: [...document.querySelectorAll('[data-view]')],
     };
-    document.getElementById('start-btn').addEventListener('click', () => this.startPlay());
+    this.ui.startBtn.addEventListener('click', () => this.startPlay());
+    this.ui.resumeTitleBtn.addEventListener('click', () => this.resumeFromMenu());
     document.getElementById('resume-btn').addEventListener('click', () => this.resume());
+    document.getElementById('menu-btn').addEventListener('click', () => this.goToMenu({ resumeable: true }));
     document.getElementById('retry-btn').addEventListener('click', () => this.startPlay());
+    const menuButtons = [
+      this.ui.startBtn,
+      this.ui.resumeTitleBtn,
+      document.getElementById('resume-btn'),
+      document.getElementById('menu-btn'),
+      document.getElementById('retry-btn'),
+    ];
+    for (const btn of menuButtons) {
+      btn.addEventListener('mousedown', (e) => e.stopPropagation());
+      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    }
     for (const btn of this.ui.viewBtns) {
       btn.addEventListener('click', () => this.setView(btn.dataset.view));
       btn.addEventListener('mousedown', (e) => e.stopPropagation());
       btn.addEventListener('pointerdown', (e) => e.stopPropagation());
     }
     this._syncViewHud();
+    this._syncTitleActions();
+  }
+
+  _syncTitleActions() {
+    if (!this.ui?.resumeTitleBtn || !this.ui?.startBtn) return;
+    this.ui.resumeTitleBtn.hidden = !this._hasRun;
+    this.ui.startBtn.textContent = this._hasRun ? 'NEW RUN' : 'ENGAGE';
+  }
+
+  _clearInput() {
+    this.input.keys.clear();
+    this.input.firing = false;
+  }
+
+  _onEscape() {
+    if (this.state === 'playing' || this.state === 'paused') {
+      this.goToMenu({ resumeable: true });
+      return;
+    }
+    if (this.state === 'title' && this._hasRun) {
+      this.resumeFromMenu();
+      return;
+    }
+    if (this.state === 'dead') this.goToMenu({ resumeable: false });
+  }
+
+  goToMenu({ resumeable = false } = {}) {
+    this._clearInput();
+    this._hasRun = resumeable;
+    this.state = 'title';
+    this.ui.pause.classList.add('hidden');
+    this.ui.dead.classList.add('hidden');
+    this.ui.hud.classList.remove('visible');
+    this.ui.title.classList.remove('hidden');
+    this._syncTitleActions();
+    if (!resumeable) this.reset(true);
+  }
+
+  resumeFromMenu() {
+    if (!this._hasRun) return;
+    this._clearInput();
+    this.state = 'playing';
+    this.ui.title.classList.add('hidden');
+    this.ui.pause.classList.add('hidden');
+    this.ui.dead.classList.add('hidden');
+    this.ui.hud.classList.add('visible');
+    this.clock.getDelta();
   }
 
   cycleView() {
@@ -275,11 +343,13 @@ export class Game {
   async startPlay() {
     await this.audio.resume();
     this.reset(true);
+    this._hasRun = true;
     this.state = 'playing';
     this.ui.title.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
     this.ui.hud.classList.add('visible');
+    this._syncTitleActions();
     this._viewSnap = 1;
     this.toast('HUNTERS INBOUND');
     this.clock.getDelta();
@@ -298,6 +368,8 @@ export class Game {
 
   die() {
     this.state = 'dead';
+    this._hasRun = false;
+    this._syncTitleActions();
     this.audio.explosion();
     this.entities.explode(this.ship.position.clone(), 0xff3bd4);
     this.best = Math.max(this.best, this.score);
@@ -321,7 +393,7 @@ export class Game {
   loop() {
     requestAnimationFrame(this.loop);
     const dt = Math.min(this.clock.getDelta(), 0.05);
-    if (this.state === 'paused') {
+    if (this.state === 'paused' || (this.state === 'title' && this._hasRun)) {
       this._render();
       return;
     }

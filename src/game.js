@@ -11,8 +11,17 @@ import { World } from './world.js';
 import { createShip, EngineTrail } from './ship.js';
 import { EntityField } from './entities.js';
 import { AudioBus } from './audio.js';
+import { StageDirector, gradeRun, loadScores, saveScore } from './stage.js';
+import {
+  CAMPAIGNS,
+  getLevel,
+  nextSlot,
+  loadProgress,
+  saveProgress,
+  markCleared,
+  catchupStep,
+} from './campaigns.js';
 import { STEP_MAX, SEQUENCE, starterLoadout, loadoutFromStep, costToNext, hudName, arsenal } from './weapons.js';
-import { StageDirector, CHAPTERS, gradeRun, loadScores, saveScore } from './stage.js';
 
 export class Game {
   constructor(canvas) {
@@ -36,6 +45,12 @@ export class Game {
     this._camUp = new THREE.Vector3(0, 1, 0);
     this._chaseX = 0;
     this.stage = new StageDirector();
+    this.progress = loadProgress();
+    this.campaignIndex = this.progress.nextC || 0;
+    this.levelIndex = this.progress.nextL || 0;
+    this._runLive = false;
+    this._resumeTo = 'play';
+    this._mapCursor = { c: this.campaignIndex, l: this.levelIndex };
     this.hitStop = 0;
     this.kick = new THREE.Vector3();
     this.kickAmt = 0;
@@ -308,6 +323,13 @@ export class Game {
       lives: document.getElementById('life-pips'),
       continue: document.getElementById('continue-screen'),
       continueLeft: document.getElementById('continue-left'),
+      map: document.getElementById('map-screen'),
+      mapGrid: document.getElementById('campaign-map'),
+      mapKicker: document.getElementById('map-kicker'),
+      mapTitle: document.getElementById('map-title'),
+      mapTag: document.getElementById('map-tag'),
+      deployBtn: document.getElementById('deploy-btn'),
+      mapMenuBtn: document.getElementById('map-menu-btn'),
       bossMeter: document.getElementById('boss-meter'),
       bossFill: document.getElementById('boss-fill'),
       bossName: document.getElementById('boss-name'),
@@ -322,6 +344,8 @@ export class Game {
     document.getElementById('resume-btn').addEventListener('click', () => this.resume());
     document.getElementById('menu-btn').addEventListener('click', () => this.goToMenu({ resumeable: true }));
     document.getElementById('retry-btn').addEventListener('click', () => this.startPlay());
+    this.ui.deployBtn?.addEventListener('click', () => this._deployLevel());
+    this.ui.mapMenuBtn?.addEventListener('click', () => this.goToMenu({ resumeable: this._runLive }));
     document.getElementById('continue-yes')?.addEventListener('click', () => this._acceptContinue());
     document.getElementById('continue-no')?.addEventListener('click', () => this._declineContinue());
     this.ui.pauseBtn?.addEventListener('click', () => {
@@ -337,6 +361,8 @@ export class Game {
       document.getElementById('retry-btn'),
       document.getElementById('continue-yes'),
       document.getElementById('continue-no'),
+      this.ui.deployBtn,
+      this.ui.mapMenuBtn,
       this.ui.pauseBtn,
       this.ui.bombBtn,
     ].filter(Boolean);
@@ -357,6 +383,15 @@ export class Game {
     this._syncTitleActions();
     this._renderScoreboard(this.ui.titleScores, loadScores());
     this._syncBombs();
+    this.ui.mapGrid?.addEventListener('click', (e) => {
+      const node = e.target.closest('[data-c]');
+      if (!node) return;
+      const c = Number(node.dataset.c);
+      const l = Number(node.dataset.l);
+      if (this._nodeLocked(c, l)) return;
+      this._mapCursor = { c, l };
+      this._renderMap();
+    });
   }
 
   _syncTitleActions() {
@@ -391,6 +426,10 @@ export class Game {
   }
 
   _onEscape() {
+    if (this.state === 'map') {
+      this.goToMenu({ resumeable: this._runLive });
+      return;
+    }
     if (this.state === 'playing' || this.state === 'paused') {
       this.goToMenu({ resumeable: true });
       return;
@@ -406,26 +445,36 @@ export class Game {
   goToMenu({ resumeable = false } = {}) {
     this._clearInput();
     this._hasRun = resumeable;
+    this._resumeTo = this.state === 'map' ? 'map' : 'play';
     this.state = 'title';
     this.audio.setPaused(true);
     this.ui.pause.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
+    this.ui.map?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.title.classList.remove('hidden');
     this._syncTitleActions();
     this._renderScoreboard(this.ui.titleScores, loadScores());
-    if (!resumeable) this.reset(true);
+    if (!resumeable) {
+      this._runLive = false;
+      this.reset(true);
+    }
   }
 
   resumeFromMenu() {
     if (!this._hasRun) return;
+    if (this._resumeTo === 'map') {
+      this._openMap({ keepRun: true });
+      return;
+    }
     this._clearInput();
     this.state = 'playing';
     this.ui.title.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
+    this.ui.map?.classList.add('hidden');
     this.ui.hud.classList.add('visible');
     this.audio.setPaused(false);
     this.clock.getDelta();
@@ -524,57 +573,73 @@ export class Game {
   }
 
   reset(layout = true) {
-    this.traveled = 40;
-    this.speed = 28;
-    this.throttle = 0.55;
-    this.boost = 1;
+    this._resetRun();
+    this._resetLevel(layout);
+  }
+
+  _resetRun() {
     this.health = 1;
     this.lives = 3;
     this.continues = 2;
-    this.spawnIn = 0.65;
     this.rank = 0;
     this.step = 0;
     this.charge = 0;
     this.loadout = starterLoadout();
     this.gunCd = { primary: 0, missile: 0, titan: 0, mine: 0, nova: 0 };
-    if (this.traces) {
-      for (const mote of this.traces) mote.visible = false;
-    }
     this.score = 0;
     this.combo = 1;
     this.comboTimer = 0;
     this._lastCombo = 1;
+    this.kills = 0;
+    this.maxCombo = 1;
+    this.maxStep = 0;
+    this.nearMisses = 0;
+    this.bombsUsed = 0;
+    this.bombs = 3;
+    this.best = Number(localStorage.getItem('aether-best') || 0);
+    this.campaignIndex = this.progress?.nextC || 0;
+    this.levelIndex = this.progress?.nextL || 0;
+  }
+
+  _resetLevel(layout = true) {
+    this.traveled = 40;
+    this.speed = 28;
+    this.throttle = 0.55;
+    this.boost = 1;
+    this.health = 1;
+    this.spawnIn = 0.65;
     this.hurt = 0;
     this.invuln = 2.2;
     this.gateFx = 0;
     this.fireCd = 0;
-    this.kills = 0;
     this._blockWarn = false;
     this.offset = new THREE.Vector2(0, 0);
     this.holdY = 8;
     this._chaseX = 0;
     this.steer = new THREE.Vector2(0, 0);
     this.slide = new THREE.Vector2(0, 0);
-    this.best = Number(localStorage.getItem('aether-best') || 0);
     this._ribbonAt = -1;
-    this.stage.reset();
     this.hitStop = 0;
     this.kick.set(0, 0, 0);
     this.kickAmt = 0;
-    this.bombs = 3;
     this.bombCd = 0;
-    this.maxCombo = 1;
-    this.maxStep = 0;
-    this.nearMisses = 0;
-    this.bombsUsed = 0;
     this._chapterAt = -1;
-    this._chapterId = 'default';
     this.muzzleFlash = 0;
+    if (this.traces) {
+      for (const mote of this.traces) mote.visible = false;
+    }
+    const slot = getLevel(this.campaignIndex, this.levelIndex);
+    const script = slot?.lv.script;
+    const length = slot?.lv.length || 1400;
+    this.stage = new StageDirector(script, length);
+    this._chapterId = slot?.lv.world || 'default';
     this.entities.reset();
-    this.world.layoutFromPath(this.path, this.traveled, this._laneLimit());
-    this.world.attachRibbon(this._localRibbon());
-    this.world.setChapter('default');
-    this.audio.setChapter('default');
+    if (layout) {
+      this.world.layoutFromPath(this.path, this.traveled, this._laneLimit());
+      this.world.attachRibbon(this._localRibbon());
+    }
+    this.world.setChapter(this._chapterId);
+    this.audio.setChapter(this._chapterId);
     this._syncBombs();
     this._syncLives();
   }
@@ -590,19 +655,11 @@ export class Game {
 
   async startPlay() {
     await this.audio.resume();
-    this.reset(true);
-    this._hasRun = true;
-    this.state = 'playing';
-    this.ui.title.classList.add('hidden');
-    this.ui.dead.classList.add('hidden');
-    this.ui.pause.classList.add('hidden');
-    this.ui.continue?.classList.add('hidden');
-    this.ui.hud.classList.add('visible');
-    this._syncTitleActions();
-    this._viewSnap = 1;
-    this.audio.setPaused(false);
-    this.clock.getDelta();
-    this._releaseUiFocus();
+    this._runLive = false;
+    this._hasRun = false;
+    this.progress = loadProgress();
+    this._mapCursor = { c: this.progress.nextC || 0, l: this.progress.nextL || 0 };
+    this._openMap({ fromTitle: true });
   }
 
   pause() {
@@ -675,13 +732,10 @@ export class Game {
     this._endRun(false);
   }
 
-  win() {
-    this._endRun(true);
-  }
-
   _endRun(victory) {
     this.state = 'dead';
     this._hasRun = false;
+    this._runLive = false;
     this._syncTitleActions();
     this.audio.setPaused(false);
     this.audio.explosion(true);
@@ -706,9 +760,16 @@ export class Game {
     });
     this.ui.hud.classList.remove('visible');
     this.ui.continue?.classList.add('hidden');
+    this.ui.map?.classList.add('hidden');
     this.ui.dead.classList.remove('hidden');
-    if (this.ui.resultKicker) this.ui.resultKicker.textContent = victory ? 'RIFT CLEARED' : 'SIGNAL LOST';
-    if (this.ui.resultTitle) this.ui.resultTitle.textContent = victory ? 'SENTINEL FALLS' : 'HULL BREACH';
+    const slot = getLevel(this.campaignIndex, this.levelIndex);
+    const last = slot?.lv.boss === 'finale';
+    if (this.ui.resultKicker) this.ui.resultKicker.textContent = victory ? (last ? 'RIFT CLEARED' : 'SECTOR CLEAR') : 'SIGNAL LOST';
+    if (this.ui.resultTitle) {
+      this.ui.resultTitle.textContent = victory
+        ? (last ? 'SENTINEL FALLS' : `${slot?.lv.name || 'SECTOR'} DONE`)
+        : 'HULL BREACH';
+    }
     if (this.ui.resultRank) this.ui.resultRank.textContent = rank;
     this.ui.stats.textContent = `SCORE ${this.score}   BEST ${this.best}   KILLS ${this.kills}   ARSENAL ${this.maxStep}/${STEP_MAX}   BOMBS ${this.bombsUsed}`;
     this._renderScoreboard(this.ui.resultBoard, board, this.score);
@@ -721,6 +782,123 @@ export class Game {
     this._toastTimer = setTimeout(() => this.ui.toast.classList.remove('show'), 1200);
   }
 
+  _currentLevel() {
+    return getLevel(this.campaignIndex, this.levelIndex);
+  }
+
+  _nodeLocked(c, l) {
+    const id = `${c}-${l}`;
+    if (this.progress.cleared.includes(id)) return false;
+    if (c === (this.progress.nextC || 0) && l === (this.progress.nextL || 0)) return false;
+    if (this._runLive && c === this._mapCursor.c && l === this._mapCursor.l) return false;
+    return true;
+  }
+
+  _openMap({ fromTitle = false, keepRun = false } = {}) {
+    this._clearInput();
+    this.state = 'map';
+    this.audio.setPaused(true);
+    this.ui.title.classList.add('hidden');
+    this.ui.dead.classList.add('hidden');
+    this.ui.pause.classList.add('hidden');
+    this.ui.continue?.classList.add('hidden');
+    this.ui.hud.classList.remove('visible');
+    this.ui.map?.classList.remove('hidden');
+    this.progress = loadProgress();
+    if (!keepRun && !this._runLive) {
+      this._mapCursor = { c: this.progress.nextC || 0, l: this.progress.nextL || 0 };
+    }
+    this._renderMap();
+    this._syncTitleActions();
+    this._releaseUiFocus();
+    if (fromTitle) this.clock.getDelta();
+  }
+
+  _renderMap() {
+    const el = this.ui.mapGrid;
+    if (!el) return;
+    const cursor = this._mapCursor;
+    const slot = getLevel(cursor.c, cursor.l);
+    if (this.ui.mapKicker) this.ui.mapKicker.textContent = slot?.camp.kicker || 'CAMPAIGN MAP';
+    if (this.ui.mapTitle) this.ui.mapTitle.textContent = slot?.lv.name || 'THE AETHER RIFT';
+    if (this.ui.mapTag) this.ui.mapTag.textContent = slot?.camp.blurb || '';
+    el.innerHTML = CAMPAIGNS.map((camp, ci) => {
+      const currentCamp = ci === cursor.c;
+      const nodes = camp.levels.map((lv, li) => {
+        const id = `${ci}-${li}`;
+        const cleared = this.progress.cleared.includes(id);
+        const current = ci === cursor.c && li === cursor.l;
+        const locked = this._nodeLocked(ci, li);
+        const kind = lv.boss === 'finale' ? 'finale boss' : lv.boss ? 'boss' : '';
+        const label = lv.boss === 'finale' ? '✦' : lv.boss ? '★' : String(li + 1);
+        return `<button type="button" class="map-node ${kind} ${cleared ? 'cleared' : ''} ${current ? 'current' : ''} ${locked ? 'locked' : ''}" data-c="${ci}" data-l="${li}" ${locked ? 'disabled' : ''} aria-label="${lv.id} ${lv.name}">${label}</button>`;
+      }).join('<div class="map-rail"></div>');
+      return `<div class="map-campaign${currentCamp ? ' current' : ''}"><div class="map-camp-meta"><span class="kicker">${camp.kicker}</span><span class="name">${camp.name}</span></div><div class="map-nodes">${nodes}</div></div>`;
+    }).join('');
+    if (this.ui.deployBtn) {
+      const lv = slot?.lv;
+      this.ui.deployBtn.textContent = lv ? `DEPLOY ${lv.id}` : 'DEPLOY';
+    }
+  }
+
+  async _deployLevel() {
+    const c = this._mapCursor.c;
+    const l = this._mapCursor.l;
+    if (this._nodeLocked(c, l)) return;
+    await this.audio.resume();
+    const keep = this._runLive;
+    this.campaignIndex = c;
+    this.levelIndex = l;
+    if (!keep) {
+      this._resetRun();
+      this.campaignIndex = c;
+      this.levelIndex = l;
+      const step = catchupStep(c, l);
+      this.step = step;
+      this.maxStep = step;
+      this.loadout = loadoutFromStep(step);
+    }
+    this._resetLevel(true);
+    this._runLive = true;
+    this._hasRun = true;
+    this._resumeTo = 'play';
+    this.state = 'playing';
+    this.ui.map?.classList.add('hidden');
+    this.ui.title.classList.add('hidden');
+    this.ui.dead.classList.add('hidden');
+    this.ui.pause.classList.add('hidden');
+    this.ui.continue?.classList.add('hidden');
+    this.ui.hud.classList.add('visible');
+    this._viewSnap = 1;
+    this.audio.setPaused(false);
+    this.clock.getDelta();
+    this._releaseUiFocus();
+    const slot = this._currentLevel();
+    if (slot) this.toast(`${slot.lv.id} — ${slot.lv.name}`);
+  }
+
+  _clearLevel() {
+    if (this.state !== 'playing') return;
+    this.stage.cleared = true;
+    const slot = this._currentLevel();
+    this.progress = saveProgress(markCleared(this.progress, this.campaignIndex, this.levelIndex));
+    const nxt = nextSlot(this.campaignIndex, this.levelIndex);
+    if (!nxt) {
+      this.win();
+      return;
+    }
+    this.campaignIndex = nxt.ci;
+    this.levelIndex = nxt.li;
+    this._mapCursor = { c: nxt.ci, l: nxt.li };
+    this.audio.sting('chapter');
+    if (!slot?.lv.boss) this.toast(`${slot?.lv.id || 'SECTOR'} CLEAR`);
+    this._openMap({ keepRun: true });
+  }
+
+  win() {
+    this._endRun(true);
+  }
+
   start() {
     requestAnimationFrame(this.loop);
   }
@@ -730,7 +908,7 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this._pollPad();
     this.audio.tick();
-    if (this.state === 'paused' || this.state === 'dead' || this.state === 'continue' || (this.state === 'title' && this._hasRun)) {
+    if (this.state === 'paused' || this.state === 'dead' || this.state === 'continue' || this.state === 'map' || (this.state === 'title' && this._hasRun)) {
       this._render();
       return;
     }
@@ -972,7 +1150,11 @@ export class Game {
           this._combatScore(k.type === 'midboss' ? 1400 : 220);
           this.boost = Math.min(1, this.boost + 0.18);
           this._dropLoot(k);
-          if (k.type === 'midboss') this.toast(k.role === 'warden' ? 'WARDEN DOWN' : 'QUEEN DOWN');
+          if (k.type === 'midboss') {
+            this.toast(this._bossToast(k.role));
+            this._clearLevel();
+            return;
+          }
         } else if (k.type === 'blocker') {
           this._combatScore(160);
           this._dropLoot(k);
@@ -985,9 +1167,8 @@ export class Game {
           this.kills += 1;
           this._combatScore(3200);
           this._dropLoot(k);
-          this.stage.cleared = true;
           this.toast('SENTINEL DOWN');
-          this.win();
+          this._clearLevel();
           return;
         }
       }
@@ -1029,9 +1210,9 @@ export class Game {
                   laneX: en.offset?.x ?? this.offset.x,
                   bombDrop: en.bombDrop ?? 0,
                 });
-                if (en.role === 'finale') {
-                  this.stage.cleared = true;
-                  this.win();
+                if (en.role === 'finale' || en.elite) {
+                  this.toast(this._bossToast(en.role));
+                  this._clearLevel();
                   return;
                 }
               }
@@ -1198,7 +1379,8 @@ export class Game {
       this.ui.combo.classList.add('combo-pop');
     }
     this._lastCombo = this.combo;
-    this.ui.depth.textContent = `${(this.traveled / 10).toFixed(0)} km`;
+    const slotCode = this._currentLevel()?.lv.id || '1-1';
+    this.ui.depth.textContent = `${slotCode} · ${(this.traveled / 10).toFixed(0)} km`;
     if (this.ui.threat) this.ui.threat.textContent = String(this.entities.hunterCount());
     this.ui.health.style.transform = `scaleX(${clamp(this.health, 0, 1)})`;
     this.ui.boost.style.transform = `scaleX(${clamp(this.boost, 0, 1)})`;
@@ -1223,7 +1405,13 @@ export class Game {
       return;
     }
     el.classList.add('show');
-    const names = { queen: 'WEAVER QUEEN', warden: 'WARDEN', finale: 'SENTINEL' };
+    const names = {
+      queen: 'WEAVER QUEEN',
+      coil: 'TITAN COIL',
+      warden: 'WARDEN',
+      empress: 'WEAVER EMPRESS',
+      finale: 'SENTINEL',
+    };
     if (this.ui.bossName) this.ui.bossName.textContent = names[boss.role] || 'HUNTER';
     const ratio = clamp(boss.hp / Math.max(1, boss.maxHp || boss.hp), 0, 1);
     if (this.ui.bossFill) this.ui.bossFill.style.transform = `scaleX(${Math.max(0.02, ratio)})`;
@@ -1298,17 +1486,15 @@ export class Game {
   }
 
   _runStage() {
-    for (const ch of CHAPTERS) {
+    const slot = this._currentLevel();
+    const chapters = slot?.lv.chapters || [];
+    for (const ch of chapters) {
       if (this.traveled >= ch.at && this._chapterAt < ch.at) {
         this._chapterAt = ch.at;
         this.toast(ch.toast);
-        const id = ch.at >= 1320 ? 'finale' : ch.at >= 820 ? 'warden' : ch.at >= 380 ? 'queen' : 'default';
-        this._setChapter(id, ch.at >= 380 ? 'boss' : 'chapter');
+        this._setChapter(ch.world || slot?.lv.world, ch.sting);
       }
     }
-    this._setChapter(
-      this.traveled >= 1320 ? 'finale' : this.traveled >= 820 ? 'warden' : this.traveled >= 380 ? 'queen' : 'default',
-    );
     while (this.stage.peek() && this.stage.peek().at <= this.traveled) {
       const ev = this.stage.consume();
       if (ev.kind === 'squad') {
@@ -1322,11 +1508,22 @@ export class Game {
       } else if (ev.kind === 'midboss') {
         this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step);
         this.stage.finaleAlive = false;
+        if (slot?.lv.bossWorld) this._setChapter(slot.lv.bossWorld, 'boss');
       } else if (ev.kind === 'finale') {
         this.entities.spawnFinale(this.path, this.traveled, 96, this.step);
         this.stage.finaleAlive = true;
+        this._setChapter(slot?.lv.bossWorld || 'finale', 'boss');
       }
     }
+    this._maybeClearLevel();
+  }
+
+  _maybeClearLevel() {
+    const slot = this._currentLevel();
+    if (!slot || slot.lv.boss) return;
+    if (this.stage.peek()) return;
+    if (this.traveled < slot.lv.exitAt) return;
+    this._clearLevel();
   }
 
   _setChapter(id, sting) {
@@ -1348,6 +1545,14 @@ export class Game {
       pip.className = 'life-pip' + (i < this.lives ? ' lit' : '');
       el.appendChild(pip);
     }
+  }
+
+  _bossToast(role) {
+    if (role === 'warden') return 'WARDEN DOWN';
+    if (role === 'coil') return 'COIL DOWN';
+    if (role === 'empress') return 'EMPRESS DOWN';
+    if (role === 'finale') return 'SENTINEL DOWN';
+    return 'QUEEN DOWN';
   }
 
   _punch(seconds, mag) {
@@ -1372,7 +1577,12 @@ export class Game {
       if (k.type === 'boss') {
         this.stage.cleared = true;
         this.toast('SENTINEL DOWN');
-        this.win();
+        this._clearLevel();
+        return;
+      }
+      if (k.type === 'midboss') {
+        this.toast(this._bossToast(k.role));
+        this._clearLevel();
         return;
       }
     }
@@ -1446,14 +1656,17 @@ export class Game {
       else if (this.state === 'title') {
         if (this._hasRun) this.resumeFromMenu();
         else this.startPlay();
-      } else if (this.state === 'continue') this._acceptContinue();
+      }       else if (this.state === 'map') this._deployLevel();
+      else if (this.state === 'continue') this._acceptContinue();
       else if (this.state === 'dead') this.startPlay();
     }
     if (pad.bomb && !prev.bomb) {
       if (this.state === 'continue') this._declineContinue();
+      else if (this.state === 'map') this.goToMenu({ resumeable: this._runLive });
       else this._tryBomb();
     }
     if (pad.fire && this.state === 'title' && !this._hasRun && !prev.fire) this.startPlay();
+    if (pad.fire && this.state === 'map' && !prev.fire) this._deployLevel();
     if (pad.fire && this.state === 'continue' && !prev.fire) this._acceptContinue();
     this._padPrev = { fire: pad.fire, bomb: pad.bomb, start: pad.start };
   }

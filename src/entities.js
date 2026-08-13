@@ -21,6 +21,8 @@ const HUNTER_FACTORY = {
   heavy: createHeavyHunter,
   queen: createQueen,
   warden: createWarden,
+  coil: createHeavyHunter,
+  empress: createQueen,
 };
 
 function makeOrbMaterial(color) {
@@ -536,12 +538,12 @@ export class EntityField {
     en.windup = 0;
     en.patternI = 0;
     en.visPhase = 1;
-    en.elite = role === 'queen' || role === 'warden';
+    en.elite = role === 'queen' || role === 'warden' || role === 'coil' || role === 'empress';
     en.offset.x = lane + (Math.random() - 0.5) * span * 0.03;
     en.baseX = en.offset.x;
     en.weave = 0.55 + Math.random() * 0.7;
     const extra = difficulty > 2.4 ? 1 : 0;
-    en.mesh.scale.setScalar(1);
+    en.mesh.scale.setScalar(role === 'coil' ? 1.45 : 1);
     if (en.craft) setCraftPhase(en.craft, 1);
     if (role === 'queen') {
       en.hp = eliteHp('queen', step);
@@ -559,6 +561,24 @@ export class EntityField {
       en.descent = 0.38;
       en.cooldown = 1.05;
       en.windMax = 0.55;
+      en.drop = 5;
+      en.bombDrop = 1;
+    } else if (role === 'coil') {
+      en.hp = eliteHp('coil', step);
+      en.maxHp = en.hp;
+      en.radius = 6.4;
+      en.descent = 0.44;
+      en.cooldown = 0.95;
+      en.windMax = 0.48;
+      en.drop = 4;
+      en.bombDrop = 1;
+    } else if (role === 'empress') {
+      en.hp = eliteHp('empress', step);
+      en.maxHp = en.hp;
+      en.radius = 7.4;
+      en.descent = 0.48;
+      en.cooldown = 0.9;
+      en.windMax = 0.5;
       en.drop = 5;
       en.bombDrop = 1;
     } else if (role === 'heavy') {
@@ -930,7 +950,9 @@ export class EntityField {
   _reloadFor(en, difficulty) {
     if (en.role === 'finale') return en.phase === 3 ? 1.15 : en.phase === 2 ? 1.45 : 1.85;
     if (en.role === 'queen') return 1.55;
+    if (en.role === 'empress') return 1.48;
     if (en.role === 'warden') return 1.7;
+    if (en.role === 'coil') return 1.62;
     if (en.role === 'heavy') return Math.max(1.85, 2.4 - difficulty * 0.06);
     return Math.max(2.1, 2.8 - difficulty * 0.08);
   }
@@ -1047,8 +1069,8 @@ export class EntityField {
         const park = traveled + 32;
         if (en.pathDist < park) en.pathDist = park;
       }
-      if (en.role === 'sine' || en.role === 'queen') {
-        const weave = (this.laneLimit || 24) * (en.role === 'queen' ? 0.22 : 0.08);
+      if (en.role === 'sine' || en.role === 'queen' || en.role === 'empress') {
+        const weave = (this.laneLimit || 24) * (en.role === 'sine' ? 0.08 : 0.22);
         en.offset.x = (en.baseX || 0) + Math.sin(this.time * (en.weave || 0.9) + en.pathDist * 0.03) * weave;
       }
       en.offset.y = 0;

@@ -315,7 +315,9 @@ export function estimateDps(step) {
 export function eliteHp(kind, step) {
   const dps = estimateBossDps(step);
   if (kind === 'queen') return Math.round(90 + dps * 6.2);
+  if (kind === 'coil') return Math.round(110 + dps * 6.8);
   if (kind === 'warden') return Math.round(140 + dps * 7.5);
+  if (kind === 'empress') return Math.round(180 + dps * 8.2);
   return Math.round(220 + dps * 9.5);
 }
 

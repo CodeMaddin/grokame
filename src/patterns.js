@@ -9,7 +9,9 @@ export function nextVolley(en, span, playerLane, time, fire) {
   en.patternI += 1;
 
   if (en.role === 'queen') return queenVolley(i, s, x, aim, span, fire);
+  if (en.role === 'empress') return empressVolley(i, s, x, aim, span, fire);
   if (en.role === 'warden') return wardenVolley(i, s, x, aim, span, fire);
+  if (en.role === 'coil') return coilVolley(i, s, x, aim, span, fire);
   if (en.role === 'finale') return finaleVolley(en, s, span, aim, time, fire);
   if (en.role === 'heavy') {
     const spread = Math.min(8, span * 0.08);
@@ -56,6 +58,66 @@ function queenVolley(i, s, x, aim, span, fire) {
     return 0;
   }
   return 0.4;
+}
+
+function empressVolley(i, s, x, aim, span, fire) {
+  const step = i % 6;
+  const fan = span * 0.18;
+  const curtain = span * 0.13;
+  if (step === 0) {
+    for (let k = -3; k <= 3; k++) fire(s, x + k * fan * 0.72, 7.1, k === 0);
+    return 0;
+  }
+  if (step === 1) {
+    fire(s, aim, 7.6, true);
+    fire(s, aim - span * 0.07, 7.2, false);
+    fire(s, aim + span * 0.07, 7.2, false);
+    fire(s - 4, x, 7.0, true);
+    return 0;
+  }
+  if (step === 2) return 0.5;
+  if (step === 3) {
+    for (let k = -3; k <= 3; k++) fire(s - Math.abs(k) * 2, x + k * curtain, 6.4, false);
+    return 0;
+  }
+  if (step === 4) {
+    fire(s, x - fan * 1.5, 6.8, true);
+    fire(s, x + fan * 1.5, 6.8, true);
+    fire(s - 5, aim, 7.4, true);
+    fire(s - 8, aim - fan, 6.6, false);
+    fire(s - 8, aim + fan, 6.6, false);
+    return 0;
+  }
+  return 0.38;
+}
+
+function coilVolley(i, s, x, aim, span, fire) {
+  const step = i % 6;
+  const well = span * 0.2;
+  if (step === 0) {
+    fire(s, x - well, 6.6, true);
+    fire(s, x + well, 6.6, true);
+    fire(s, x, 7.4, true);
+    return 0;
+  }
+  if (step === 1) {
+    fire(s, aim, 7.3, true);
+    fire(s, x - well * 0.5, 6.8, false);
+    fire(s, x + well * 0.5, 6.8, false);
+    return 0;
+  }
+  if (step === 2) return 0.52;
+  if (step === 3) {
+    for (let k = -2; k <= 2; k++) fire(s, x + k * well * 0.55, 6.4, k === 0);
+    return 0;
+  }
+  if (step === 4) {
+    fire(s, x - well, 6.5, true);
+    fire(s, x + well, 6.5, true);
+    fire(s - 6, aim, 7.1, true);
+    return 0;
+  }
+  return 0.42;
 }
 
 function wardenVolley(i, s, x, aim, span, fire) {

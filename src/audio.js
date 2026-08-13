@@ -193,12 +193,12 @@ export class AudioBus {
 
   _mixStems(now) {
     const id = this._chapter;
-    const choir = id === 'finale' ? 0.055 : id === 'queen' ? 0.042 : id === 'warden' ? 0.03 : 0.01;
-    const arp = id === 'finale' ? 0.038 : id === 'warden' ? 0.032 : id === 'queen' ? 0.024 : 0.008;
+    const choir = id === 'finale' ? 0.055 : id === 'empress' ? 0.048 : id === 'queen' ? 0.042 : id === 'coil' ? 0.036 : id === 'warden' ? 0.03 : 0.01;
+    const arp = id === 'finale' ? 0.038 : id === 'empress' ? 0.034 : id === 'coil' ? 0.033 : id === 'warden' ? 0.032 : id === 'queen' ? 0.024 : 0.008;
     if (this._choirGain) this._choirGain.gain.setTargetAtTime(choir + this.intensity * 0.02, now, 0.35);
     if (this._arpGain) this._arpGain.gain.setTargetAtTime(arp + this.intensity * 0.015, now, 0.35);
     if (this._choirOsc) {
-      const base = id === 'warden' ? 98 : id === 'finale' ? 82.5 : id === 'queen' ? 130.81 : 110;
+      const base = id === 'warden' || id === 'coil' ? 98 : id === 'finale' ? 82.5 : id === 'empress' ? 138 : id === 'queen' ? 130.81 : 110;
       this._choirOsc[0].frequency.setTargetAtTime(base, now, 0.4);
       this._choirOsc[1].frequency.setTargetAtTime(base * 1.5, now, 0.4);
     }
@@ -232,7 +232,7 @@ export class AudioBus {
     if (i > 0.7 && step % 16 === 12) {
       this._osc('triangle', 55, t, 0.28, 0.05, this.music);
     }
-    if (this._arpGain && (this._chapter === 'queen' || this._chapter === 'warden' || this._chapter === 'finale')) {
+    if (this._arpGain && (this._chapter === 'queen' || this._chapter === 'warden' || this._chapter === 'finale' || this._chapter === 'coil' || this._chapter === 'empress')) {
       if (step % 2 === 0) {
         const arpNote = scale[(step + 4) % scale.length] * (this._chapter === 'finale' ? 2 : 1);
         this._osc('square', arpNote * 2, t, 0.06, 0.018 + i * 0.012, this._arpGain);

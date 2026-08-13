@@ -552,6 +552,127 @@ button:hover {
   gap: 14px;
 }
 
+.campaign-map {
+  margin: 8px auto 22px;
+  width: min(720px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  max-height: min(46vh, 420px);
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.map-campaign {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.42fr) 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(92, 225, 255, 0.16);
+  background: rgba(5, 1, 13, 0.42);
+}
+
+.map-campaign.current {
+  border-color: rgba(255, 209, 102, 0.55);
+  box-shadow: 0 0 18px rgba(255, 209, 102, 0.12);
+}
+
+.map-camp-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.map-camp-meta .kicker {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.32em;
+}
+
+.map-camp-meta .name {
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: #fff;
+}
+
+.map-nodes {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+}
+
+.map-rail {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(92, 225, 255, 0.15), rgba(255, 59, 212, 0.35));
+  min-width: 12px;
+}
+
+.map-node {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  letter-spacing: 0.04em;
+  font-size: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(92, 225, 255, 0.35);
+  background: rgba(5, 1, 13, 0.7);
+  box-shadow: none;
+  text-shadow: none;
+  color: rgba(232, 246, 255, 0.55);
+}
+
+.map-node.boss {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  letter-spacing: 0.08em;
+}
+
+.map-node.finale {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.map-node.cleared {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: linear-gradient(180deg, rgba(92, 225, 255, 0.28), rgba(92, 225, 255, 0.06));
+  box-shadow: 0 0 14px rgba(92, 225, 255, 0.25);
+}
+
+.map-node.current {
+  color: #fff;
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(255, 209, 102, 0.32), rgba(255, 59, 212, 0.12));
+  box-shadow: 0 0 18px rgba(255, 209, 102, 0.35);
+  transform: scale(1.06);
+}
+
+.map-node.locked {
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.map-node:hover {
+  transform: scale(1.08);
+}
+
+#map-screen h2 {
+  font-size: clamp(28px, 5.5vw, 44px);
+  margin: 0 0 8px;
+}
+
+#map-screen .tagline {
+  margin: 8px 0 16px;
+}
+
 #menu-btn {
   letter-spacing: 0.32em;
   border-color: rgba(232, 246, 255, 0.35);
@@ -711,5 +832,36 @@ kbd {
   .bomb-pip {
     width: 16px;
     height: 16px;
+  }
+
+  .map-campaign {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .campaign-map {
+    max-height: 40vh;
+    gap: 8px;
+  }
+
+  .map-node {
+    width: 32px;
+    height: 32px;
+  }
+
+  .map-node.boss {
+    width: 36px;
+    height: 36px;
+  }
+
+  #map-title {
+    font-size: 28px;
+    margin-bottom: 6px;
+  }
+
+  #map-tag {
+    margin: 8px 0 12px;
+    font-size: 12px;
   }
 }

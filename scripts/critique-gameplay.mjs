@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SCRIPT, CHAPTERS } from '../src/stage.js';
+import { CAMPAIGNS } from '../src/campaigns.js';
 import { estimateDps, estimateBossDps, eliteHp, loadoutFromStep, arsenal } from '../src/weapons.js';
 
 const root = resolve(import.meta.dirname, '..');
@@ -30,9 +31,12 @@ function motesBefore(at) {
   return n;
 }
 
-const queenStep = motesBefore(380);
-const wardenStep = motesBefore(820);
-const finaleStep = motesBefore(1320);
+const queenAt = SCRIPT.find((e) => e.kind === 'midboss' && e.id === 'queen')?.at ?? 380;
+const wardenAt = SCRIPT.find((e) => e.kind === 'midboss' && e.id === 'warden')?.at ?? 820;
+const finaleAt = SCRIPT.find((e) => e.kind === 'finale')?.at ?? 1320;
+const queenStep = motesBefore(queenAt);
+const wardenStep = motesBefore(wardenAt);
+const finaleStep = motesBefore(finaleAt);
 const queenHp = eliteHp('queen', queenStep);
 const wardenHp = eliteHp('warden', wardenStep);
 const finaleHp = eliteHp('finale', finaleStep);
@@ -118,6 +122,9 @@ if (!readFileSync(resolve(root, 'src/patterns.js'), 'utf8').includes('queenVolle
 
 if (game.includes("toast('NEAR MISS')")) fail('near-miss toast still screams over the gun');
 if (CHAPTERS.length < 4) fail('no chapter banners for mid-bosses/finale');
+if (CAMPAIGNS.length !== 5) fail('need five campaigns');
+if (CAMPAIGNS.some((c) => c.levels.length !== 3)) fail('each campaign needs three levels');
+if (!CAMPAIGNS[4].levels[2].boss || CAMPAIGNS[4].levels[2].boss !== 'finale') fail('the last campaign does not end on the Sentinel');
 
 const live = Number((entities.match(/for \(let i = 0; i < (\d+); i\+\+\) \{\s*const g = new THREE\.Group/) || [])[1]);
 const peakSquad = Math.max(...squads.map((s) => s.n));

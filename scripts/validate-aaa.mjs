@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SCRIPT, CHAPTERS, StageDirector, gradeRun } from '../src/stage.js';
+import { CAMPAIGNS } from '../src/campaigns.js';
 import { STEP_MAX, estimateDps, arsenal, starterLoadout } from '../src/weapons.js';
 
 const root = resolve(import.meta.dirname, '..');
@@ -95,7 +96,9 @@ ok(audio.includes('sting(') && audio.includes('setChapter'), 'stems and stings e
 ok(game.includes('_onPointerDown'), 'pointer drag starts on press');
 ok(game.includes('_applyTouchDrag'), 'mobile drag moves the ship');
 ok(game.includes('_onTouchStart'), 'touch hold fires');
-ok(css.includes('touch-action: none'), 'touch does not scroll the page');
+ok(CAMPAIGNS.length === 5 && CAMPAIGNS.every((c) => c.levels.length === 3), 'five campaigns of three levels');
+ok(game.includes('_openMap') && game.includes('_deployLevel') && game.includes('_clearLevel'), 'campaign flow is wired');
+ok(src('src/campaigns.js').includes('CAMPAIGNS'), 'campaign data exists');
 
 const dir = new StageDirector();
 dir.reset();

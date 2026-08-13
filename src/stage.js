@@ -1,49 +1,10 @@
 /** Authored encounter list. Distances are path `traveled` units. */
 
-export const CHAPTERS = [
-  { at: 70, toast: 'WAVE 01 — STINGER FAN' },
-  { at: 380, toast: 'MID-BOSS — WEAVER QUEEN' },
-  { at: 820, toast: 'MID-BOSS — WARDEN' },
-  { at: 1320, toast: 'FINALE — SENTINEL' },
-];
+import { flattenCampaigns } from './campaigns.js';
 
-export const SCRIPT = [
-  { at: 70, kind: 'squad', form: 'v', role: 'dive', n: 5, ahead: 88 },
-  { at: 118, kind: 'squad', form: 'line', role: 'sine', n: 4, ahead: 92 },
-  { at: 160, kind: 'breath' },
-  { at: 188, kind: 'squad', form: 'flank', role: 'heavy', n: 2, ahead: 96 },
-  { at: 210, kind: 'squad', form: 'pair', role: 'dive', n: 2, ahead: 84 },
-  { at: 248, kind: 'gate' },
-  { at: 268, kind: 'orbs' },
-  { at: 292, kind: 'squad', form: 'cross', role: 'sine', n: 6, ahead: 100 },
-  { at: 330, kind: 'blockers', n: 2 },
-  { at: 348, kind: 'squad', form: 'v', role: 'dive', n: 7, ahead: 90 },
-  { at: 380, kind: 'midboss', id: 'queen' },
-  { at: 470, kind: 'breath' },
-  { at: 490, kind: 'orbs' },
-  { at: 512, kind: 'squad', form: 'escort', role: 'dive', n: 5, ahead: 94 },
-  { at: 548, kind: 'gate' },
-  { at: 572, kind: 'squad', form: 'line', role: 'heavy', n: 3, ahead: 100 },
-  { at: 610, kind: 'squad', form: 'cross', role: 'sine', n: 6, ahead: 88 },
-  { at: 648, kind: 'blockers', n: 3 },
-  { at: 670, kind: 'squad', form: 'v', role: 'dive', n: 5, ahead: 86 },
-  { at: 710, kind: 'squad', form: 'pair', role: 'sine', n: 4, ahead: 92 },
-  { at: 748, kind: 'gate' },
-  { at: 780, kind: 'squad', form: 'flank', role: 'heavy', n: 2, ahead: 98 },
-  { at: 820, kind: 'midboss', id: 'warden' },
-  { at: 920, kind: 'breath' },
-  { at: 944, kind: 'orbs' },
-  { at: 968, kind: 'squad', form: 'cross', role: 'dive', n: 8, ahead: 90 },
-  { at: 1010, kind: 'squad', form: 'line', role: 'sine', n: 5, ahead: 94 },
-  { at: 1048, kind: 'gate' },
-  { at: 1072, kind: 'blockers', n: 3 },
-  { at: 1100, kind: 'squad', form: 'escort', role: 'heavy', n: 5, ahead: 100 },
-  { at: 1148, kind: 'squad', form: 'v', role: 'dive', n: 7, ahead: 88 },
-  { at: 1190, kind: 'squad', form: 'cross', role: 'sine', n: 6, ahead: 96 },
-  { at: 1240, kind: 'gate' },
-  { at: 1270, kind: 'squad', form: 'line', role: 'dive', n: 6, ahead: 90 },
-  { at: 1320, kind: 'finale' },
-];
+const _flat = flattenCampaigns();
+export const SCRIPT = _flat.script;
+export const CHAPTERS = _flat.chapters;
 
 export const LANE_T = [-0.84, -0.5, -0.18, 0.18, 0.5, 0.84];
 
@@ -88,8 +49,9 @@ export function rowStagger(form, i) {
 }
 
 export class StageDirector {
-  constructor(script = SCRIPT) {
+  constructor(script = SCRIPT, length = 1400) {
     this.script = script;
+    this.length = length;
     this.index = 0;
     this.cleared = false;
     this.finaleAlive = false;
@@ -114,7 +76,7 @@ export class StageDirector {
   }
 
   intensity(traveled, hunterCount, boosting, bossAlive) {
-    const scriptT = Math.min(1, traveled / 1400);
+    const scriptT = Math.min(1, traveled / Math.max(240, this.length));
     const hunt = Math.min(1, hunterCount / 10);
     let v = 0.18 + scriptT * 0.42 + hunt * 0.28 + (boosting ? 0.08 : 0);
     if (bossAlive) v = Math.max(v, 0.78);

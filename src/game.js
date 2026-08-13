@@ -29,6 +29,7 @@ export class Game {
     this._viewSnap = 1;
     this._camLook = new THREE.Vector3();
     this._camUp = new THREE.Vector3(0, 1, 0);
+    this._chaseX = 0;
     this._setupRenderer();
     this._setupScene();
     this._setupPost();
@@ -265,6 +266,7 @@ export class Game {
     const camLook = new THREE.Vector3();
     const camUp = new THREE.Vector3();
     let fov = 62;
+    const snap = this._viewSnap > 0.02;
 
     if (view === 'cockpit') {
       fov = 78;
@@ -283,19 +285,22 @@ export class Game {
       camUp.copy(focus.tangent);
     } else {
       fov = 62;
-      const focus = this.path.sample(this.traveled + 8);
+      const focus = this.path.sample(this.traveled + this.holdY * 0.25 + 8);
       const focusFrame = createFrenet(focus.tangent);
+      const chaseK = snap ? 14 : 2.45;
+      this._chaseX += (this.offset.x - this._chaseX) * (1 - Math.exp(-dt * chaseK));
       camPos.copy(focus.pos)
-        .addScaledVector(focus.tangent, -30)
-        .addScaledVector(focusFrame.normal, 14);
-      camLook.copy(focus.pos).addScaledVector(focus.tangent, 18);
+        .addScaledVector(focus.tangent, -32)
+        .addScaledVector(focusFrame.normal, 14)
+        .addScaledVector(focusFrame.binormal, this._chaseX);
+      camLook.copy(focus.pos)
+        .addScaledVector(focus.tangent, 16)
+        .addScaledVector(focusFrame.binormal, this._chaseX);
       camUp.copy(focusFrame.normal);
     }
 
-    const snap = this._viewSnap > 0.02;
-    const locked = view !== 'cockpit';
-    const posK = snap ? 16 : locked ? 12 : 5;
-    const lookK = snap ? 14 : locked ? 11 : 5.5;
+    const posK = snap ? 16 : view === 'scroll' ? 12 : view === 'chase' ? 7.5 : 5;
+    const lookK = snap ? 14 : view === 'scroll' ? 11 : view === 'chase' ? 6.5 : 5.5;
     this.camera.position.lerp(camPos, 1 - Math.exp(-dt * posK));
     this._camLook.lerp(camLook, 1 - Math.exp(-dt * lookK));
     this._camUp.lerp(camUp, 1 - Math.exp(-dt * lookK));
@@ -322,6 +327,7 @@ export class Game {
     this._blockWarn = false;
     this.offset = new THREE.Vector2(0, 0);
     this.holdY = 0;
+    this._chaseX = 0;
     this.steer = new THREE.Vector2(0, 0);
     this.slide = new THREE.Vector2(0, 0);
     this.best = Number(localStorage.getItem('aether-best') || 0);

@@ -1,103 +1,112 @@
 import * as THREE from 'three';
-import { trailVertex, trailFragment } from './shaders.js';
+import { trailVertex, trailFragment, hullVertex, hullFragment } from './shaders.js';
+
+function hullMaterial(color, rim) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(color) },
+      uRim: { value: new THREE.Color(rim) },
+      uLightDir: { value: new THREE.Vector3(0.4, 0.7, 0.5).normalize() },
+    },
+    vertexShader: hullVertex,
+    fragmentShader: hullFragment,
+  });
+}
 
 export function createShip() {
   const group = new THREE.Group();
+  group.scale.setScalar(2.35);
 
-  const hullMat = new THREE.MeshStandardMaterial({
-    color: 0x0c1020,
-    metalness: 0.92,
-    roughness: 0.22,
-    envMapIntensity: 1.4,
-  });
-  const accentMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1030,
-    metalness: 0.85,
-    roughness: 0.28,
-    emissive: 0x3a1060,
-    emissiveIntensity: 0.35,
-  });
+  const hullMat = hullMaterial('#9eb6d8', '#7cf0ff');
+  const accentMat = hullMaterial('#3a2458', '#ff64e8');
   const glowMat = new THREE.MeshBasicMaterial({
-    color: 0x5ce1ff,
+    color: 0x9be7ff,
     transparent: true,
     opacity: 0.95,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
   });
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x7cf0ff,
-    metalness: 0.2,
-    roughness: 0.05,
-    emissive: 0x1188ff,
-    emissiveIntensity: 1.6,
+  const glassMat = new THREE.MeshBasicMaterial({
+    color: 0xb8f0ff,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.9,
   });
+  const trimMat = new THREE.MeshBasicMaterial({ color: 0x5ce1ff });
 
-  const body = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.6, 6), hullMat);
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.48, 2.8, 6), hullMat);
   body.rotation.x = -Math.PI / 2;
   group.add(body);
 
-  const mid = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 1.4), accentMat);
-  mid.position.z = 0.2;
+  const mid = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.28, 1.55), accentMat);
+  mid.position.z = 0.15;
   group.add(mid);
 
-  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), glassMat);
-  cockpit.scale.set(1, 0.7, 1.4);
-  cockpit.position.set(0, 0.18, -0.15);
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), glassMat);
+  cockpit.scale.set(1, 0.72, 1.45);
+  cockpit.position.set(0, 0.22, -0.2);
   group.add(cockpit);
 
-  const wingGeo = new THREE.BoxGeometry(1.7, 0.06, 0.7);
-  const wing = new THREE.Mesh(wingGeo, hullMat);
-  wing.position.set(0, -0.05, 0.45);
-  wing.rotation.z = 0;
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.85), hullMat);
+  wing.position.set(0, -0.06, 0.5);
   group.add(wing);
 
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 0.7), hullMat);
-  fin.position.set(0, 0.28, 0.55);
+  const wingEdge = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.03, 0.08), trimMat);
+  wingEdge.position.set(0, -0.04, 0.12);
+  group.add(wingEdge);
+
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.72, 0.8), hullMat);
+  fin.position.set(0, 0.38, 0.6);
   group.add(fin);
 
-  const engineL = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.7, 12), accentMat);
+  const engineL = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 0.78, 12), accentMat);
   engineL.rotation.x = Math.PI / 2;
-  engineL.position.set(-0.38, -0.08, 1.05);
+  engineL.position.set(-0.46, -0.08, 1.12);
   const engineR = engineL.clone();
-  engineR.position.x = 0.38;
+  engineR.position.x = 0.46;
   group.add(engineL, engineR);
 
-  const exhaustL = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 12), glowMat);
+  const exhaustL = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.35, 12), glowMat);
   exhaustL.rotation.x = Math.PI / 2;
-  exhaustL.position.set(-0.38, -0.08, 1.55);
+  exhaustL.position.set(-0.46, -0.08, 1.72);
   const exhaustR = exhaustL.clone();
-  exhaustR.position.x = 0.38;
+  exhaustR.position.x = 0.46;
   group.add(exhaustL, exhaustR);
 
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.85, 20, 16),
+    new THREE.MeshBasicMaterial({
+      color: 0x5ce1ff,
+      transparent: true,
+      opacity: 0.16,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+  );
+  halo.position.z = 0.4;
+  group.add(halo);
+
   const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.12, 12, 10),
+    new THREE.SphereGeometry(0.16, 12, 10),
     new THREE.MeshBasicMaterial({ color: 0xff3bd4 })
   );
-  core.position.set(0, 0, 0.85);
+  core.position.set(0, 0.02, 0.9);
   group.add(core);
 
-  const lightL = new THREE.PointLight(0x5ce1ff, 8, 28, 2);
-  lightL.position.set(-0.38, -0.08, 1.35);
-  const lightR = new THREE.PointLight(0x5ce1ff, 8, 28, 2);
-  lightR.position.set(0.38, -0.08, 1.35);
-  const nose = new THREE.PointLight(0xff64e8, 3.5, 18, 2);
-  nose.position.set(0, 0.1, -1.1);
+  const lightL = new THREE.PointLight(0x5ce1ff, 10, 32, 2);
+  lightL.position.set(-0.46, -0.08, 1.4);
+  const lightR = new THREE.PointLight(0x5ce1ff, 10, 32, 2);
+  lightR.position.set(0.46, -0.08, 1.4);
+  const nose = new THREE.PointLight(0xff64e8, 5, 22, 2);
+  nose.position.set(0, 0.12, -1.2);
   group.add(lightL, lightR, nose);
 
-  group.traverse((obj) => {
-    if (obj.isMesh) {
-      obj.castShadow = false;
-      obj.receiveShadow = false;
-    }
-  });
-
-  return { group, exhausts: [exhaustL, exhaustR], lights: [lightL, lightR], core };
+  return { group, exhausts: [exhaustL, exhaustR], lights: [lightL, lightR], core, halo };
 }
 
 export class EngineTrail {
-  constructor(scene, max = 80) {
+  constructor(scene, max = 56) {
     this.max = max;
-    this.head = 0;
+    this.history = [];
     const positions = new Float32Array(max * 3);
     const colors = new Float32Array(max * 3);
     const alphas = new Float32Array(max);
@@ -120,21 +129,23 @@ export class EngineTrail {
   }
 
   push(point, boost) {
-    const i = this.head % this.max;
-    this.positions[i * 3] = point.x;
-    this.positions[i * 3 + 1] = point.y;
-    this.positions[i * 3 + 2] = point.z;
-    this.colors[i * 3] = boost > 0.4 ? 1.0 : 0.35;
-    this.colors[i * 3 + 1] = 0.7;
-    this.colors[i * 3 + 2] = 1.0;
-    this.alphas[i] = 0.85;
-    this.head++;
-    for (let n = 0; n < this.max; n++) {
-      this.alphas[n] *= 0.96;
+    this.history.unshift(point.clone());
+    if (this.history.length > this.max) this.history.pop();
+    const n = this.history.length;
+    for (let i = 0; i < n; i++) {
+      const p = this.history[i];
+      this.positions[i * 3] = p.x;
+      this.positions[i * 3 + 1] = p.y;
+      this.positions[i * 3 + 2] = p.z;
+      const t = 1 - i / this.max;
+      this.colors[i * 3] = boost > 0.4 ? 1.0 : 0.35 * t;
+      this.colors[i * 3 + 1] = 0.75 * t;
+      this.colors[i * 3 + 2] = 1.0 * t;
+      this.alphas[i] = 0.55 * t;
     }
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.aColor.needsUpdate = true;
     this.geo.attributes.aAlpha.needsUpdate = true;
-    this.geo.setDrawRange(0, Math.min(this.head, this.max));
+    this.geo.setDrawRange(0, n);
   }
 }

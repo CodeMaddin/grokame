@@ -342,6 +342,38 @@ void main() {
 }
 `;
 
+export const hullVertex = /* glsl */ `
+varying vec3 vNormal;
+varying vec3 vWorldPos;
+
+void main() {
+  vNormal = normalize(mat3(modelMatrix) * normal);
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  vWorldPos = world.xyz;
+  gl_Position = projectionMatrix * viewMatrix * world;
+}
+`;
+
+export const hullFragment = /* glsl */ `
+uniform vec3 uColor;
+uniform vec3 uRim;
+uniform vec3 uLightDir;
+varying vec3 vNormal;
+varying vec3 vWorldPos;
+
+void main() {
+  vec3 N = normalize(vNormal);
+  vec3 V = normalize(cameraPosition - vWorldPos);
+  float ndv = max(dot(N, V), 0.0);
+  float fresnel = pow(1.0 - ndv, 2.4);
+  float ndl = max(dot(N, normalize(uLightDir)), 0.0);
+  vec3 col = uColor * (0.18 + ndl * 0.75);
+  col += uRim * fresnel * 1.8;
+  col += uRim * pow(ndv, 8.0) * 0.15;
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
 export const cinematicShader = {
   uniforms: {
     tDiffuse: { value: null },

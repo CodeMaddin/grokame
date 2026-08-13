@@ -52,7 +52,7 @@ export class Game {
   _setupScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#05010d');
-    this.camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 1400);
+    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1400);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
@@ -62,7 +62,7 @@ export class Game {
     const size = new THREE.Vector2(window.innerWidth, window.innerHeight);
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(size, 0.85, 0.72, 0.18);
+    this.bloom = new UnrealBloomPass(size, 0.72, 0.64, 0.22);
     this.composer.addPass(this.bloom);
     this.fx = new ShaderPass(cinematicShader);
     this.fx.uniforms.uSunPos.value = new THREE.Vector2(0.72, 0.68);
@@ -275,11 +275,11 @@ export class Game {
     this.ship.quaternion.slerp(q, 1 - Math.exp(-dt * 8));
 
     const camTarget = this.ship.position.clone()
-      .addScaledVector(sample.tangent, -10.5)
-      .addScaledVector(frame.normal, 2.4)
-      .addScaledVector(frame.binormal, this.offset.x * 0.18);
+      .addScaledVector(sample.tangent, -16.5)
+      .addScaledVector(frame.normal, 4.2)
+      .addScaledVector(frame.binormal, this.offset.x * 0.22);
     this.camera.position.lerp(camTarget, 1 - Math.exp(-dt * 4.5));
-    const camLook = this.ship.position.clone().addScaledVector(sample.tangent, 14).addScaledVector(frame.normal, 0.4);
+    const camLook = this.ship.position.clone().addScaledVector(sample.tangent, 16).addScaledVector(frame.normal, 0.15);
     this.camera.up.lerp(frame.normal, 0.15);
     this.camera.lookAt(camLook);
 
@@ -316,14 +316,19 @@ export class Game {
     if (this.state === 'playing') {
       const firing = this.input.firing || this.input.keys.has('Space');
       if (firing && this.fireCd <= 0) {
-        const origin = this.ship.position.clone().addScaledVector(sample.tangent, 1.6);
-        if (this.entities.fire(origin, sample.tangent.clone().addScaledVector(frame.binormal, this.steer.x * 0.08))) {
+        const origin = this.ship.position.clone().addScaledVector(sample.tangent, 2.4);
+        const dir = sample.tangent.clone().addScaledVector(frame.binormal, this.steer.x * 0.08).normalize();
+        const left = origin.clone().addScaledVector(frame.binormal, -0.7);
+        const right = origin.clone().addScaledVector(frame.binormal, 0.7);
+        const shotA = this.entities.fire(left, dir);
+        const shotB = this.entities.fire(right, dir);
+        if (shotA || shotB) {
           this.audio.laser();
-          this.fireCd = 0.11;
+          this.fireCd = 0.1;
         }
       }
 
-      const orbs = this.entities.collectOrbs(this.ship.position, 1.6);
+      const orbs = this.entities.collectOrbs(this.ship.position, 2.2);
       for (const orb of orbs) {
         this._score(orb.value);
         this.audio.collect();
@@ -346,9 +351,9 @@ export class Game {
       }
 
       if (this.invuln <= 0) {
-        const crystalHit = this.world.hitTest(this.ship.position, 0.9);
-        const bodyHit = this.entities.collideEnemies(this.ship.position, 1.1).length > 0;
-        const shotHit = this.entities.shotsHitPlayer(this.ship.position, 1.05);
+        const crystalHit = this.world.hitTest(this.ship.position, 1.35);
+        const bodyHit = this.entities.collideEnemies(this.ship.position, 1.5).length > 0;
+        const shotHit = this.entities.shotsHitPlayer(this.ship.position, 1.4);
         if (crystalHit || bodyHit || shotHit) this._damage(crystalHit ? 0.22 : 0.18);
       }
     }

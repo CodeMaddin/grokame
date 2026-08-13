@@ -128,8 +128,14 @@ export class EntityField {
   _seedBullets() {
     for (let i = 0; i < 40; i++) {
       const mesh = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.07, 1.4, 4, 8),
-        new THREE.MeshBasicMaterial({ color: 0x9be7ff })
+        new THREE.CapsuleGeometry(0.18, 2.6, 4, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0xb8ffff,
+          transparent: true,
+          opacity: 1,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
       );
       mesh.visible = false;
       this.scene.add(mesh);
@@ -267,7 +273,8 @@ export class EntityField {
     b.life = 1.15;
     b.mesh.visible = true;
     b.mesh.position.copy(origin);
-    b.vel.copy(dir).setLength(92);
+    b.vel.copy(dir).setLength(120);
+    b.mesh.scale.set(1, 1, 1);
     b.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
     return true;
   }

@@ -60,9 +60,6 @@ export class InfinitePath {
   ensure(distance) {
     while (this._length - distance < 900) {
       this._append();
-      if (this.points.length > 220) {
-        this.points.splice(0, 20);
-      }
       this.curve = new THREE.CatmullRomCurve3(this.points, false, 'catmullrom', 0.45);
       this._length = this.curve.getLength();
     }

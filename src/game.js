@@ -168,72 +168,97 @@ export class Game {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this._clearInput();
     });
-    window.addEventListener('mousemove', (e) => {
-      this.input.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      this.input.mouse.y = -((e.clientY / window.innerHeight) * 2 - 1);
-    });
-    window.addEventListener('mousedown', (e) => {
-      if (performance.now() < this._mouseFromTouch) return;
-      if (e.sourceCapabilities?.firesTouchEvents) return;
-      this.input.firing = true;
-    });
-    window.addEventListener('mouseup', () => {
-      if (performance.now() < this._mouseFromTouch) return;
-      this.input.firing = false;
-    });
-    const touchOpts = { passive: false };
-    window.addEventListener('touchstart', (e) => this._onTouchStart(e), touchOpts);
-    window.addEventListener('touchmove', (e) => this._onTouchMove(e), touchOpts);
-    window.addEventListener('touchend', (e) => this._onTouchEnd(e), touchOpts);
-    window.addEventListener('touchcancel', (e) => this._onTouchEnd(e), touchOpts);
-  }
-
-  _isUiTouch(e) {
-    const el = e.target;
-    if (!(el instanceof Element)) return false;
-    return !!el.closest('button, .screen, a, input, textarea, label, .hud-chrome, .hud-stock');
-  }
-
-  _touchFromList(list, id) {
-    for (let i = 0; i < list.length; i++) {
-      if (list[i].identifier === id) return list[i];
+    const ptr = { passive: false, capture: true };
+    document.addEventListener('pointerdown', (e) => this._onPointerDown(e), ptr);
+    document.addEventListener('pointermove', (e) => this._onPointerMove(e), ptr);
+    document.addEventListener('pointerup', (e) => this._onPointerUp(e), ptr);
+    document.addEventListener('pointercancel', (e) => this._onPointerUp(e), ptr);
+    if (!window.PointerEvent) {
+      document.addEventListener('touchstart', (e) => this._onTouchStart(e), ptr);
+      document.addEventListener('touchmove', (e) => this._onTouchMove(e), ptr);
+      document.addEventListener('touchend', (e) => this._onTouchEnd(e), ptr);
+      document.addEventListener('touchcancel', (e) => this._onTouchEnd(e), ptr);
     }
-    return null;
   }
 
-  _onTouchStart(e) {
-    if (this._isUiTouch(e)) return;
+  _isBlockingUi(target) {
+    if (!(target instanceof Element)) return false;
+    const screen = target.closest('.screen');
+    if (screen?.classList.contains('hidden')) return false;
+    if (screen && !screen.classList.contains('hidden')) return true;
+    return !!target.closest('button, a, input, textarea, label');
+  }
+
+  _onPointerDown(e) {
     if (this.state !== 'playing') return;
-    if (this._touch.held) return;
-    const t = e.changedTouches[0];
-    if (!t) return;
+    if (e.isPrimary === false) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (this._isBlockingUi(e.target)) return;
     e.preventDefault();
-    this._touch.id = t.identifier;
-    this._touch.x = t.clientX;
-    this._touch.y = t.clientY;
     this._touch.held = true;
+    this._touch.id = e.pointerId;
+    this._touch.x = e.clientX;
+    this._touch.y = e.clientY;
     this._touch.steerX = 0;
     this._touch.steerY = 0;
     this.input.firing = true;
     this.slide.set(0, 0);
-    this.input.mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-    this.input.mouse.y = -((t.clientY / window.innerHeight) * 2 - 1);
+    this.input.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    this.input.mouse.y = -(e.clientY / window.innerHeight) * 2 - 1;
+    try {
+      this.canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* capture is best-effort */
+    }
     this.audio.resume?.();
   }
 
-  _onTouchMove(e) {
-    if (!this._touch.held) return;
-    const t = this._touchFromList(e.changedTouches, this._touch.id)
-      || this._touchFromList(e.touches, this._touch.id);
-    if (!t) return;
+  _onPointerMove(e) {
+    if (!this._touch.held || e.pointerId !== this._touch.id) return;
     e.preventDefault();
-    const dx = t.clientX - this._touch.x;
-    const dy = t.clientY - this._touch.y;
-    this._touch.x = t.clientX;
-    this._touch.y = t.clientY;
+    const dx = e.clientX - this._touch.x;
+    const dy = e.clientY - this._touch.y;
+    this._touch.x = e.clientX;
+    this._touch.y = e.clientY;
     this._applyTouchDrag(dx, dy);
-    this.input.mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
-    this.input.mouse.y = -((t.clientY / window.innerHeight) * 2 - 1);
+    this.input.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    this.input.mouse.y = -(e.clientY / window.innerHeight) * 2 - 1;
+  }
+
+  _onPointerUp(e) {
+    if (!this._touch.held || e.pointerId !== this._touch.id) return;
+    this._endTouch();
+  }
+
+  _onTouchStart(e) {
+    const t = e.changedTouches?.[0];
+    if (!t) return;
+    this._onPointerDown({
+      isPrimary: true,
+      pointerType: 'touch',
+      button: 0,
+      pointerId: t.identifier,
+      clientX: t.clientX,
+      clientY: t.clientY,
+      target: e.target,
+      preventDefault: () => e.preventDefault(),
+    });
+  }
+
+  _onTouchMove(e) {
+    const t = e.touches?.[0] || e.changedTouches?.[0];
+    if (!t) return;
+    this._onPointerMove({
+      pointerId: this._touch.id,
+      clientX: t.clientX,
+      clientY: t.clientY,
+      preventDefault: () => e.preventDefault(),
+    });
+  }
+
+  _onTouchEnd(e) {
+    this._onPointerUp({ pointerId: this._touch.id });
+    e.preventDefault?.();
   }
 
   _applyTouchDrag(dx, dy) {
@@ -247,15 +272,6 @@ export class Game {
     this.holdY = clamp(this.holdY + (-dy / h) * spanY, depth.min, depth.max);
     this._touch.steerX = clamp(dx / 10, -1, 1);
     this._touch.steerY = clamp(-dy / 10, -1, 1);
-  }
-
-  _onTouchEnd(e) {
-    this._mouseFromTouch = performance.now() + 800;
-    if (!this._touch.held) return;
-    const ended = this._touchFromList(e.changedTouches, this._touch.id)
-      || e.touches.length === 0;
-    if (!ended) return;
-    this._endTouch();
   }
 
   _endTouch() {

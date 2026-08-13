@@ -92,6 +92,7 @@ ok(!css.includes('#hud.visible #view-switcher {\n  display: none'), 'view chips 
 ok(css.includes('combo-pop'), 'combo pop animation exists');
 ok(world.includes('setChapter'), 'chapter world recolor exists');
 ok(audio.includes('sting(') && audio.includes('setChapter'), 'stems and stings exist');
+ok(game.includes('_onPointerDown'), 'pointer drag starts on press');
 ok(game.includes('_applyTouchDrag'), 'mobile drag moves the ship');
 ok(game.includes('_onTouchStart'), 'touch hold fires');
 ok(css.includes('touch-action: none'), 'touch does not scroll the page');

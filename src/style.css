@@ -60,10 +60,21 @@ canvas {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.6s ease;
+  touch-action: none;
 }
 
 #hud.visible {
   opacity: 1;
+}
+
+.hud-top,
+.hud-bottom,
+.hud-scoreboard,
+.hud-arsenal,
+.hud-vitals,
+#toast,
+.boss-meter {
+  pointer-events: none;
 }
 
 .hud-top,
@@ -108,7 +119,7 @@ canvas {
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
-  pointer-events: auto;
+  pointer-events: none;
   z-index: 4;
 }
 
@@ -390,7 +401,11 @@ canvas {
 .screen.hidden {
   opacity: 0;
   visibility: hidden;
-  pointer-events: none;
+  pointer-events: none !important;
+}
+
+.screen.hidden * {
+  pointer-events: none !important;
 }
 
 .pause-dim {

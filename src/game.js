@@ -6,11 +6,12 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { cinematicShader } from './shaders.js';
-import { InfinitePath, createFrenet, clamp, lerp } from './math.js';
+import { InfinitePath, createFrenet, sampleRail, clamp, lerp } from './math.js';
 import { World } from './world.js';
 import { createShip, EngineTrail } from './ship.js';
 import { EntityField } from './entities.js';
 import { AudioBus } from './audio.js';
+import { RESONANCE_MAX, RANK_META, costToNext, volley } from './weapons.js';
 
 export class Game {
   constructor(canvas) {
@@ -23,6 +24,14 @@ export class Game {
       firing: false,
     };
     this.audio = new AudioBus();
+    this.view = localStorage.getItem('aether-view') || 'scroll';
+    if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'scroll';
+    this._hasRun = false;
+    this.gateFx = 0;
+    this._viewSnap = 1;
+    this._camLook = new THREE.Vector3();
+    this._camUp = new THREE.Vector3(0, 1, 0);
+    this._chaseX = 0;
     this._setupRenderer();
     this._setupScene();
     this._setupPost();
@@ -52,7 +61,7 @@ export class Game {
   _setupScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#05010d');
-    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1400);
+    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.08, 1400);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
@@ -66,6 +75,9 @@ export class Game {
     this.composer.addPass(this.bloom);
     this.fx = new ShaderPass(cinematicShader);
     this.fx.uniforms.uSunPos.value = new THREE.Vector2(0.72, 0.68);
+    this.fx.uniforms.uFlare.value = 1;
+    this.fx.uniforms.uCockpit.value = 0;
+    this.fx.uniforms.uGate.value = 0;
     this.fx.uniforms.uResolution.value = size.clone();
     this.composer.addPass(this.fx);
     this.composer.addPass(new OutputPass());
@@ -82,18 +94,63 @@ export class Game {
     this.shipLights = ship.lights;
     this.shipCore = ship.core;
     this.scene.add(this.ship);
-    this._lookDummy = new THREE.Object3D();
-    this.scene.add(this._lookDummy);
     this.trail = new EngineTrail(this.scene);
+    this.traces = [];
+    for (let i = 0; i < 2; i++) {
+      const mote = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 10, 8),
+        new THREE.MeshBasicMaterial({ color: 0xff64e8 })
+      );
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.85, 10, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0xff64e8,
+          transparent: true,
+          opacity: 0.32,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      );
+      mote.add(halo);
+      mote.visible = false;
+      this.scene.add(mote);
+      this.traces.push(mote);
+    }
   }
 
   _bindInput() {
-    window.addEventListener('keydown', (e) => {
-      this.input.keys.add(e.code);
+    this.canvas.tabIndex = 0;
+    const moveKeys = new Set([
+      'KeyW', 'KeyA', 'KeyS', 'KeyD',
+      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+      'Numpad8', 'Numpad4', 'Numpad6', 'Numpad2',
+      'Space',
+    ]);
+    const onDown = (e) => {
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        if (!e.repeat) this._onEscape();
+        return;
+      }
+      if (moveKeys.has(e.code)) e.preventDefault();
+      this._setKey(e, true);
+      if (this.state === 'playing' && !e.repeat) this._releaseUiFocus();
       if (e.code === 'KeyP' && this.state === 'playing') this.pause();
-      if (e.code === 'Space') e.preventDefault();
+      if (e.code === 'Digit1' || e.code === 'Numpad1') this.setView('chase');
+      if (e.code === 'Digit2' || e.code === 'Numpad2') this.setView('cockpit');
+      if (e.code === 'Digit3' || e.code === 'Numpad3') this.setView('scroll');
+      if (e.code === 'KeyV') this.cycleView();
+    };
+    const onUp = (e) => {
+      if (moveKeys.has(e.code)) e.preventDefault();
+      this._setKey(e, false);
+    };
+    window.addEventListener('keydown', onDown, true);
+    window.addEventListener('keyup', onUp, true);
+    window.addEventListener('blur', () => this._clearInput());
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this._clearInput();
     });
-    window.addEventListener('keyup', (e) => this.input.keys.delete(e.code));
     window.addEventListener('mousemove', (e) => {
       this.input.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       this.input.mouse.y = -((e.clientY / window.innerHeight) * 2 - 1);
@@ -124,36 +181,235 @@ export class Game {
       score: document.getElementById('score'),
       combo: document.getElementById('combo'),
       depth: document.getElementById('depth'),
+      threat: document.getElementById('threat'),
       health: document.getElementById('health-fill'),
       boost: document.getElementById('boost-fill'),
+      riftFill: document.getElementById('rift-fill'),
+      riftName: document.getElementById('rift-name'),
+      riftWrap: document.querySelector('.rift-wrap'),
       toast: document.getElementById('toast'),
       title: document.getElementById('title-screen'),
       pause: document.getElementById('pause-screen'),
       dead: document.getElementById('dead-screen'),
       stats: document.getElementById('final-stats'),
+      startBtn: document.getElementById('start-btn'),
+      resumeTitleBtn: document.getElementById('resume-title-btn'),
+      viewBtns: [...document.querySelectorAll('[data-view]')],
     };
-    document.getElementById('start-btn').addEventListener('click', () => this.startPlay());
+    this.ui.startBtn.addEventListener('click', () => this.startPlay());
+    this.ui.resumeTitleBtn.addEventListener('click', () => this.resumeFromMenu());
     document.getElementById('resume-btn').addEventListener('click', () => this.resume());
+    document.getElementById('menu-btn').addEventListener('click', () => this.goToMenu({ resumeable: true }));
     document.getElementById('retry-btn').addEventListener('click', () => this.startPlay());
+    const menuButtons = [
+      this.ui.startBtn,
+      this.ui.resumeTitleBtn,
+      document.getElementById('resume-btn'),
+      document.getElementById('menu-btn'),
+      document.getElementById('retry-btn'),
+    ];
+    for (const btn of menuButtons) {
+      btn.addEventListener('mousedown', (e) => e.stopPropagation());
+      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      btn.addEventListener('click', () => this._releaseUiFocus());
+    }
+    for (const btn of this.ui.viewBtns) {
+      btn.addEventListener('click', () => {
+        this.setView(btn.dataset.view);
+        this._releaseUiFocus();
+      });
+      btn.addEventListener('mousedown', (e) => e.stopPropagation());
+      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    }
+    this._syncViewHud();
+    this._syncTitleActions();
+  }
+
+  _syncTitleActions() {
+    if (!this.ui?.resumeTitleBtn || !this.ui?.startBtn) return;
+    this.ui.resumeTitleBtn.hidden = !this._hasRun;
+    this.ui.startBtn.textContent = this._hasRun ? 'NEW RUN' : 'ENGAGE';
+  }
+
+  _setKey(e, down) {
+    const tokens = [e.code];
+    const letter = (e.key || '').toLowerCase();
+    if (letter.length === 1) tokens.push(letter);
+    for (const token of tokens) {
+      if (down) this.input.keys.add(token);
+      else this.input.keys.delete(token);
+    }
+  }
+
+  _releaseUiFocus() {
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== this.canvas && typeof active.blur === 'function') {
+      active.blur();
+    }
+    this.canvas?.focus({ preventScroll: true });
+  }
+
+  _clearInput() {
+    this.input.keys.clear();
+    this.input.firing = false;
+    this.slide?.set(0, 0);
+  }
+
+  _onEscape() {
+    if (this.state === 'playing' || this.state === 'paused') {
+      this.goToMenu({ resumeable: true });
+      return;
+    }
+    if (this.state === 'title' && this._hasRun) {
+      this.resumeFromMenu();
+      return;
+    }
+    if (this.state === 'dead') this.goToMenu({ resumeable: false });
+  }
+
+  goToMenu({ resumeable = false } = {}) {
+    this._clearInput();
+    this._hasRun = resumeable;
+    this.state = 'title';
+    this.ui.pause.classList.add('hidden');
+    this.ui.dead.classList.add('hidden');
+    this.ui.hud.classList.remove('visible');
+    this.ui.title.classList.remove('hidden');
+    this._syncTitleActions();
+    if (!resumeable) this.reset(true);
+  }
+
+  resumeFromMenu() {
+    if (!this._hasRun) return;
+    this._clearInput();
+    this.state = 'playing';
+    this.ui.title.classList.add('hidden');
+    this.ui.pause.classList.add('hidden');
+    this.ui.dead.classList.add('hidden');
+    this.ui.hud.classList.add('visible');
+    this.clock.getDelta();
+    this._releaseUiFocus();
+  }
+
+  cycleView() {
+    const order = ['chase', 'cockpit', 'scroll'];
+    const i = order.indexOf(this.view);
+    this.setView(order[(i + 1) % order.length]);
+  }
+
+  setView(name) {
+    if (!['chase', 'cockpit', 'scroll'].includes(name)) return;
+    if (this.view === name && this._viewSnap === 0) {
+      this._syncViewHud();
+      return;
+    }
+    this.view = name;
+    this._viewSnap = 1;
+    localStorage.setItem('aether-view', name);
+    this._syncViewHud();
+    const labels = {
+      chase: 'CHASE CAM',
+      cockpit: 'COCKPIT',
+      scroll: 'SCROLL CAM',
+    };
+    if (this.state === 'playing' || this.state === 'paused') this.toast(labels[name]);
+  }
+
+  _syncViewHud() {
+    if (!this.ui?.viewBtns) return;
+    for (const btn of this.ui.viewBtns) {
+      btn.classList.toggle('active', btn.dataset.view === this.view);
+    }
+  }
+
+  _activeView() {
+    return this.state === 'title' ? 'chase' : this.view;
+  }
+
+  _applyCamera(dt, sample, frame, shipSample, shipFrame) {
+    const view = this._activeView();
+    this.ship.visible = view !== 'cockpit';
+    const shipFrameSafe = shipFrame || frame;
+    const shipSampleSafe = shipSample || sample;
+
+    const camPos = new THREE.Vector3();
+    const camLook = new THREE.Vector3();
+    const camUp = new THREE.Vector3();
+    let fov = 62;
+    const snap = this._viewSnap > 0.02;
+
+    if (view === 'cockpit') {
+      fov = 78;
+      camPos.copy(this.ship.position)
+        .addScaledVector(shipSampleSafe.tangent, 1.85)
+        .addScaledVector(shipFrameSafe.normal, 0.72);
+      camLook.copy(this.ship.position)
+        .addScaledVector(shipSampleSafe.tangent, 30);
+      camUp.copy(shipFrameSafe.normal);
+    } else if (view === 'scroll') {
+      fov = 38;
+      const focus = this.path.sample(this.traveled + 22);
+      const focusFrame = createFrenet(focus.tangent);
+      camPos.copy(focus.pos).addScaledVector(focusFrame.normal, 168);
+      camLook.copy(focus.pos);
+      camUp.copy(focus.tangent);
+    } else {
+      fov = 62;
+      const focus = this.path.sample(this.traveled + this.holdY + 6);
+      const focusFrame = createFrenet(focus.tangent);
+      const chaseK = snap ? 14 : 2.45;
+      this._chaseX += (this.offset.x - this._chaseX) * (1 - Math.exp(-dt * chaseK));
+      camPos.copy(focus.pos)
+        .addScaledVector(focus.tangent, -32)
+        .addScaledVector(focusFrame.normal, 14)
+        .addScaledVector(focusFrame.binormal, this._chaseX);
+      camLook.copy(focus.pos)
+        .addScaledVector(focus.tangent, 16)
+        .addScaledVector(focusFrame.binormal, this._chaseX);
+      camUp.copy(focusFrame.normal);
+    }
+
+    const posK = snap ? 16 : view === 'scroll' ? 12 : view === 'chase' ? 7.5 : 5;
+    const lookK = snap ? 14 : view === 'scroll' ? 11 : view === 'chase' ? 6.5 : 5.5;
+    this.camera.position.lerp(camPos, 1 - Math.exp(-dt * posK));
+    this._camLook.lerp(camLook, 1 - Math.exp(-dt * lookK));
+    this._camUp.lerp(camUp, 1 - Math.exp(-dt * lookK));
+    this.camera.up.copy(this._camUp);
+    this.camera.lookAt(this._camLook);
+    this.camera.fov = lerp(this.camera.fov, fov, 1 - Math.exp(-dt * 7));
+    this.camera.updateProjectionMatrix();
+    this._viewSnap = Math.max(0, this._viewSnap - dt * 2.4);
   }
 
   reset(layout = true) {
     this.traveled = 40;
-    this.speed = 36;
+    this.speed = 28;
+    this.throttle = 0.55;
     this.boost = 1;
     this.health = 1;
+    this.rank = 0;
+    this.charge = 0;
+    if (this.traces) {
+      for (const mote of this.traces) mote.visible = false;
+    }
     this.score = 0;
     this.combo = 1;
     this.comboTimer = 0;
     this.hurt = 0;
     this.invuln = 0;
+    this.gateFx = 0;
     this.fireCd = 0;
+    this.kills = 0;
+    this._blockWarn = false;
     this.offset = new THREE.Vector2(0, 0);
+    this.holdY = 8;
+    this._chaseX = 0;
     this.steer = new THREE.Vector2(0, 0);
+    this.slide = new THREE.Vector2(0, 0);
     this.best = Number(localStorage.getItem('aether-best') || 0);
     this._ribbonAt = -1;
     this.entities.reset();
-    this.world.layoutFromPath(this.path, this.traveled);
+    this.world.layoutFromPath(this.path, this.traveled, this._laneLimit());
     this.world.attachRibbon(this._localRibbon());
   }
 
@@ -169,13 +425,17 @@ export class Game {
   async startPlay() {
     await this.audio.resume();
     this.reset(true);
+    this._hasRun = true;
     this.state = 'playing';
     this.ui.title.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
     this.ui.hud.classList.add('visible');
-    this.toast('RIFT ENGAGED');
+    this._syncTitleActions();
+    this._viewSnap = 1;
+    this.toast('HUNTERS INBOUND');
     this.clock.getDelta();
+    this._releaseUiFocus();
   }
 
   pause() {
@@ -187,17 +447,20 @@ export class Game {
     this.state = 'playing';
     this.ui.pause.classList.add('hidden');
     this.clock.getDelta();
+    this._releaseUiFocus();
   }
 
   die() {
     this.state = 'dead';
+    this._hasRun = false;
+    this._syncTitleActions();
     this.audio.explosion();
     this.entities.explode(this.ship.position.clone(), 0xff3bd4);
     this.best = Math.max(this.best, this.score);
     localStorage.setItem('aether-best', String(this.best));
     this.ui.hud.classList.remove('visible');
     this.ui.dead.classList.remove('hidden');
-    this.ui.stats.textContent = `SCORE ${this.score}   BEST ${this.best}   DEPTH ${(this.traveled / 10).toFixed(0)} km`;
+    this.ui.stats.textContent = `SCORE ${this.score}   BEST ${this.best}   KILLS ${this.kills}   DEPTH ${(this.traveled / 10).toFixed(0)} km`;
   }
 
   toast(text) {
@@ -214,7 +477,7 @@ export class Game {
   loop() {
     requestAnimationFrame(this.loop);
     const dt = Math.min(this.clock.getDelta(), 0.05);
-    if (this.state === 'paused') {
+    if (this.state === 'paused' || (this.state === 'title' && this._hasRun)) {
       this._render();
       return;
     }
@@ -231,14 +494,16 @@ export class Game {
     if (this.state === 'playing') {
       if (boosting && this.boost > 0.05) {
         wantBoost = 1;
-        this.boost = Math.max(0, this.boost - dt * 0.28);
+        this.boost = Math.max(0, this.boost - dt * 0.32);
       } else {
-        this.boost = Math.min(1, this.boost + dt * 0.12);
+        this.boost = Math.min(1, this.boost + dt * 0.1);
       }
     }
 
-    const cruise = cinematic ? 18 : 38 + wantBoost * 32 + Math.min(this.traveled / 1800, 18);
-    this.speed = lerp(this.speed, cruise, 1 - Math.exp(-dt * 3));
+    const cruise = cinematic
+      ? 16
+      : 26 + wantBoost * 22 + Math.min(this.traveled / 2800, 8);
+    this.speed = lerp(this.speed, cruise, 1 - Math.exp(-dt * 2.4));
     this.traveled += this.speed * dt;
     this.path.ensure(this.traveled + 400);
 
@@ -251,41 +516,40 @@ export class Game {
     const frame = createFrenet(sample.tangent);
 
     if (this.state === 'playing') {
-      const keyX = (this.input.keys.has('KeyD') || this.input.keys.has('ArrowRight') ? 1 : 0)
-        - (this.input.keys.has('KeyA') || this.input.keys.has('ArrowLeft') ? 1 : 0);
-      const keyY = (this.input.keys.has('KeyW') || this.input.keys.has('ArrowUp') ? 1 : 0)
-        - (this.input.keys.has('KeyS') || this.input.keys.has('ArrowDown') ? 1 : 0);
-      this.steer.x = clamp(this.input.mouse.x * 1.1 + keyX * 0.7, -1, 1);
-      this.steer.y = clamp(this.input.mouse.y * 0.9 + keyY * 0.7, -1, 1);
+      const keyX = this._axisHeld(
+        ['KeyA', 'ArrowLeft', 'Numpad4', 'a'],
+        ['KeyD', 'ArrowRight', 'Numpad6', 'd'],
+      );
+      const keyY = this._axisHeld(
+        ['KeyS', 'ArrowDown', 'Numpad2', 's'],
+        ['KeyW', 'ArrowUp', 'Numpad8', 'w'],
+      );
+      this._applySlide(keyX, keyY, dt);
+      const lane = this._laneLimit();
+      const depth = this._depthLimit();
+      this.offset.x = clamp(this.offset.x + this.slide.x * dt, -lane, lane);
+      this.holdY = clamp(this.holdY + this.slide.y * dt, depth.min, depth.max);
+      if (this.offset.x <= -lane && this.slide.x < 0) this.slide.x = 0;
+      if (this.offset.x >= lane && this.slide.x > 0) this.slide.x = 0;
+      if (this.holdY <= depth.min && this.slide.y < 0) this.slide.y = 0;
+      if (this.holdY >= depth.max && this.slide.y > 0) this.slide.y = 0;
+      this.offset.y = 0;
+      this.steer.set(keyX, keyY);
     } else {
-      this.steer.x = Math.sin(this.clock.elapsedTime * 0.35) * 0.35;
-      this.steer.y = Math.cos(this.clock.elapsedTime * 0.22) * 0.2;
+      this.slide.set(0, 0);
+      this.offset.x = Math.sin(this.clock.elapsedTime * 0.35) * this._laneLimit() * 0.42;
+      this.holdY = 8;
+      this.steer.set(0, 0);
     }
 
-    this.offset.x = lerp(this.offset.x, this.steer.x * 6.2, 1 - Math.exp(-dt * 6));
-    this.offset.y = lerp(this.offset.y, this.steer.y * 3.6, 1 - Math.exp(-dt * 6));
+    const rail = sampleRail(this.path, this.traveled + this.holdY, this.offset.x, 0.35);
+    const shipSample = rail.sample;
+    const shipFrame = rail.frame;
+    this.ship.position.copy(rail.pos);
+    this.ship.up.copy(shipFrame.normal);
+    this.ship.lookAt(this.ship.position.clone().add(shipSample.tangent));
 
-    this.ship.position.copy(sample.pos)
-      .addScaledVector(frame.binormal, this.offset.x)
-      .addScaledVector(frame.normal, this.offset.y + 0.2);
-
-    const look = this.ship.position.clone().addScaledVector(sample.tangent, 18);
-    const tmp = this._lookDummy;
-    tmp.position.copy(this.ship.position);
-    tmp.up.copy(frame.normal);
-    tmp.lookAt(look);
-    const bank = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -this.offset.x * 0.12);
-    tmp.quaternion.multiply(bank);
-    this.ship.quaternion.slerp(tmp.quaternion, 1 - Math.exp(-dt * 8));
-
-    const camTarget = this.ship.position.clone()
-      .addScaledVector(sample.tangent, -22)
-      .addScaledVector(frame.normal, 9.2)
-      .addScaledVector(frame.binormal, this.offset.x * 0.25);
-    this.camera.position.lerp(camTarget, 1 - Math.exp(-dt * 5));
-    const camLook = this.ship.position.clone().addScaledVector(sample.tangent, 8).addScaledVector(frame.normal, 0.2);
-    this.camera.up.lerp(frame.normal, 0.15);
-    this.camera.lookAt(camLook);
+    this._applyCamera(dt, sample, frame, shipSample, shipFrame);
 
     const boostAmt = wantBoost;
     for (const ex of this.exhausts) {
@@ -294,16 +558,27 @@ export class Game {
       ex.material.color.set(boostAmt > 0.2 ? 0xffd166 : 0x9be7ff);
     }
     for (const l of this.shipLights) l.intensity = 3.2 + boostAmt * 3;
-    this.trail.push(this.ship.position.clone().addScaledVector(sample.tangent, -1.4), boostAmt);
+    this.trail.push(this.ship.position.clone().addScaledVector(shipSample.tangent, -1.4), boostAmt);
     this.audio.setBoost(boostAmt);
 
     this.world.update(dt, this.camera, this.traveled);
-    this.world.recycleCrystals(this.path, this.traveled);
+    this.world.recycleCrystals(this.path, this.traveled, this._laneLimit());
 
     const difficulty = 1 + this.traveled / 900;
+    this.entities.laneLimit = this._laneLimit();
     this.entities.spawnAhead(this.path, this.traveled, difficulty);
-    this.entities.recycleBehind(this.traveled);
-    this.entities.update(dt, this.path, this.traveled, this.ship.position, difficulty);
+    this.entities.recycleBehind(this.traveled, this.holdY);
+    this.entities.update(
+      dt,
+      this.path,
+      this.traveled,
+      this.ship.position,
+      this.offset,
+      difficulty,
+      this.holdY,
+    );
+
+    this._updateTraces(shipFrame, dt);
 
     const extras = [
       { pos: this.shipLights[0].getWorldPosition(new THREE.Vector3()), color: new THREE.Color('#5ce1ff'), intensity: 12 + boostAmt * 8 },
@@ -314,6 +589,11 @@ export class Game {
 
     this.hurt = Math.max(0, this.hurt - dt * 1.8);
     this.invuln = Math.max(0, this.invuln - dt);
+    let gatePulse = 0;
+    for (const gate of this.entities.gates) {
+      if (gate.burst > 0) gatePulse = Math.max(gatePulse, gate.pulse || 0);
+    }
+    this.gateFx = gatePulse;
     this.comboTimer -= dt;
     if (this.comboTimer <= 0) this.combo = 1;
     this.fireCd = Math.max(0, this.fireCd - dt);
@@ -321,69 +601,228 @@ export class Game {
     if (this.state === 'playing') {
       const firing = this.input.firing || this.input.keys.has('Space');
       if (firing && this.fireCd <= 0) {
-        const origin = this.ship.position.clone().addScaledVector(sample.tangent, 5.4);
-        const dir = sample.tangent.clone().addScaledVector(frame.binormal, this.steer.x * 0.08).normalize();
-        const left = origin.clone().addScaledVector(frame.binormal, -1.8);
-        const right = origin.clone().addScaledVector(frame.binormal, 1.8);
-        const shotA = this.entities.fire(left, dir);
-        const shotB = this.entities.fire(right, dir);
-        if (shotA || shotB) {
-          this.audio.laser();
-          this.fireCd = 0.1;
+        const spec = volley(this.rank);
+        const muzzle = this.traveled + this.holdY + 6.2;
+        let any = false;
+        for (const shot of spec.shots) {
+          if (this.entities.fireRail(this.path, muzzle, this.offset.x + shot.x, 1, shot)) any = true;
+        }
+        if (any) {
+          this.audio.laser(this.rank);
+          this.fireCd = spec.fireCd;
         }
       }
 
       const orbs = this.entities.collectOrbs(this.ship.position, 2.2);
       for (const orb of orbs) {
-        this._score(orb.value);
+        this.score += orb.value;
         this.audio.collect();
-        this.health = Math.min(1, this.health + 0.04);
-      }
-      const gates = this.entities.collectGates(this.ship.position);
-      for (const _ of gates) {
-        this._score(250);
-        this.boost = 1;
-        this.audio.gate();
-        this.toast('GATE BREAK');
+        this.health = Math.min(1, this.health + 0.05);
       }
 
-      const kills = this.entities.bulletHits();
-      for (const k of kills) {
-        this.entities.explode(k.pos, k.boss ? 0xff3bd4 : 0x5ce1ff);
+      const motes = this.entities.collectMotes(this.ship.position, 2.4);
+      if (motes.length) this._gainMotes(motes.length);
+
+      const gateHits = this.entities.collectGates(this.ship.position);
+      for (const hit of gateHits) {
+        if (hit.blocked) {
+          if (this.invuln <= 0) {
+            this._damage(0.34);
+            this.toast('SHIELD LOCK');
+          }
+        } else {
+          this._combatScore(500);
+          this.boost = 1;
+          this.audio.gate();
+          this.toast('GATE BREAK');
+        }
+      }
+
+      const combat = this.entities.bulletHits();
+      for (const k of combat) {
+        if (k.type === 'ping') continue;
+        this.entities.explode(k.pos, k.type === 'blocker' ? 0xff9a3a : 0x5ce1ff);
         this.audio.explosion();
-        this._score(k.boss ? 2000 : 120);
-        if (k.boss) this.toast('SENTINEL DOWN');
+        if (k.type === 'enemy') {
+          this.kills += 1;
+          this._combatScore(220);
+          this.boost = Math.min(1, this.boost + 0.18);
+          this._dropLoot(k);
+        } else if (k.type === 'blocker') {
+          this._combatScore(160);
+          this.toast('PATH CLEAR');
+          this._dropLoot(k);
+        } else if (k.type === 'unlock') {
+          this._combatScore(220);
+          this.audio.gate();
+          this.toast('LOCK SHATTERED');
+          this._dropLoot(k);
+        } else if (k.type === 'boss') {
+          this.kills += 1;
+          this._combatScore(3200);
+          this.toast('SENTINEL DOWN');
+          this._dropLoot(k);
+        }
+      }
+
+      for (const _ of this.entities.nearMisses(this.ship.position)) {
+        this._combatScore(90);
+        this.toast('NEAR MISS');
+      }
+
+      if (this.entities.blockerAhead(this.traveled)) {
+        if (!this._blockWarn) {
+          this._blockWarn = true;
+          this.toast('RIFT BLOCKED — SHOOT');
+        }
+      } else {
+        this._blockWarn = false;
       }
 
       if (this.invuln <= 0) {
-        const crystalHit = this.world.hitTest(this.ship.position, 1.35);
-        const bodyHit = this.entities.collideEnemies(this.ship.position, 1.5).length > 0;
-        const shotHit = this.entities.shotsHitPlayer(this.ship.position, 1.4);
-        if (crystalHit || bodyHit || shotHit) this._damage(crystalHit ? 0.22 : 0.18);
+        const crystalHit = this.world.hitTest(this.ship.position, 1.2);
+        const rammed = this.entities.collideEnemies(this.ship.position, 1.45);
+        const blocked = this.entities.collideBlockers(this.ship.position, 1.4);
+        const shotHit = this.entities.shotsHitPlayer(this.ship.position, 1.35);
+        if (blocked.length) {
+          for (const blk of blocked) {
+            blk.alive = false;
+            blk.mesh.visible = false;
+            this.entities.explode(blk.mesh.position.clone(), 0xff9a3a);
+          }
+          this.audio.explosion();
+          this._damage(0.42);
+        } else if (rammed.length) {
+          for (const en of rammed) {
+            if (en.hp !== undefined && en.mesh) {
+              en.alive = false;
+              en.mesh.visible = false;
+              this.entities.explode(en.mesh.position.clone(), 0xff2458);
+              this.kills += 1;
+              this._dropLoot({
+                drop: en.drop ?? 1,
+                pathDist: en.pathDist,
+                laneX: en.offset?.x ?? this.offset.x,
+              });
+            }
+          }
+          this.audio.explosion();
+          this._damage(0.3);
+        } else if (shotHit) this._damage(0.16);
+        else if (crystalHit) this._damage(0.12);
       }
     }
 
     this.fx.uniforms.uTime.value = this.clock.elapsedTime;
     this.fx.uniforms.uBoost.value = boostAmt;
     this.fx.uniforms.uHurt.value = this.hurt;
+    this.fx.uniforms.uGate.value = this.gateFx;
     const sunNdc = this.world.sun.position.clone().project(this.camera);
     this.fx.uniforms.uSunPos.value.set(sunNdc.x * 0.5 + 0.5, sunNdc.y * 0.5 + 0.5);
+    const sunInView = sunNdc.z < 1
+      && sunNdc.x > -1.2 && sunNdc.x < 1.2
+      && sunNdc.y > -1.2 && sunNdc.y < 1.2;
+    const flare = sunInView ? 0.85 : 0;
+    this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
+    this.fx.uniforms.uCockpit.value = 0;
+    const bloomStr = 0.48 + this.gateFx * 0.28;
+    const bloomThr = 0.42;
+    const bloomRad = 0.5 + this.gateFx * 0.12;
+    this.bloom.strength = lerp(this.bloom.strength, bloomStr, 1 - Math.exp(-dt * 6));
+    this.bloom.threshold = lerp(this.bloom.threshold, bloomThr, 1 - Math.exp(-dt * 6));
+    this.bloom.radius = lerp(this.bloom.radius, bloomRad, 1 - Math.exp(-dt * 6));
 
     this._syncHud();
   }
 
-  _score(n) {
+  _dropLoot(src) {
+    const n = src?.drop ?? 0;
+    if (n <= 0) return;
+    const dist = src.pathDist ?? (this.traveled + this.holdY + 6);
+    const lane = src.laneX ?? this.offset.x;
+    this.entities.spawnMote(this.path, dist, lane, n);
+  }
+
+  _gainMotes(n) {
+    if (n <= 0) return;
+    this.audio.mote(n > 1);
+    if (this.rank >= RESONANCE_MAX) {
+      this._combatScore(36 * n);
+      return;
+    }
+    this.charge += n;
+    let leveled = false;
+    while (this.rank < RESONANCE_MAX) {
+      const need = costToNext(this.rank);
+      if (this.charge < need) break;
+      this.charge -= need;
+      this.rank += 1;
+      leveled = true;
+    }
+    if (leveled) {
+      this.audio.powerup();
+      this.toast(RANK_META[this.rank].toast);
+    }
+  }
+
+  _shedResonance() {
+    if (this.rank <= 0 && this.charge <= 0) return;
+    const shed = Math.min(3, 1 + Math.floor(this.rank / 2));
+    if (this.rank > 0) {
+      this.rank -= 1;
+      this.charge = Math.max(0, Math.floor(costToNext(this.rank) * 0.35));
+    } else {
+      this.charge = 0;
+    }
+    this.entities.spawnMote(
+      this.path,
+      this.traveled + this.holdY + 12,
+      this.offset.x,
+      shed,
+      { grace: 0.45, spread: 7.5 },
+    );
+  }
+
+  _updateTraces(shipFrame, dt) {
+    const show = this.state === 'playing' && this.rank >= 5;
+    const t = this.clock.elapsedTime;
+    for (let i = 0; i < this.traces.length; i++) {
+      const mote = this.traces[i];
+      mote.visible = show;
+      if (!show) continue;
+      const side = i === 0 ? -1 : 1;
+      const orbit = 4.6 + Math.sin(t * 3.2 + i) * 0.35;
+      const lift = 0.4 + Math.cos(t * 2.4 + i * 1.7) * 0.2;
+      mote.position.copy(this.ship.position)
+        .addScaledVector(shipFrame.binormal, side * orbit)
+        .addScaledVector(shipFrame.normal, lift);
+      const gold = this.rank >= 7;
+      mote.material.color.set(gold ? 0xffd166 : 0xff64e8);
+      mote.scale.setScalar(0.9 + (this.rank >= 7 ? 0.25 : 0) + Math.sin(t * 6 + i) * 0.08);
+    }
+    if (this.shipCore) {
+      const col = this.rank >= 7 ? 0xffd166 : this.rank >= 5 ? 0xff64e8 : this.rank >= 2 ? 0x9be7ff : 0xff5ad4;
+      this.shipCore.material.color.set(col);
+    }
+  }
+
+  _combatScore(n) {
     this.score += Math.floor(n * this.combo);
-    this.combo = Math.min(8, this.combo + 0.25);
-    this.comboTimer = 2.4;
+    this.combo = Math.min(8, this.combo + 0.35);
+    this.comboTimer = 3.2;
+  }
+
+  _score(n) {
+    this._combatScore(n);
   }
 
   _damage(amt) {
     this.health -= amt;
     this.hurt = 1;
-    this.invuln = 0.85;
+    this.invuln = 0.7;
     this.combo = 1;
     this.audio.hit();
+    this._shedResonance();
     if (this.health <= 0) this.die();
   }
 
@@ -392,12 +831,68 @@ export class Game {
     this.ui.score.textContent = this.score.toLocaleString();
     this.ui.combo.textContent = `×${this.combo.toFixed(1)}`;
     this.ui.depth.textContent = `${(this.traveled / 10).toFixed(0)} km`;
+    if (this.ui.threat) this.ui.threat.textContent = String(this.entities.hunterCount());
     this.ui.health.style.transform = `scaleX(${clamp(this.health, 0, 1)})`;
     this.ui.boost.style.transform = `scaleX(${clamp(this.boost, 0, 1)})`;
+    if (this.ui.riftName) this.ui.riftName.textContent = RANK_META[this.rank]?.name || 'NEEDLES';
+    if (this.ui.riftFill) {
+      const need = costToNext(this.rank);
+      const fill = this.rank >= RESONANCE_MAX ? 1 : need <= 0 ? 0 : clamp(this.charge / need, 0, 1);
+      this.ui.riftFill.style.transform = `scaleX(${fill})`;
+      this.ui.riftWrap?.classList.toggle('rift-max', this.rank >= RESONANCE_MAX);
+      this.ui.riftWrap?.classList.toggle('rift-wings', this.rank >= 5 && this.rank < 7);
+    }
   }
 
   _render() {
     this.composer.render();
+  }
+
+  _axisHeld(neg, pos) {
+    let v = 0;
+    for (const code of neg) if (this.input.keys.has(code)) v -= 1;
+    for (const code of pos) if (this.input.keys.has(code)) v += 1;
+    return Math.max(-1, Math.min(1, v));
+  }
+
+  _applySlide(keyX, keyY, dt) {
+    const maxSpeed = 72;
+    const accel = 260;
+    const brake = 210;
+    let ix = keyX;
+    let iy = keyY;
+    const mag = Math.hypot(ix, iy);
+    if (mag > 1) {
+      ix /= mag;
+      iy /= mag;
+    }
+    this.slide.x = this._approachVel(this.slide.x, ix * maxSpeed, accel, brake, dt);
+    this.slide.y = this._approachVel(this.slide.y, iy * maxSpeed, accel, brake, dt);
+  }
+
+  _approachVel(current, target, accel, brake, dt) {
+    const rate = target === 0 ? brake : accel;
+    if (current < target) return Math.min(target, current + rate * dt);
+    if (current > target) return Math.max(target, current - rate * dt);
+    return target;
+  }
+
+  _playfieldHalf() {
+    const height = 168;
+    const fov = 38 * Math.PI / 180;
+    return height * Math.tan(fov / 2);
+  }
+
+  _depthLimit() {
+    const halfH = this._playfieldHalf();
+    const focus = 22;
+    const pad = 5;
+    return { min: focus - halfH + pad, max: focus + halfH - pad };
+  }
+
+  _laneLimit() {
+    const halfWidth = this._playfieldHalf() * this.camera.aspect;
+    return Math.max(22, halfWidth - 5);
   }
 
   _onResize() {

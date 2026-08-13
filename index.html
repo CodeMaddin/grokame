@@ -22,6 +22,10 @@
           <div class="label">COMBO</div>
           <div id="combo" class="value">×1</div>
         </div>
+        <div class="hud-panel threat-panel">
+          <div class="label">HUNTERS</div>
+          <div id="threat" class="value">0</div>
+        </div>
         <div class="hud-panel">
           <div class="label">DEPTH</div>
           <div id="depth" class="value">0 km</div>
@@ -35,6 +39,12 @@
             <div id="health-fill"></div>
           </div>
         </div>
+        <div class="bar-wrap rift-wrap">
+          <div class="label">RIFT · <span id="rift-name">NEEDLES</span></div>
+          <div class="bar">
+            <div id="rift-fill"></div>
+          </div>
+        </div>
         <div class="bar-wrap">
           <div class="label">BOOST</div>
           <div class="bar">
@@ -44,26 +54,39 @@
       </div>
 
       <div id="toast"></div>
+
+      <div id="view-switcher">
+        <button type="button" data-view="chase" class="view-btn">1 CHASE</button>
+        <button type="button" data-view="cockpit" class="view-btn">2 COCKPIT</button>
+        <button type="button" data-view="scroll" class="view-btn">3 SCROLL</button>
+      </div>
     </div>
 
     <div id="title-screen" class="screen">
       <div class="title-glow"></div>
       <p class="kicker">SECTOR 7 — THE AETHER RIFT</p>
       <h1>AETHER<br /><span>DRIFT</span></h1>
-      <p class="tagline">Ride the light. Harvest the rift. Do not blink.</p>
-      <button id="start-btn" type="button">ENGAGE</button>
+      <p class="tagline">The ribbon is a suggestion. Hunters are not.</p>
+      <div class="menu-actions">
+        <button id="resume-title-btn" type="button" hidden>RESUME</button>
+        <button id="start-btn" type="button">ENGAGE</button>
+      </div>
       <div class="controls">
-        <div><kbd>WASD</kbd> / <kbd>Mouse</kbd> steer</div>
-        <div><kbd>Click</kbd> / <kbd>Space</kbd> fire</div>
-        <div><kbd>Shift</kbd> boost</div>
-        <div><kbd>P</kbd> pause</div>
+        <div><kbd>WASD</kbd> / <kbd>arrows</kbd> slide in eight directions across the whole playfield</div>
+        <div><kbd>Click</kbd> / <kbd>Space</kbd> guns always fire forward · <kbd>Shift</kbd> boost</div>
+        <div><kbd>1</kbd> chase · <kbd>2</kbd> cockpit · <kbd>3</kbd> scroll · <kbd>V</kbd> cycle</div>
+        <div>Kill hunters and scoop cyan filaments to charge the rift guns. Max wall grows wing guns, then the Aether Crown.</div>
+        <div><kbd>Esc</kbd> menu · <kbd>P</kbd> pause</div>
       </div>
     </div>
 
     <div id="pause-screen" class="screen hidden">
       <h2>PAUSED</h2>
       <p>The rift waits for no one.</p>
-      <button id="resume-btn" type="button">RESUME</button>
+      <div class="menu-actions">
+        <button id="resume-btn" type="button">RESUME</button>
+        <button id="menu-btn" type="button">MAIN MENU</button>
+      </div>
     </div>
 
     <div id="dead-screen" class="screen hidden">

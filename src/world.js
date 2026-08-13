@@ -246,14 +246,15 @@ export class World {
     this.scene.add(this.ribbon);
   }
 
-  layoutFromPath(path, traveled) {
+  layoutFromPath(path, traveled, laneLimit = 24) {
     const rng = mulberry32(0x91d + Math.floor(traveled / 80));
+    const rim = laneLimit + 16;
     for (let i = 0; i < this.crystals.length; i++) {
       const dist = traveled + 40 + i * 22 + rng() * 10;
       const sample = path.sample(dist);
       const frame = createFrenet(sample.tangent);
       const ang = rng() * Math.PI * 2;
-      const rad = 9 + rng() * 16;
+      const rad = rim + rng() * 18;
       const mesh = this.crystals[i];
       mesh.position.copy(sample.pos)
         .addScaledVector(frame.normal, Math.cos(ang) * rad)
@@ -265,7 +266,8 @@ export class World {
     }
   }
 
-  recycleCrystals(path, traveled) {
+  recycleCrystals(path, traveled, laneLimit = 24) {
+    const rim = laneLimit + 16;
     for (let i = 0; i < this.crystals.length; i++) {
       const data = this.crystalData[i];
       if (data.pathDist < traveled - 30) {
@@ -273,7 +275,7 @@ export class World {
         const sample = path.sample(dist);
         const frame = createFrenet(sample.tangent);
         const ang = Math.random() * Math.PI * 2;
-        const rad = 8 + Math.random() * 18;
+        const rad = rim + Math.random() * 18;
         this.crystals[i].position.copy(sample.pos)
           .addScaledVector(frame.normal, Math.cos(ang) * rad)
           .addScaledVector(frame.binormal, Math.sin(ang) * rad);

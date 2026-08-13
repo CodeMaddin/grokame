@@ -20,12 +20,16 @@ npm run preview
 
 | Input | Action |
 | --- | --- |
-| Mouse / WASD / Arrows | Steer |
-| Click / Space | Fire |
+| A / D | Slide left / right — the ship stays where you leave it |
+| W / S | Move up / down the playfield |
+| Click / Space | Fire straight forward |
 | Shift | Boost |
+| 1 / 2 / 3 | Chase / cockpit / scroll camera |
+| V | Cycle camera |
+| Esc | Main menu — resume from there |
 | P | Pause |
 
-Collect cyan and gold cores, thread the neon gates, and burn down red sentinels before a crystal shears your hull. Combo multiplies everything. Survive the rift.
+The rift auto-scrolls like a vertical shmup. Strafe across the playfield; the ship never yaws or springs back to center, and the guns always shoot up the screen. Enemies enter from the top in lanes and descend. Amber cores sit in your path and will wreck the hull unless you shoot them. Locked magenta gates have to be shot open. Combat is the score. Orbs off the path are just snacks.
 
 ## Why this stack
 

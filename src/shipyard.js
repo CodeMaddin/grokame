@@ -131,13 +131,17 @@ export class Shipyard {
     this._h = h;
     this._portrait = !!(panel && stage && panel.top > stage.bottom - 8);
     this.camera.aspect = w / Math.max(1, h);
-    if (stage && w > 0) {
-      const stageCenter = stage.left + stage.width * 0.5;
-      const shift = w * 0.5 - stageCenter;
-      this._stageShift = shift;
-      this.camera.setViewOffset(w, h, shift, 0, w, h);
+    if (stage && w > 0 && h > 0) {
+      const stageCenterX = stage.left + stage.width * 0.5;
+      const stageCenterY = stage.top + stage.height * 0.5;
+      const shiftX = w * 0.5 - stageCenterX;
+      const shiftY = h * 0.5 - stageCenterY;
+      this._stageShift = shiftX;
+      this._stageShiftY = shiftY;
+      this.camera.setViewOffset(w, h, shiftX, shiftY, w, h);
     } else {
       this._stageShift = 0;
+      this._stageShiftY = 0;
       this.camera.clearViewOffset();
     }
     this.camera.updateProjectionMatrix();

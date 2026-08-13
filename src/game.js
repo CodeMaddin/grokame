@@ -361,6 +361,7 @@ export class Game {
       hangarGold: document.getElementById('hangar-gold'),
       hangarBuy: document.getElementById('hangar-buy'),
       hangarDone: document.getElementById('hangar-done'),
+      hangarHullBtn: document.getElementById('hangar-hull-btn'),
       hangarName: document.getElementById('hangar-item-name'),
       hangarBlurb: document.getElementById('hangar-item-blurb'),
       hangarCost: document.getElementById('hangar-item-cost'),
@@ -388,6 +389,7 @@ export class Game {
     this.ui.hangarMapBtn?.addEventListener('click', () => this._openHangar({ from: 'map' }));
     this.ui.hangarBuy?.addEventListener('click', () => this._hangarBuy());
     this.ui.hangarDone?.addEventListener('click', () => this._hangarDone());
+    this.ui.hangarHullBtn?.addEventListener('click', () => this._toggleHangarShop());
     this.ui.hangarList?.addEventListener('click', (e) => {
       const row = e.target.closest('[data-mod]');
       if (!row) return;
@@ -415,6 +417,7 @@ export class Game {
       this.ui.hangarMapBtn,
       this.ui.hangarBuy,
       this.ui.hangarDone,
+      this.ui.hangarHullBtn,
       this.ui.pauseBtn,
       this.ui.bombBtn,
     ].filter(Boolean);
@@ -922,6 +925,7 @@ export class Game {
     this.ui.map?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.hangar?.classList.remove('hidden');
+    this._setHangarShopMin(false);
     if (this.ui.hangarKicker) {
       this.ui.hangarKicker.textContent = from === 'win' ? 'CAMPAIGN COMPLETE' : from === 'clear' ? 'SECTOR CLEAR' : 'DRYDOCK';
     }
@@ -993,9 +997,32 @@ export class Game {
       this.ui.hangarCost.textContent = cost <= 0 ? 'SYSTEM MAXED' : poor ? `₡${cost}  —  NOT ENOUGH` : `₡${cost}`;
     }
     if (this.ui.hangarBuy) {
-      this.ui.hangarBuy.textContent = buyLabel(levels, id);
+      const base = buyLabel(levels, id);
+      this.ui.hangarBuy.textContent = cost <= 0
+        ? base
+        : poor
+          ? `NOT ENOUGH  ₡${cost}`
+          : `${base}  ₡${cost}`;
       this.ui.hangarBuy.disabled = cost <= 0 || poor;
+      this.ui.hangarBuy.classList.toggle('poor', poor);
     }
+  }
+
+  _setHangarShopMin(on) {
+    const el = this.ui.hangar;
+    if (!el) return;
+    el.classList.toggle('shop-min', !!on);
+    if (this.ui.hangarHullBtn) {
+      this.ui.hangarHullBtn.textContent = on ? 'SHOP' : 'VIEW HULL';
+      this.ui.hangarHullBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  _toggleHangarShop() {
+    const el = this.ui.hangar;
+    if (!el) return;
+    this._setHangarShopMin(!el.classList.contains('shop-min'));
+    requestAnimationFrame(() => this._syncShipyardView());
   }
 
   _hangarMove(dir) {
@@ -1721,6 +1748,7 @@ export class Game {
 
   _syncShipyardView() {
     if (this.state !== 'hangar' || !this.shipyard) return;
+    if (window.innerWidth > 900) this._setHangarShopMin(false);
     const stage = this.ui.hangar?.querySelector('.hangar-stage');
     const panel = this.ui.hangar?.querySelector('.hangar-panel');
     this.shipyard.resize(

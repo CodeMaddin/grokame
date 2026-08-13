@@ -875,6 +875,7 @@ button:hover {
 .hangar-actions {
   width: 100%;
   align-items: stretch;
+  flex-shrink: 0;
 }
 
 .hangar-actions button {
@@ -883,10 +884,24 @@ button:hover {
   letter-spacing: 0.32em;
 }
 
+#hangar-hull-btn {
+  display: none;
+}
+
 #hangar-buy:disabled {
   opacity: 0.4;
   transform: none;
   box-shadow: none;
+}
+
+#hangar-buy.poor,
+#hangar-buy:disabled.poor {
+  opacity: 1;
+  color: #ff5a7a;
+  border-color: rgba(255, 90, 122, 0.8);
+  background: linear-gradient(180deg, rgba(255, 90, 122, 0.18), rgba(255, 90, 122, 0.05));
+  text-shadow: 0 0 12px rgba(255, 90, 122, 0.55);
+  box-shadow: 0 0 16px rgba(255, 90, 122, 0.18);
 }
 
 .hangar-controls {
@@ -1027,6 +1042,7 @@ kbd {
     flex-direction: column;
     justify-content: flex-start;
     align-items: stretch;
+    overflow: hidden;
     padding-top: max(2px, env(safe-area-inset-top, 0px));
     padding-bottom: max(1.5vh, env(safe-area-inset-bottom, 0px) + 8px);
     gap: 6px;
@@ -1034,46 +1050,136 @@ kbd {
   }
 
   .hangar-stage {
-    flex: 0 0 auto;
+    position: relative;
+    flex: 0 0 34vh;
+    min-height: 34vh;
+    max-height: 34vh;
     padding-top: 0;
   }
 
   #hangar-screen .kicker {
-    margin-bottom: 2px;
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 4px;
+    margin-bottom: 0;
+    z-index: 2;
   }
 
   #hangar-screen .hangar-stage h2 {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 20px;
     font-size: clamp(22px, 6.4vw, 30px);
-    margin: 0 0 2px;
+    margin: 0;
+    z-index: 2;
   }
 
   .hangar-hint {
-    max-width: 94vw;
-    font-size: 11px;
-    letter-spacing: 0.12em;
+    display: none;
   }
 
   .hangar-payout {
-    margin-top: 4px;
-    font-size: 10px;
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 52px;
+    margin-top: 0;
+    font-size: 9px;
+    z-index: 2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .hangar-panel {
     width: 100%;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     max-height: none;
-    padding: 10px 12px 10px;
-    gap: 8px;
+    overflow: hidden;
+    padding: 8px 10px 8px;
+    gap: 6px;
+  }
+
+  .hangar-gold-row {
+    flex-shrink: 0;
+    padding-bottom: 4px;
+  }
+
+  .hangar-gold {
+    font-size: 20px;
   }
 
   .hangar-list {
+    flex: 1 1 0;
+    min-height: 0;
     max-height: none;
-    flex: 1 1 auto;
+    overflow-y: auto;
   }
 
   .hangar-detail {
     min-height: 0;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .hangar-item-blurb,
+  .hangar-item-cost {
+    display: none;
+  }
+
+  .hangar-item-name {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #hangar-screen .hangar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  #hangar-screen .hangar-actions button {
+    width: auto;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 6px;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #hangar-screen .hangar-actions button:hover {
+    transform: none;
+  }
+
+  #hangar-hull-btn {
+    display: block;
+    grid-column: 1 / -1;
+  }
+
+  #hangar-screen.shop-min .hangar-list,
+  #hangar-screen.shop-min .hangar-detail {
+    display: none;
+  }
+
+  #hangar-screen.shop-min .hangar-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  #hangar-screen.shop-min .hangar-panel {
+    flex: 0 0 auto;
   }
 
   .hangar-controls {

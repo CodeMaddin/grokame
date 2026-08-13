@@ -35,6 +35,7 @@ export class EntityField {
     this._seedEnemies();
     this._seedBlockers();
     this._seedBullets();
+    this._seedExplosions();
   }
 
   _seedOrbs() {
@@ -216,6 +217,48 @@ export class EntityField {
     }
   }
 
+  _seedExplosions() {
+    this._shardGeo = new THREE.TetrahedronGeometry(0.32, 0);
+    this._flashGeo = new THREE.SphereGeometry(0.7, 8, 6);
+    for (let i = 0; i < 8; i++) {
+      const group = new THREE.Group();
+      const shardMat = new THREE.MeshBasicMaterial({
+        color: 0x5ce1ff,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+      });
+      const shards = [];
+      for (let s = 0; s < 10; s++) {
+        const mesh = new THREE.Mesh(this._shardGeo, shardMat);
+        mesh.userData.vel = new THREE.Vector3();
+        group.add(mesh);
+        shards.push(mesh);
+      }
+      const flashMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const flash = new THREE.Mesh(this._flashGeo, flashMat);
+      group.add(flash);
+      group.visible = false;
+      this.scene.add(group);
+      this.explosions.push({
+        group,
+        shards,
+        shardMat,
+        flash,
+        flashMat,
+        alive: false,
+        life: 0,
+        duration: 0.45,
+      });
+    }
+  }
+
   reset() {
     for (const list of [this.orbs, this.gates, this.enemies, this.blockers, this.bullets, this.enemyShots]) {
       for (const item of list) {
@@ -231,9 +274,10 @@ export class EntityField {
       this.boss = null;
     }
     for (const ex of this.explosions) {
-      this.scene.remove(ex.group, ex.flash);
+      ex.alive = false;
+      ex.life = 0;
+      ex.group.visible = false;
     }
-    this.explosions.length = 0;
     this._lastBossAt = -1;
     this.time = 0;
     this.laneLimit = 24;
@@ -393,22 +437,28 @@ export class EntityField {
   }
 
   explode(pos, color = 0x5ce1ff) {
-    const group = new THREE.Group();
-    const shards = [];
-    for (let i = 0; i < 14; i++) {
-      const m = new THREE.Mesh(
-        new THREE.TetrahedronGeometry(0.22 + Math.random() * 0.2, 0),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 })
-      );
-      m.position.copy(pos);
-      m.userData.vel = new THREE.Vector3().randomDirection().multiplyScalar(6 + Math.random() * 10);
-      group.add(m);
-      shards.push(m);
+    let slot = this.explosions.find((x) => !x.alive);
+    if (!slot) {
+      slot = this.explosions[0];
+      for (const ex of this.explosions) {
+        if (ex.life < slot.life) slot = ex;
+      }
     }
-    const flash = new THREE.PointLight(color, 20, 24, 2);
-    flash.position.copy(pos);
-    this.scene.add(group, flash);
-    this.explosions.push({ group, shards, flash, life: 0.55 });
+    slot.alive = true;
+    slot.duration = 0.45;
+    slot.life = slot.duration;
+    slot.group.visible = true;
+    slot.group.position.copy(pos);
+    slot.shardMat.color.set(color);
+    slot.shardMat.opacity = 1;
+    slot.flashMat.color.set(color);
+    slot.flashMat.opacity = 0.85;
+    slot.flash.scale.setScalar(1);
+    for (const s of slot.shards) {
+      s.position.set(0, 0, 0);
+      s.scale.setScalar(0.65 + Math.random() * 0.7);
+      s.userData.vel.randomDirection().multiplyScalar(7 + Math.random() * 9);
+    }
   }
 
   recycleBehind(traveled) {
@@ -502,18 +552,21 @@ export class EntityField {
     this._stepProjectiles(this.bullets, dt, path);
     this._stepProjectiles(this.enemyShots, dt, path);
 
-    for (let i = this.explosions.length - 1; i >= 0; i--) {
-      const ex = this.explosions[i];
+    for (const ex of this.explosions) {
+      if (!ex.alive) continue;
       ex.life -= dt;
+      const t = Math.max(0, ex.life / ex.duration);
       for (const s of ex.shards) {
         s.position.addScaledVector(s.userData.vel, dt);
-        s.rotation.x += dt * 6;
-        s.material.opacity = Math.max(0, ex.life * 2);
+        s.rotation.x += dt * 8;
+        s.rotation.y += dt * 5;
       }
-      ex.flash.intensity = Math.max(0, ex.life * 36);
+      ex.shardMat.opacity = t;
+      ex.flashMat.opacity = t * 0.7;
+      ex.flash.scale.setScalar(1 + (1 - t) * 5);
       if (ex.life <= 0) {
-        this.scene.remove(ex.group, ex.flash);
-        this.explosions.splice(i, 1);
+        ex.alive = false;
+        ex.group.visible = false;
       }
     }
   }

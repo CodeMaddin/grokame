@@ -235,6 +235,7 @@ export class EntityField {
     this.explosions.length = 0;
     this._lastBossAt = -1;
     this.time = 0;
+    this.laneLimit = 24;
   }
 
   spawnAhead(path, traveled, difficulty) {
@@ -242,23 +243,24 @@ export class EntityField {
     this._placeInactive(this.gates, path, traveled, 260, 3, 'gate');
     this._placeInactive(this.blockers, path, traveled, 95, Math.min(4 + Math.floor(difficulty), 8), 'blocker');
 
+    const span = this.laneLimit || 24;
     const enemyNeed = Math.min(5 + Math.floor(difficulty * 1.15), 12);
-    const lanes = [-16, -10, -4, 4, 10, 16];
+    const lanes = [-0.84, -0.5, -0.18, 0.18, 0.5, 0.84].map((t) => t * span);
     let liveEnemies = this.enemies.filter((e) => e.alive).length;
     while (liveEnemies < enemyNeed) {
       const idle = this.enemies.find((e) => !e.alive);
       if (!idle) break;
       const row = Math.floor(liveEnemies / lanes.length);
       const lane = lanes[liveEnemies % lanes.length];
-      this._placeOne(idle, path, traveled + 78 + row * 22 + Math.random() * 10, 'enemy');
+      this._placeOne(idle, path, traveled + 96 + row * 36 + Math.random() * 12, 'enemy');
       idle.hp = 2 + (difficulty > 2.5 ? 1 : 0);
-      idle.cooldown = 0.7 + Math.random() * 0.9;
+      idle.cooldown = 0.9 + Math.random() * 1.1;
       idle.role = Math.random() < 0.55 ? 'dive' : 'sine';
       idle.nearMiss = false;
-      idle.offset.x = lane + (Math.random() - 0.5) * 1.6;
+      idle.offset.x = lane + (Math.random() - 0.5) * span * 0.04;
       idle.baseX = idle.offset.x;
-      idle.weave = 1.1 + Math.random() * 1.4;
-      idle.descent = 11 + Math.random() * 8;
+      idle.weave = 0.7 + Math.random() * 0.9;
+      idle.descent = 1.2 + Math.random() * 2.4;
       idle.ring.material.color.set(idle.role === 'dive' ? 0xff6b8a : 0xffd166);
       liveEnemies++;
     }
@@ -282,16 +284,17 @@ export class EntityField {
   _placeOne(item, path, dist, kind) {
     const sample = path.sample(dist);
     const frame = createFrenet(sample.tangent);
+    const span = this.laneLimit || 24;
     let ox = 0;
     let oy = 0;
     if (kind === 'orb') {
-      ox = (Math.random() - 0.5) * 28;
+      ox = (Math.random() - 0.5) * span * 1.7;
       oy = (Math.random() - 0.5) * 16;
     } else if (kind === 'enemy') {
-      ox = (Math.random() - 0.5) * 32;
+      ox = (Math.random() - 0.5) * span * 1.7;
       oy = 0;
     } else if (kind === 'blocker') {
-      ox = (Math.random() - 0.5) * 28;
+      ox = (Math.random() - 0.5) * span * 1.7;
       oy = 0;
       const scale = 2.4 + Math.random() * 1.6;
       item.mesh.scale.setScalar(scale);
@@ -368,11 +371,11 @@ export class EntityField {
     return true;
   }
 
-  enemyFireRail(path, pathDist, laneX, speed = 36) {
+  enemyFireRail(path, pathDist, laneX, speed = 14) {
     const b = this.enemyShots.find((x) => !x.alive);
     if (!b) return;
     b.alive = true;
-    b.life = 2.4;
+    b.life = 3.6;
     b.pathDist = pathDist;
     b.laneX = laneX;
     b.along = -1;
@@ -461,9 +464,10 @@ export class EntityField {
     for (const en of this.enemies) {
       if (!en.alive) continue;
       en.ring.rotation.z += dt * 2.2;
-      en.pathDist -= (en.descent || 14) * dt;
+      en.pathDist -= (en.descent || 2) * dt;
       if (en.role === 'sine') {
-        en.offset.x = (en.baseX || 0) + Math.sin(this.time * (en.weave || 1.4) + en.pathDist * 0.05) * 5;
+        const weave = (this.laneLimit || 24) * 0.08;
+        en.offset.x = (en.baseX || 0) + Math.sin(this.time * (en.weave || 0.9) + en.pathDist * 0.03) * weave;
       }
       en.offset.y = 0;
       const rail = sampleRail(path, en.pathDist, en.offset.x, 0.4);
@@ -471,25 +475,26 @@ export class EntityField {
       en.mesh.up.copy(rail.frame.normal);
       en.mesh.lookAt(rail.pos.clone().addScaledVector(rail.sample.tangent, -12));
       en.cooldown -= dt;
-      if (en.cooldown <= 0 && en.pathDist > traveled - 4 && en.pathDist < traveled + 88) {
-        this.enemyFireRail(path, en.pathDist - 3, en.offset.x, 38);
-        en.cooldown = Math.max(0.75, 1.3 - difficulty * 0.08);
+      if (en.cooldown <= 0 && en.pathDist > traveled - 4 && en.pathDist < traveled + 110) {
+        this.enemyFireRail(path, en.pathDist - 3, en.offset.x, 14);
+        en.cooldown = Math.max(0.95, 1.55 - difficulty * 0.06);
       }
     }
     if (this.boss?.alive) {
       this.boss.mesh.rotation.x += dt * 0.4;
       this.boss.mesh.rotation.y += dt * 0.7;
       this.boss.shell.rotation.z -= dt * 0.9;
-      this.boss.pathDist -= 8 * dt;
+      this.boss.pathDist -= 2.4 * dt;
       const rail = sampleRail(path, this.boss.pathDist, 0, 1.2);
       this.boss.mesh.position.copy(rail.pos);
       this.boss.mesh.lookAt(rail.pos.clone().addScaledVector(rail.sample.tangent, -16));
       this.boss.cooldown -= dt;
       if (this.boss.cooldown <= 0) {
-        this.enemyFireRail(path, this.boss.pathDist - 4, 0, 34);
-        this.enemyFireRail(path, this.boss.pathDist - 4, -8, 32);
-        this.enemyFireRail(path, this.boss.pathDist - 4, 8, 32);
-        this.boss.cooldown = 0.85;
+        const spread = (this.laneLimit || 24) * 0.28;
+        this.enemyFireRail(path, this.boss.pathDist - 4, 0, 13);
+        this.enemyFireRail(path, this.boss.pathDist - 4, -spread, 12);
+        this.enemyFireRail(path, this.boss.pathDist - 4, spread, 12);
+        this.boss.cooldown = 1.05;
       }
     }
 

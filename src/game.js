@@ -327,7 +327,7 @@ export class Game {
     this.best = Number(localStorage.getItem('aether-best') || 0);
     this._ribbonAt = -1;
     this.entities.reset();
-    this.world.layoutFromPath(this.path, this.traveled);
+    this.world.layoutFromPath(this.path, this.traveled, this._laneLimit());
     this.world.attachRibbon(this._localRibbon());
   }
 
@@ -436,13 +436,14 @@ export class Game {
         - (this.input.keys.has('KeyA') || this.input.keys.has('ArrowLeft') ? 1 : 0);
       const keyY = (this.input.keys.has('KeyW') || this.input.keys.has('ArrowUp') ? 1 : 0)
         - (this.input.keys.has('KeyS') || this.input.keys.has('ArrowDown') ? 1 : 0);
-      const move = 46;
-      this.offset.x = clamp(this.offset.x + keyX * move * dt, -20, 20);
+      const move = 78;
+      const lane = this._laneLimit();
+      this.offset.x = clamp(this.offset.x + keyX * move * dt, -lane, lane);
       this.holdY = clamp(this.holdY + keyY * move * dt, 0, 26);
       this.offset.y = 0;
       this.steer.set(keyX, keyY);
     } else {
-      this.offset.x = Math.sin(this.clock.elapsedTime * 0.35) * 8;
+      this.offset.x = Math.sin(this.clock.elapsedTime * 0.35) * this._laneLimit() * 0.42;
       this.holdY = 8;
       this.steer.set(0, 0);
     }
@@ -467,9 +468,10 @@ export class Game {
     this.audio.setBoost(boostAmt);
 
     this.world.update(dt, this.camera, this.traveled);
-    this.world.recycleCrystals(this.path, this.traveled);
+    this.world.recycleCrystals(this.path, this.traveled, this._laneLimit());
 
     const difficulty = 1 + this.traveled / 900;
+    this.entities.laneLimit = this._laneLimit();
     this.entities.spawnAhead(this.path, this.traveled, difficulty);
     this.entities.recycleBehind(this.traveled);
     this.entities.update(dt, this.path, this.traveled, this.ship.position, this.offset, difficulty);
@@ -627,6 +629,13 @@ export class Game {
 
   _render() {
     this.composer.render();
+  }
+
+  _laneLimit() {
+    const height = 168;
+    const fov = 38 * Math.PI / 180;
+    const halfWidth = height * Math.tan(fov / 2) * this.camera.aspect;
+    return Math.max(22, halfWidth - 6);
   }
 
   _onResize() {

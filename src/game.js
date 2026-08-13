@@ -447,13 +447,22 @@ export class Game {
         - (this.input.keys.has('KeyA') || this.input.keys.has('ArrowLeft') ? 1 : 0);
       const keyY = (this.input.keys.has('KeyW') || this.input.keys.has('ArrowUp') ? 1 : 0)
         - (this.input.keys.has('KeyS') || this.input.keys.has('ArrowDown') ? 1 : 0);
-      const move = 78;
+      const maxSpeed = 72;
+      const accel = 260;
+      const brake = 210;
+      this._accelAxis('x', keyX, maxSpeed, accel, brake, dt);
+      this._accelAxis('y', keyY, maxSpeed, accel, brake, dt);
       const lane = this._laneLimit();
-      this.offset.x = clamp(this.offset.x + keyX * move * dt, -lane, lane);
-      this.holdY = clamp(this.holdY + keyY * move * dt, 0, 26);
+      this.offset.x = clamp(this.offset.x + this.slide.x * dt, -lane, lane);
+      this.holdY = clamp(this.holdY + this.slide.y * dt, 0, 26);
+      if (this.offset.x <= -lane && this.slide.x < 0) this.slide.x = 0;
+      if (this.offset.x >= lane && this.slide.x > 0) this.slide.x = 0;
+      if (this.holdY <= 0 && this.slide.y < 0) this.slide.y = 0;
+      if (this.holdY >= 26 && this.slide.y > 0) this.slide.y = 0;
       this.offset.y = 0;
       this.steer.set(keyX, keyY);
     } else {
+      this.slide.set(0, 0);
       this.offset.x = Math.sin(this.clock.elapsedTime * 0.35) * this._laneLimit() * 0.42;
       this.holdY = 8;
       this.steer.set(0, 0);
@@ -658,6 +667,18 @@ export class Game {
 
   _render() {
     this.composer.render();
+  }
+
+  _accelAxis(axis, key, maxSpeed, accel, brake, dt) {
+    if (key !== 0) {
+      this.slide[axis] += key * accel * dt;
+      this.slide[axis] = clamp(this.slide[axis], -maxSpeed, maxSpeed);
+      return;
+    }
+    const sign = Math.sign(this.slide[axis]);
+    if (sign === 0) return;
+    this.slide[axis] -= sign * brake * dt;
+    if (Math.sign(this.slide[axis]) !== sign) this.slide[axis] = 0;
   }
 
   _laneLimit() {

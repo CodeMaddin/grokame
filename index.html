@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>AETHER DRIFT</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+
+    <div id="scanlines"></div>
+    <div id="vignette-frame"></div>
+
+    <div id="hud">
+      <div class="hud-top">
+        <div class="hud-panel">
+          <div class="label">SCORE</div>
+          <div id="score" class="value">0</div>
+        </div>
+        <div class="hud-panel combo-panel">
+          <div class="label">COMBO</div>
+          <div id="combo" class="value">×1</div>
+        </div>
+        <div class="hud-panel">
+          <div class="label">DEPTH</div>
+          <div id="depth" class="value">0 km</div>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="bar-wrap">
+          <div class="label">HULL</div>
+          <div class="bar">
+            <div id="health-fill"></div>
+          </div>
+        </div>
+        <div class="bar-wrap">
+          <div class="label">BOOST</div>
+          <div class="bar">
+            <div id="boost-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast"></div>
+    </div>
+
+    <div id="title-screen" class="screen">
+      <div class="title-glow"></div>
+      <p class="kicker">SECTOR 7 — THE AETHER RIFT</p>
+      <h1>AETHER<br /><span>DRIFT</span></h1>
+      <p class="tagline">Ride the light. Harvest the rift. Do not blink.</p>
+      <button id="start-btn" type="button">ENGAGE</button>
+      <div class="controls">
+        <div><kbd>WASD</kbd> / <kbd>Mouse</kbd> steer</div>
+        <div><kbd>Click</kbd> / <kbd>Space</kbd> fire</div>
+        <div><kbd>Shift</kbd> boost</div>
+        <div><kbd>P</kbd> pause</div>
+      </div>
+    </div>
+
+    <div id="pause-screen" class="screen hidden">
+      <h2>PAUSED</h2>
+      <p>The rift waits for no one.</p>
+      <button id="resume-btn" type="button">RESUME</button>
+    </div>
+
+    <div id="dead-screen" class="screen hidden">
+      <p class="kicker">SIGNAL LOST</p>
+      <h2>HULL BREACH</h2>
+      <p id="final-stats" class="tagline"></p>
+      <button id="retry-btn" type="button">RE-ENTER THE RIFT</button>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

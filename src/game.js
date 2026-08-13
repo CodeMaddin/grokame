@@ -1751,7 +1751,7 @@ export class Game {
 
   _syncShipyardView() {
     if (this.state !== 'hangar' || !this.shipyard) return;
-    if (window.innerWidth > 900) this._setHangarShopMin(false);
+    if (!window.matchMedia('(max-width: 900px)').matches) this._setHangarShopMin(false);
     const stage = this.ui.hangar?.querySelector('.hangar-stage');
     const panel = this.ui.hangar?.querySelector('.hangar-panel');
     this.shipyard.resize(

@@ -117,6 +117,9 @@ if (!uncertain(screen, 'mobile #hangar-screen rule missing')) {
 } else {
   if (decl(screen, 'overflow') !== 'hidden') fail('mobile hangar-screen does not clip overflow — red cost can paint over buttons');
   if (decl(screen, 'flex-direction') !== 'column') fail('mobile hangar is not a column — the hull peek has no reserved row');
+  const bg = (decl(screen, 'background') || '').replace(/\s+/g, ' ');
+  if (!/transparent|none/.test(bg)) fail(`mobile hangar-screen background "${bg}" still veils the hull — it must be transparent`);
+  if (/linear-gradient/.test(bg)) fail('mobile hangar-screen still paints a gradient over the 3D ship');
 }
 
 const stage = firstRule(mobile, '.hangar-stage');
@@ -211,6 +214,9 @@ if (!uncertain(minStage, 'shop-min stage rule missing')) {
   fail('shop-min does not give the leftover stage to the hull');
 }
 if (!/#hangar-screen\.shop-min \.hangar-list/.test(mobile)) fail('shop-min does not hide the buy list');
+if (!/#hangar-screen\.shop-min #hangar-buy/.test(mobile) && !mobile.includes('shop-min #hangar-buy')) {
+  fail('VIEW HULL still leaves INSTALL/RETURN covering the expanded hull');
+}
 
 const poorBody = ruleNear(css, '#hangar-buy.poor') || '';
 if (!uncertain(poorBody.length > 0, 'no #hangar-buy.poor rule — NOT ENOUGH will be a faded disabled control')) {
@@ -259,6 +265,27 @@ if (!uncertain(offsetCall, 'setViewOffset call not found')) {
 if (!/stageCenterY\s*=\s*stage\.top/.test(yard)) fail('Y framing does not read stage.top — portrait hull cannot sit in the peek');
 if (/setViewOffset\(\s*w\s*,\s*h\s*,\s*[^,]+,\s*0\s*,/.test(yard)) {
   fail('a setViewOffset path still hardcodes offsetY 0');
+}
+
+const bloom = yard.match(/UnrealBloomPass\(new THREE\.Vector2\([^)]+\),\s*([0-9.]+),\s*([0-9.]+),\s*([0-9.]+)\)/);
+if (!uncertain(bloom, 'shipyard UnrealBloomPass args not found')) {
+  /* fail already */
+} else {
+  const strength = Number(bloom[1]);
+  const radius = Number(bloom[2]);
+  note(`hangar bloom strength ${strength} radius ${radius}`);
+  if (radius > 0.28) fail(`hangar bloom radius ${radius} smears the hull into bokeh`);
+  if (strength > 0.5) fail(`hangar bloom strength ${strength} whites out the drydock craft`);
+}
+
+const portraitCam = yard.match(/_portrait\) \{\s*this\.camera\.position\.set\(([^)]+)\)/);
+if (!uncertain(portraitCam, 'portrait hangar camera position not found')) {
+  /* fail already */
+} else {
+  const z = Number(portraitCam[1].split(',')[2]);
+  note(`portrait hangar camera z ${z}`);
+  if (!Number.isFinite(z)) fail('uncertain: portrait camera z is not a number');
+  else if (z > 8) fail(`portrait hangar camera z ${z} is too far — the hull is a postage stamp in the peek`);
 }
 
 const peekVh = vh(decl(stage, 'min-height'));

@@ -683,7 +683,7 @@ button:hover {
   align-items: stretch;
   justify-content: flex-end;
   text-align: left;
-  background: linear-gradient(90deg, rgba(5, 1, 13, 0.08) 0%, rgba(5, 1, 13, 0.18) 48%, rgba(5, 1, 13, 0.72) 68%, rgba(5, 1, 13, 0.92) 100%);
+  background: transparent;
   padding: max(2.4vh, env(safe-area-inset-top, 0px) + 12px) max(2vw, env(safe-area-inset-right, 0px) + 16px) max(3vh, env(safe-area-inset-bottom, 0px) + 16px) max(2vw, env(safe-area-inset-left, 0px) + 16px);
   gap: 18px;
 }
@@ -735,7 +735,7 @@ button:hover {
   padding: 18px 18px 14px;
   border: 1px solid rgba(255, 209, 102, 0.28);
   background:
-    linear-gradient(180deg, rgba(18, 8, 32, 0.78), rgba(8, 2, 18, 0.92)),
+    linear-gradient(180deg, rgba(12, 4, 22, 0.94), rgba(6, 1, 14, 0.98)),
     radial-gradient(ellipse at top, rgba(255, 209, 102, 0.08), transparent 55%);
   box-shadow: 0 0 40px rgba(255, 59, 212, 0.12), inset 0 0 40px rgba(92, 225, 255, 0.04);
   backdrop-filter: blur(8px);
@@ -1046,14 +1046,14 @@ kbd {
     padding-top: max(2px, env(safe-area-inset-top, 0px));
     padding-bottom: max(1.5vh, env(safe-area-inset-bottom, 0px) + 8px);
     gap: 6px;
-    background: linear-gradient(180deg, rgba(5, 1, 13, 0.12) 0%, rgba(5, 1, 13, 0.35) 42%, rgba(5, 1, 13, 0.92) 100%);
+    background: transparent;
   }
 
   .hangar-stage {
     position: relative;
-    flex: 0 0 34vh;
-    min-height: 34vh;
-    max-height: 34vh;
+    flex: 0 0 40vh;
+    min-height: 40vh;
+    max-height: 40vh;
     padding-top: 0;
   }
 
@@ -1151,11 +1151,16 @@ kbd {
     min-width: 0;
     min-height: 44px;
     padding: 8px 6px;
-    letter-spacing: 0.08em;
-    font-size: 11px;
+    letter-spacing: 0.06em;
+    font-size: 10px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  #hangar-buy.poor {
+    letter-spacing: 0.04em;
+    font-size: 10px;
   }
 
   #hangar-screen .hangar-actions button:hover {
@@ -1168,8 +1173,14 @@ kbd {
   }
 
   #hangar-screen.shop-min .hangar-list,
-  #hangar-screen.shop-min .hangar-detail {
+  #hangar-screen.shop-min .hangar-detail,
+  #hangar-screen.shop-min #hangar-buy,
+  #hangar-screen.shop-min #hangar-done {
     display: none;
+  }
+
+  #hangar-screen.shop-min .hangar-actions {
+    grid-template-columns: 1fr;
   }
 
   #hangar-screen.shop-min .hangar-stage {

@@ -11,7 +11,7 @@ export class Shipyard {
     this.renderer = renderer;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#07040f');
-    this.scene.fog = new THREE.Fog('#07040f', 14, 42);
+    this.scene.fog = new THREE.Fog('#07040f', 22, 58);
     this.camera = new THREE.PerspectiveCamera(34, 1, 0.12, 80);
     this.time = 0;
     this._portrait = false;
@@ -41,7 +41,9 @@ export class Shipyard {
 
     this.composer = new EffectComposer(renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.62, 0.55, 0.28);
+    const bw = Math.max(2, window.innerWidth || 2);
+    const bh = Math.max(2, window.innerHeight || 2);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(bw, bh), 0.34, 0.14, 0.46);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.resize(window.innerWidth, window.innerHeight);
@@ -147,7 +149,7 @@ export class Shipyard {
     this.camera.updateProjectionMatrix();
     this.composer.setSize(w, h);
     this.bloom.setSize(w, h);
-    this.craft.group.scale.setScalar(this._portrait ? 1.38 : 1.72);
+    this.craft.group.scale.setScalar(this._portrait ? 1.78 : 1.72);
   }
 
   update(dt) {
@@ -168,8 +170,8 @@ export class Shipyard {
     }
     spinShipKits(this.craft, dt);
     if (this._portrait) {
-      this.camera.position.set(0.35, 1.85, 9.8);
-      this.camera.lookAt(0, 0.12, 0);
+      this.camera.position.set(0.2, 1.15, 6.2);
+      this.camera.lookAt(0, 0.02, 0);
     } else {
       this.camera.position.set(2.6, 1.55, 7.4);
       this.camera.lookAt(0, 0.12, 0);

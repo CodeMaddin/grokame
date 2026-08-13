@@ -12,6 +12,7 @@ import { createShip, EngineTrail } from './ship.js';
 import { EntityField } from './entities.js';
 import { AudioBus } from './audio.js';
 import { STEP_MAX, SEQUENCE, starterLoadout, loadoutFromStep, costToNext, hudName, arsenal } from './weapons.js';
+import { StageDirector, CHAPTERS, gradeRun, loadScores, saveScore } from './stage.js';
 
 export class Game {
   constructor(canvas) {
@@ -32,6 +33,14 @@ export class Game {
     this._camLook = new THREE.Vector3();
     this._camUp = new THREE.Vector3(0, 1, 0);
     this._chaseX = 0;
+    this.stage = new StageDirector();
+    this.hitStop = 0;
+    this.kick = new THREE.Vector3();
+    this.kickAmt = 0;
+    this.bombs = 3;
+    this.bombMax = 5;
+    this.bombCd = 0;
+    this._padPrev = { fire: false, bomb: false, start: false };
     this._setupRenderer();
     this._setupScene();
     this._setupPost();
@@ -78,6 +87,7 @@ export class Game {
     this.fx.uniforms.uFlare.value = 1;
     this.fx.uniforms.uCockpit.value = 0;
     this.fx.uniforms.uGate.value = 0;
+    this.fx.uniforms.uKick.value = 0;
     this.fx.uniforms.uResolution.value = size.clone();
     this.composer.addPass(this.fx);
     this.composer.addPass(new OutputPass());
@@ -136,6 +146,7 @@ export class Game {
       this._setKey(e, true);
       if (this.state === 'playing' && !e.repeat) this._releaseUiFocus();
       if (e.code === 'KeyP' && this.state === 'playing') this.pause();
+      if ((e.code === 'KeyB' || e.code === 'KeyC') && this.state === 'playing' && !e.repeat) this._tryBomb();
       if (e.code === 'Digit1' || e.code === 'Numpad1') this.setView('chase');
       if (e.code === 'Digit2' || e.code === 'Numpad2') this.setView('cockpit');
       if (e.code === 'Digit3' || e.code === 'Numpad3') this.setView('scroll');
@@ -192,6 +203,12 @@ export class Game {
       pause: document.getElementById('pause-screen'),
       dead: document.getElementById('dead-screen'),
       stats: document.getElementById('final-stats'),
+      resultKicker: document.getElementById('result-kicker'),
+      resultTitle: document.getElementById('result-title'),
+      resultRank: document.getElementById('result-rank'),
+      resultBoard: document.getElementById('result-board'),
+      titleScores: document.getElementById('title-scores'),
+      bombs: document.getElementById('bomb-pips'),
       startBtn: document.getElementById('start-btn'),
       resumeTitleBtn: document.getElementById('resume-title-btn'),
       viewBtns: [...document.querySelectorAll('[data-view]')],
@@ -223,6 +240,8 @@ export class Game {
     }
     this._syncViewHud();
     this._syncTitleActions();
+    this._renderScoreboard(this.ui.titleScores, loadScores());
+    this._syncBombs();
   }
 
   _syncTitleActions() {
@@ -271,11 +290,13 @@ export class Game {
     this._clearInput();
     this._hasRun = resumeable;
     this.state = 'title';
+    this.audio.setPaused(true);
     this.ui.pause.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.title.classList.remove('hidden');
     this._syncTitleActions();
+    this._renderScoreboard(this.ui.titleScores, loadScores());
     if (!resumeable) this.reset(true);
   }
 
@@ -287,6 +308,7 @@ export class Game {
     this.ui.pause.classList.add('hidden');
     this.ui.dead.classList.add('hidden');
     this.ui.hud.classList.add('visible');
+    this.audio.setPaused(false);
     this.clock.getDelta();
     this._releaseUiFocus();
   }
@@ -372,6 +394,7 @@ export class Game {
     const posK = snap ? 16 : view === 'scroll' ? 12 : view === 'chase' ? 7.5 : 5;
     const lookK = snap ? 14 : view === 'scroll' ? 11 : view === 'chase' ? 6.5 : 5.5;
     this.camera.position.lerp(camPos, 1 - Math.exp(-dt * posK));
+    this.camera.position.addScaledVector(this.kick, this.kickAmt);
     this._camLook.lerp(camLook, 1 - Math.exp(-dt * lookK));
     this._camUp.lerp(camUp, 1 - Math.exp(-dt * lookK));
     this.camera.up.copy(this._camUp);
@@ -411,9 +434,21 @@ export class Game {
     this.slide = new THREE.Vector2(0, 0);
     this.best = Number(localStorage.getItem('aether-best') || 0);
     this._ribbonAt = -1;
+    this.stage.reset();
+    this.hitStop = 0;
+    this.kick.set(0, 0, 0);
+    this.kickAmt = 0;
+    this.bombs = 3;
+    this.bombCd = 0;
+    this.maxCombo = 1;
+    this.maxStep = 0;
+    this.nearMisses = 0;
+    this.bombsUsed = 0;
+    this._chapterAt = -1;
     this.entities.reset();
     this.world.layoutFromPath(this.path, this.traveled, this._laneLimit());
     this.world.attachRibbon(this._localRibbon());
+    this._syncBombs();
   }
 
   _localRibbon() {
@@ -436,34 +471,66 @@ export class Game {
     this.ui.hud.classList.add('visible');
     this._syncTitleActions();
     this._viewSnap = 1;
-    this.toast('HUNTERS INBOUND');
+    this.audio.setPaused(false);
     this.clock.getDelta();
     this._releaseUiFocus();
   }
 
   pause() {
     this.state = 'paused';
+    this.audio.setPaused(true);
     this.ui.pause.classList.remove('hidden');
   }
 
   resume() {
     this.state = 'playing';
+    this.audio.setPaused(false);
     this.ui.pause.classList.add('hidden');
     this.clock.getDelta();
     this._releaseUiFocus();
   }
 
   die() {
+    this._endRun(false);
+  }
+
+  win() {
+    this._endRun(true);
+  }
+
+  _endRun(victory) {
     this.state = 'dead';
     this._hasRun = false;
     this._syncTitleActions();
-    this.audio.explosion();
-    this.entities.explode(this.ship.position.clone(), 0xff3bd4);
+    this.audio.setPaused(false);
+    this.audio.explosion(true);
+    if (!victory) this.entities.explode(this.ship.position.clone(), 0xff3bd4);
     this.best = Math.max(this.best, this.score);
     localStorage.setItem('aether-best', String(this.best));
+    const rank = gradeRun({
+      score: this.score,
+      kills: this.kills,
+      step: this.maxStep || this.step,
+      maxCombo: this.maxCombo,
+      victory,
+      nearMisses: this.nearMisses,
+      bombsUsed: this.bombsUsed,
+    });
+    const board = saveScore({
+      score: this.score,
+      rank,
+      kills: this.kills,
+      depth: Math.floor(this.traveled / 10),
+      victory,
+      at: Date.now(),
+    });
     this.ui.hud.classList.remove('visible');
     this.ui.dead.classList.remove('hidden');
-    this.ui.stats.textContent = `SCORE ${this.score}   BEST ${this.best}   KILLS ${this.kills}   DEPTH ${(this.traveled / 10).toFixed(0)} km`;
+    if (this.ui.resultKicker) this.ui.resultKicker.textContent = victory ? 'RIFT CLEARED' : 'SIGNAL LOST';
+    if (this.ui.resultTitle) this.ui.resultTitle.textContent = victory ? 'SENTINEL FALLS' : 'HULL BREACH';
+    if (this.ui.resultRank) this.ui.resultRank.textContent = rank;
+    this.ui.stats.textContent = `SCORE ${this.score}   BEST ${this.best}   KILLS ${this.kills}   ARSENAL ${this.maxStep}/${STEP_MAX}   BOMBS ${this.bombsUsed}`;
+    this._renderScoreboard(this.ui.resultBoard, board, this.score);
   }
 
   toast(text) {
@@ -480,7 +547,14 @@ export class Game {
   loop() {
     requestAnimationFrame(this.loop);
     const dt = Math.min(this.clock.getDelta(), 0.05);
-    if (this.state === 'paused' || (this.state === 'title' && this._hasRun)) {
+    this._pollPad();
+    this.audio.tick();
+    if (this.state === 'paused' || this.state === 'dead' || (this.state === 'title' && this._hasRun)) {
+      this._render();
+      return;
+    }
+    if (this.state === 'playing' && this.hitStop > 0) {
+      this.hitStop -= dt;
       this._render();
       return;
     }
@@ -490,8 +564,9 @@ export class Game {
 
   update(dt) {
     const cinematic = this.state !== 'playing';
+    const pad = this._padState();
     const boosting = this.state === 'playing'
-      && (this.input.keys.has('ShiftLeft') || this.input.keys.has('ShiftRight'));
+      && (this.input.keys.has('ShiftLeft') || this.input.keys.has('ShiftRight') || pad.boost);
 
     let wantBoost = 0;
     if (this.state === 'playing') {
@@ -502,6 +577,9 @@ export class Game {
         this.boost = Math.min(1, this.boost + dt * 0.1);
       }
     }
+
+    this.kickAmt = Math.max(0, this.kickAmt - dt * 9);
+    this.bombCd = Math.max(0, this.bombCd - dt);
 
     const cruise = cinematic
       ? 16
@@ -519,14 +597,16 @@ export class Game {
     const frame = createFrenet(sample.tangent);
 
     if (this.state === 'playing') {
-      const keyX = this._axisHeld(
+      let keyX = this._axisHeld(
         ['KeyA', 'ArrowLeft', 'Numpad4', 'a'],
         ['KeyD', 'ArrowRight', 'Numpad6', 'd'],
       );
-      const keyY = this._axisHeld(
+      let keyY = this._axisHeld(
         ['KeyS', 'ArrowDown', 'Numpad2', 's'],
         ['KeyW', 'ArrowUp', 'Numpad8', 'w'],
       );
+      if (Math.abs(pad.x) > Math.abs(keyX)) keyX = pad.x;
+      if (Math.abs(pad.y) > Math.abs(keyY)) keyY = pad.y;
       this._applySlide(keyX, keyY, dt);
       const lane = this._laneLimit();
       const depth = this._depthLimit();
@@ -569,7 +649,8 @@ export class Game {
 
     const difficulty = 1 + this.traveled / 900;
     this.entities.laneLimit = this._laneLimit();
-    this.entities.spawnAhead(this.path, this.traveled, difficulty);
+    this.entities.spawnAhead(this.path, this.traveled);
+    this._runStage();
     this.entities.recycleBehind(this.traveled, this.holdY);
     this.entities.update(
       dt,
@@ -580,6 +661,12 @@ export class Game {
       difficulty,
       this.holdY,
     );
+    this.audio.setIntensity(this.stage.intensity(
+      this.traveled,
+      this.entities.hunterCount(),
+      wantBoost > 0,
+      !!this.entities.boss?.alive || this.entities.enemies.some((e) => e.alive && e.elite),
+    ));
 
     this._updateTraces(shipFrame, dt);
 
@@ -602,7 +689,7 @@ export class Game {
     for (const k of Object.keys(this.gunCd)) this.gunCd[k] = Math.max(0, this.gunCd[k] - dt);
 
     if (this.state === 'playing') {
-      const firing = this.input.firing || this.input.keys.has('Space');
+      const firing = this.input.firing || this.input.keys.has('Space') || pad.fire;
       if (firing) {
         const arms = arsenal(this.loadout, this.clock.elapsedTime);
         const muzzle = this.traveled + this.holdY + 6.2;
@@ -653,17 +740,24 @@ export class Game {
 
       const combat = this.entities.bulletHits();
       for (const k of combat) {
-        if (k.type === 'ping') continue;
-        this.entities.explode(k.pos, k.type === 'blocker' ? 0xff9a3a : 0x5ce1ff);
-        this.audio.explosion();
-        if (k.type === 'enemy') {
+        if (k.type === 'ping') {
+          this.entities.spawnImpact(k.pos, k.color || 0x9af7ff);
+          this._punch(0.018, 0.35);
+          continue;
+        }
+        const big = k.type === 'boss' || k.type === 'midboss';
+        this.entities.explode(k.pos, k.type === 'blocker' ? 0xff9a3a : big ? 0xffd166 : 0x5ce1ff);
+        this.entities.spawnImpact(k.pos, big ? 0xffe29a : 0x9af7ff);
+        this.audio.explosion(big);
+        this._punch(big ? 0.07 : 0.038, big ? 1.4 : 0.7);
+        if (k.type === 'enemy' || k.type === 'midboss') {
           this.kills += 1;
-          this._combatScore(220);
+          this._combatScore(k.type === 'midboss' ? 1400 : 220);
           this.boost = Math.min(1, this.boost + 0.18);
           this._dropLoot(k);
+          if (k.type === 'midboss') this.toast(k.role === 'warden' ? 'WARDEN DOWN' : 'QUEEN DOWN');
         } else if (k.type === 'blocker') {
           this._combatScore(160);
-          this.toast('PATH CLEAR');
           this._dropLoot(k);
         } else if (k.type === 'unlock') {
           this._combatScore(220);
@@ -673,23 +767,17 @@ export class Game {
         } else if (k.type === 'boss') {
           this.kills += 1;
           this._combatScore(3200);
-          this.toast('SENTINEL DOWN');
           this._dropLoot(k);
+          this.stage.cleared = true;
+          this.toast('SENTINEL DOWN');
+          this.win();
+          return;
         }
       }
 
       for (const _ of this.entities.nearMisses(this.ship.position)) {
+        this.nearMisses += 1;
         this._combatScore(90);
-        this.toast('NEAR MISS');
-      }
-
-      if (this.entities.blockerAhead(this.traveled)) {
-        if (!this._blockWarn) {
-          this._blockWarn = true;
-          this.toast('RIFT BLOCKED — SHOOT');
-        }
-      } else {
-        this._blockWarn = false;
       }
 
       if (this.invuln <= 0) {
@@ -704,10 +792,33 @@ export class Game {
             this.entities.explode(blk.mesh.position.clone(), 0xff9a3a);
           }
           this.audio.explosion();
+          this._punch(0.05, 1.1);
           this._damage(0.42);
         } else if (rammed.length) {
+          let ramDmg = 0.3;
           for (const en of rammed) {
-            if (en.hp !== undefined && en.mesh) {
+            if (en.elite || en.role === 'finale') {
+              en.hp = (en.hp || 8) - 6;
+              this.entities.spawnImpact(en.mesh.position.clone(), 0xffd166);
+              ramDmg = 0.38;
+              if (en.hp <= 0 && en.mesh) {
+                en.alive = false;
+                en.mesh.visible = false;
+                this.entities.explode(en.mesh.position.clone(), 0xffd166);
+                this.kills += 1;
+                this._dropLoot({
+                  drop: en.drop ?? 4,
+                  pathDist: en.pathDist,
+                  laneX: en.offset?.x ?? this.offset.x,
+                  bombDrop: en.bombDrop ?? 0,
+                });
+                if (en.role === 'finale') {
+                  this.stage.cleared = true;
+                  this.win();
+                  return;
+                }
+              }
+            } else if (en.hp !== undefined && en.mesh) {
               en.alive = false;
               en.mesh.visible = false;
               this.entities.explode(en.mesh.position.clone(), 0xff2458);
@@ -720,7 +831,8 @@ export class Game {
             }
           }
           this.audio.explosion();
-          this._damage(0.3);
+          this._punch(0.045, 0.9);
+          this._damage(ramDmg);
         } else if (shotHit) this._damage(0.16);
         else if (crystalHit) this._damage(0.12);
       }
@@ -738,6 +850,7 @@ export class Game {
     const flare = sunInView ? 0.85 : 0;
     this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
     this.fx.uniforms.uCockpit.value = 0;
+    this.fx.uniforms.uKick.value = this.kickAmt;
     const bloomStr = 0.48 + this.gateFx * 0.28;
     const bloomThr = 0.42;
     const bloomRad = 0.5 + this.gateFx * 0.12;
@@ -750,10 +863,12 @@ export class Game {
 
   _dropLoot(src) {
     const n = src?.drop ?? 0;
-    if (n <= 0) return;
-    const dist = src.pathDist ?? (this.traveled + this.holdY + 6);
-    const lane = src.laneX ?? this.offset.x;
-    this.entities.spawnMote(this.path, dist, lane, n);
+    if (n > 0) {
+      const dist = src.pathDist ?? (this.traveled + this.holdY + 6);
+      const lane = src.laneX ?? this.offset.x;
+      this.entities.spawnMote(this.path, dist, lane, n);
+    }
+    if (src?.bombDrop) this._gainBomb(src.bombDrop);
   }
 
   _gainMotes(n) {
@@ -774,6 +889,7 @@ export class Game {
     }
     this.loadout = loadoutFromStep(this.step);
     this.rank = this.step;
+    this.maxStep = Math.max(this.maxStep || 0, this.step);
     if (toast) {
       this.audio.powerup();
       this.toast(toast);
@@ -827,6 +943,7 @@ export class Game {
   _combatScore(n) {
     this.score += Math.floor(n * this.combo);
     this.combo = Math.min(8, this.combo + 0.35);
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.comboTimer = 3.2;
   }
 
@@ -840,6 +957,7 @@ export class Game {
     this.invuln = 0.7;
     this.combo = 1;
     this.audio.hit();
+    this._punch(0.04, 1.15);
     this._shedResonance();
     if (this.health <= 0) this.die();
   }
@@ -860,6 +978,7 @@ export class Game {
       this.ui.riftWrap?.classList.toggle('rift-wings', (this.loadout.seeker || 0) > 0 && (this.loadout.titan || 0) === 0);
       this.ui.riftWrap?.classList.toggle('rift-titan', (this.loadout.titan || 0) > 0);
     }
+    this._syncBombs();
   }
 
   _render() {
@@ -922,5 +1041,135 @@ export class Game {
     this.composer.setSize(w, h);
     this.bloom.setSize(w, h);
     this.fx.uniforms.uResolution.value.set(w, h);
+  }
+
+  _runStage() {
+    for (const ch of CHAPTERS) {
+      if (this.traveled >= ch.at && this._chapterAt < ch.at) {
+        this._chapterAt = ch.at;
+        this.toast(ch.toast);
+      }
+    }
+    while (this.stage.peek() && this.stage.peek().at <= this.traveled) {
+      const ev = this.stage.consume();
+      if (ev.kind === 'squad') {
+        this.entities.spawnSquad(this.path, this.traveled, ev.form, ev.role, ev.n, ev.ahead);
+      } else if (ev.kind === 'gate') {
+        this.entities.spawnGateAt(this.path, this.traveled);
+      } else if (ev.kind === 'orbs') {
+        this.entities.spawnOrbsAt(this.path, this.traveled, 5);
+      } else if (ev.kind === 'blockers') {
+        this.entities.spawnBlockersAt(this.path, this.traveled, ev.n || 2);
+      } else if (ev.kind === 'midboss') {
+        this.entities.spawnNamed(this.path, this.traveled, ev.id);
+        this.stage.finaleAlive = false;
+      } else if (ev.kind === 'finale') {
+        this.entities.spawnFinale(this.path, this.traveled);
+        this.stage.finaleAlive = true;
+      }
+    }
+  }
+
+  _punch(seconds, mag) {
+    this.hitStop = Math.max(this.hitStop, Math.min(0.045, seconds));
+    this.kickAmt = Math.max(this.kickAmt, mag);
+    this.kick.set((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.2, 0);
+  }
+
+  _tryBomb() {
+    if (this.state !== 'playing' || this.bombCd > 0 || this.bombs <= 0) return;
+    this.bombs -= 1;
+    this.bombsUsed += 1;
+    this.bombCd = 0.85;
+    this.invuln = Math.max(this.invuln, 0.55);
+    this.audio.bomb();
+    this._punch(0.08, 1.6);
+    const result = this.entities.bombSweep(this.traveled, this.holdY, 16);
+    for (const k of result.killed) {
+      this.kills += 1;
+      this._combatScore(k.type === 'boss' ? 3200 : k.type === 'midboss' ? 1400 : 180);
+      this._dropLoot(k);
+      if (k.type === 'boss') {
+        this.stage.cleared = true;
+        this.toast('SENTINEL DOWN');
+        this.win();
+        return;
+      }
+    }
+    this._syncBombs();
+  }
+
+  _gainBomb(n = 1) {
+    const next = Math.min(this.bombMax, this.bombs + n);
+    if (next !== this.bombs) {
+      this.bombs = next;
+      this._syncBombs();
+    }
+  }
+
+  _syncBombs() {
+    const el = this.ui?.bombs;
+    if (!el) return;
+    el.innerHTML = '';
+    for (let i = 0; i < this.bombMax; i++) {
+      const pip = document.createElement('div');
+      pip.className = 'bomb-pip' + (i < this.bombs ? ' lit' : '');
+      el.appendChild(pip);
+    }
+  }
+
+  _renderScoreboard(el, list, highlightScore) {
+    if (!el) return;
+    if (!list || !list.length) {
+      el.classList.add('empty');
+      el.textContent = 'NO HI-SCORES YET';
+      return;
+    }
+    el.classList.remove('empty');
+    el.innerHTML = list.map((row, i) => {
+      const me = highlightScore != null && row.score === highlightScore ? ' me' : '';
+      const tag = row.victory ? 'CLR' : 'KIA';
+      return `<div class="row${me}"><span>${i + 1}</span><span>${row.rank} · ${tag}</span><span>${row.score}</span><span>${row.depth} km</span></div>`;
+    }).join('');
+  }
+
+  _padState() {
+    const pads = typeof navigator !== 'undefined' ? (navigator.getGamepads?.() || []) : [];
+    let pad = null;
+    for (const p of pads) {
+      if (p) { pad = p; break; }
+    }
+    if (!pad) {
+      return { x: 0, y: 0, fire: false, bomb: false, boost: false, start: false };
+    }
+    const dz = (v) => Math.abs(v) < 0.18 ? 0 : v;
+    const ax = dz(pad.axes[0] || 0);
+    const ay = -dz(pad.axes[1] || 0);
+    const dpadX = (pad.buttons[15]?.pressed ? 1 : 0) - (pad.buttons[14]?.pressed ? 1 : 0);
+    const dpadY = (pad.buttons[12]?.pressed ? 1 : 0) - (pad.buttons[13]?.pressed ? 1 : 0);
+    return {
+      x: Math.max(-1, Math.min(1, ax + dpadX)),
+      y: Math.max(-1, Math.min(1, ay + dpadY)),
+      fire: !!(pad.buttons[0]?.pressed || pad.buttons[7]?.pressed),
+      bomb: !!pad.buttons[1]?.pressed,
+      boost: !!(pad.buttons[4]?.pressed || pad.buttons[6]?.pressed || pad.buttons[5]?.pressed),
+      start: !!(pad.buttons[9]?.pressed || pad.buttons[8]?.pressed),
+    };
+  }
+
+  _pollPad() {
+    const pad = this._padState();
+    const prev = this._padPrev;
+    if (pad.start && !prev.start) {
+      if (this.state === 'playing') this.pause();
+      else if (this.state === 'paused') this.resume();
+      else if (this.state === 'title') {
+        if (this._hasRun) this.resumeFromMenu();
+        else this.startPlay();
+      } else if (this.state === 'dead') this.startPlay();
+    }
+    if (pad.bomb && !prev.bomb) this._tryBomb();
+    if (pad.fire && this.state === 'title' && !this._hasRun && !prev.fire) this.startPlay();
+    this._padPrev = { fire: pad.fire, bomb: pad.bomb, start: pad.start };
   }
 }

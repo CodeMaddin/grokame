@@ -301,7 +301,32 @@ export function peakLiveBullets(step) {
   return n;
 }
 
-export const RESONANCE_MAX = STEP_MAX;
+export function estimateDps(step) {
+  const arms = arsenal(loadoutFromStep(step), 0);
+  let dps = 0;
+  for (const g of Object.values(arms)) {
+    if (!g.shots.length) continue;
+    const dmg = g.shots.reduce((s, sh) => s + (sh.damage || 1), 0);
+    dps += dmg / Math.max(0.04, g.cd);
+  }
+  return dps;
+}
+
+export function estimateBossDps(step) {
+  const arms = arsenal(loadoutFromStep(step), 0);
+  const group = (g, w) => {
+    if (!g.shots.length) return 0;
+    const dmg = g.shots.reduce((s, sh) => s + (sh.damage || 1), 0);
+    return (dmg / Math.max(0.04, g.cd)) * w;
+  };
+  return (
+    group(arms.primary, 0.36)
+    + group(arms.missile, 0.82)
+    + group(arms.titan, 0.78)
+    + group(arms.mine, 0.18)
+    + group(arms.nova, 0.14)
+  );
+}
 export const RANK_META = SEQUENCE.map((s, i) => ({
   name: MODULES[s.module].tag,
   toast: s.toast || MODULES[s.module].tag,

@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>AETHER DRIFT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
   </head>
   <body>
@@ -51,6 +54,10 @@
             <div id="boost-fill"></div>
           </div>
         </div>
+        <div class="bomb-wrap">
+          <div class="label">BOMB</div>
+          <div id="bomb-pips" class="bomb-pips"></div>
+        </div>
       </div>
 
       <div id="toast"></div>
@@ -64,23 +71,23 @@
 
     <div id="title-screen" class="screen">
       <div class="title-glow"></div>
-      <p class="kicker">SECTOR 7 — THE AETHER RIFT</p>
-      <h1>AETHER<br /><span>DRIFT</span></h1>
-      <p class="tagline">The ribbon is a suggestion. Hunters are not.</p>
-      <div class="menu-actions">
+      <p class="kicker fly-in">SECTOR 7 — THE AETHER RIFT</p>
+      <h1 class="fly-in">AETHER<br /><span>DRIFT</span></h1>
+      <p class="tagline fly-in delay-2">The ribbon is a suggestion. Hunters are not.</p>
+      <div class="menu-actions fly-in delay-3">
         <button id="resume-title-btn" type="button" hidden>RESUME</button>
         <button id="start-btn" type="button">ENGAGE</button>
       </div>
-      <div class="controls">
-        <div><kbd>WASD</kbd> / <kbd>arrows</kbd> slide in eight directions across the whole playfield</div>
-        <div><kbd>Click</kbd> / <kbd>Space</kbd> guns always fire forward · <kbd>Shift</kbd> boost</div>
-        <div><kbd>1</kbd> chase · <kbd>2</kbd> cockpit · <kbd>3</kbd> scroll · <kbd>V</kbd> cycle</div>
-        <div>Kill hunters and scoop cyan filaments. Sparks grow into lasers, seekers, a Titan blaster, drones, mines, and more — eighty upgrades deep.</div>
-        <div><kbd>Esc</kbd> menu · <kbd>P</kbd> pause</div>
+      <div id="title-scores" class="scoreboard fly-in delay-4"></div>
+      <div class="controls fly-in delay-4">
+        <div><kbd>WASD</kbd> / stick slide eight ways · <kbd>Click</kbd> / <kbd>Space</kbd> / RT fire</div>
+        <div><kbd>Shift</kbd> / LT boost · <kbd>B</kbd> / <kbd>C</kbd> / face B bomb · <kbd>P</kbd> / Start pause</div>
+        <div><kbd>1</kbd> chase · <kbd>2</kbd> cockpit · <kbd>3</kbd> scroll · <kbd>V</kbd> cycle · <kbd>Esc</kbd> menu</div>
+        <div>Authored waves. Filaments stack eighty weapons. Three bombs. Survive the Sentinel.</div>
       </div>
     </div>
 
-    <div id="pause-screen" class="screen hidden">
+    <div id="pause-screen" class="screen hidden pause-dim">
       <h2>PAUSED</h2>
       <p>The rift waits for no one.</p>
       <div class="menu-actions">
@@ -90,9 +97,11 @@
     </div>
 
     <div id="dead-screen" class="screen hidden">
-      <p class="kicker">SIGNAL LOST</p>
-      <h2>HULL BREACH</h2>
+      <p class="kicker" id="result-kicker">SIGNAL LOST</p>
+      <h2 id="result-title">HULL BREACH</h2>
+      <p id="result-rank" class="rank-mark">D</p>
       <p id="final-stats" class="tagline"></p>
+      <div id="result-board" class="scoreboard"></div>
       <button id="retry-btn" type="button">RE-ENTER THE RIFT</button>
     </div>
 

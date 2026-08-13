@@ -18,7 +18,7 @@ body {
   overflow: hidden;
   background: var(--ink);
   color: #e8f6ff;
-  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-family: "Rajdhani", "Segoe UI", sans-serif;
   cursor: crosshair;
 }
 
@@ -157,6 +157,31 @@ canvas {
   box-shadow: 0 0 12px #5ce1ff;
 }
 
+.bomb-wrap {
+  min-width: 88px;
+}
+
+.bomb-pips {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.bomb-pip {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(255, 209, 102, 0.45);
+  background: rgba(255, 209, 102, 0.08);
+  transform: rotate(45deg);
+  box-shadow: none;
+}
+
+.bomb-pip.lit {
+  background: linear-gradient(180deg, #ffe29a, #ffd166);
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.9);
+  border-color: #ffd166;
+}
+
 #toast {
   position: absolute;
   top: 18vh;
@@ -226,6 +251,70 @@ canvas {
   pointer-events: none;
 }
 
+.pause-dim {
+  background: radial-gradient(ellipse at center, rgba(8, 0, 22, 0.62), rgba(0, 0, 0, 0.78));
+  backdrop-filter: blur(2px);
+}
+
+.fly-in {
+  animation: title-fly 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.delay-2 { animation-delay: 0.12s; }
+.delay-3 { animation-delay: 0.24s; }
+.delay-4 { animation-delay: 0.36s; }
+
+@keyframes title-fly {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.94);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+.rank-mark {
+  font-size: clamp(48px, 8vw, 84px);
+  letter-spacing: 0.28em;
+  color: var(--gold);
+  text-shadow: 0 0 28px rgba(255, 209, 102, 0.85);
+  margin: 8px 0 0;
+}
+
+.scoreboard {
+  margin-top: 22px;
+  min-width: min(420px, 86vw);
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: rgba(232, 246, 255, 0.78);
+}
+
+.scoreboard .row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  gap: 12px;
+  padding: 6px 10px;
+  border: 1px solid rgba(92, 225, 255, 0.18);
+  background: rgba(5, 1, 13, 0.35);
+  text-align: left;
+}
+
+.scoreboard .row.me {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.scoreboard.empty {
+  letter-spacing: 0.28em;
+  color: rgba(232, 246, 255, 0.4);
+}
+
 .title-glow {
   position: absolute;
   width: 520px;
@@ -243,11 +332,18 @@ canvas {
   margin-bottom: 12px;
 }
 
+h1,
+h2,
+.rank-mark {
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+}
+
 h1 {
   font-size: clamp(56px, 11vw, 120px);
   line-height: 0.85;
   margin: 0;
   letter-spacing: 0.12em;
+  font-weight: 800;
   text-shadow:
     0 0 24px rgba(92, 225, 255, 0.55),
     0 0 80px rgba(255, 59, 212, 0.35);

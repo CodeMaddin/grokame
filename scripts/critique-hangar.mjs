@@ -250,42 +250,38 @@ if (!game.includes("classList.toggle('shop-min'") && !game.includes('classList.t
 }
 if (!game.includes('hangar-hull-btn') && !game.includes('hangarHullBtn')) fail('VIEW HULL button is not bound in game.js');
 
-const offsetCall = yard.match(/setViewOffset\(([^)]+)\)/);
-if (!uncertain(offsetCall, 'setViewOffset call not found')) {
-  /* fail already */
-} else {
-  const args = offsetCall[1].split(',').map((s) => s.trim());
-  if (args.length !== 6) fail(`setViewOffset has ${args.length} args — expected 6. Uncertain framing.`);
-  else {
-    note(`setViewOffset ${args.join(', ')}`);
-    if (args[3] === '0') fail('offsetY is 0 — the hull stays vertically centered on the full canvas, i.e. under the shop');
-    if (!/shiftY|stageCenterY/.test(args[3])) fail(`offsetY is "${args[3]}" — not a stage-derived shiftY`);
-  }
+if (!yard.includes('setViewport') || !yard.includes('setScissor')) {
+  fail('drydock does not scissor into the leftover stage — the hull is a crop of a tall frustum');
 }
-if (!/stageCenterY\s*=\s*stage\.top/.test(yard)) fail('Y framing does not read stage.top — portrait hull cannot sit in the peek');
-if (/setViewOffset\(\s*w\s*,\s*h\s*,\s*[^,]+,\s*0\s*,/.test(yard)) {
-  fail('a setViewOffset path still hardcodes offsetY 0');
+if (!/this\._stage \? this\._stage\.width/.test(yard) && !/filmW = this\._stage \? this\._stage\.width/.test(yard)) {
+  fail('hangar camera film is not the stage box');
+}
+if (!/r\.render\(this\.scene, this\.camera\)/.test(yard) && !/this\.renderer\.render\(this\.scene, this\.camera\)/.test(yard)) {
+  fail('hangar does not draw the hull with a direct render — edges will not read');
+}
+if (/\.composer\.render\(/.test(yard)) fail('hangar still composites bloom over the hull');
+if (/setViewOffset\(/.test(yard) && !/clearViewOffset\(/.test(yard)) {
+  fail('hangar still uses setViewOffset as the only framing — that crops a tall frustum');
 }
 
-const bloom = yard.match(/UnrealBloomPass\(new THREE\.Vector2\([^)]+\),\s*([0-9.]+),\s*([0-9.]+),\s*([0-9.]+)\)/);
-if (!uncertain(bloom, 'shipyard UnrealBloomPass args not found')) {
+const pmrem = yard.match(/fromScene\(new RoomEnvironment\(\),\s*([0-9.]+)\)/);
+if (!uncertain(pmrem, 'RoomEnvironment PMREM sigma not found')) {
   /* fail already */
-} else {
-  const strength = Number(bloom[1]);
-  const radius = Number(bloom[2]);
-  note(`hangar bloom strength ${strength} radius ${radius}`);
-  if (radius > 0.28) fail(`hangar bloom radius ${radius} smears the hull into bokeh`);
-  if (strength > 0.5) fail(`hangar bloom strength ${strength} whites out the drydock craft`);
+} else if (Number(pmrem[1]) > 0.04) {
+  fail(`PMREM sigma ${pmrem[1]} smears the hangar environment`);
 }
 
 const portraitCam = yard.match(/_portrait\) \{\s*this\.camera\.position\.set\(([^)]+)\)/);
 if (!uncertain(portraitCam, 'portrait hangar camera position not found')) {
   /* fail already */
 } else {
-  const z = Number(portraitCam[1].split(',')[2]);
-  note(`portrait hangar camera z ${z}`);
-  if (!Number.isFinite(z)) fail('uncertain: portrait camera z is not a number');
-  else if (z > 8) fail(`portrait hangar camera z ${z} is too far — the hull is a postage stamp in the peek`);
+  const parts = portraitCam[1].split(',').map((s) => Number(s.trim()));
+  note(`portrait hangar camera ${parts.join(', ')}`);
+  if (parts.some((n) => !Number.isFinite(n))) fail('uncertain: portrait camera is not numeric');
+  else {
+    if (Math.abs(parts[0]) < 1.2) fail('portrait hangar camera is head-on — wings will not read as a ship');
+    if (parts[2] > 8) fail(`portrait hangar camera z ${parts[2]} is too far — the hull is a postage stamp in the peek`);
+  }
 }
 
 const peekVh = vh(decl(stage, 'min-height'));

@@ -116,7 +116,7 @@ if (!entities.includes('createSentinel')) fail('sentinel is still a generic icos
 if (!entities.includes('nextVolley')) fail('elites still dump the same 3–5 fan');
 if (!read('src/ship.js').includes('dressShip')) fail('the hull does not wear purchased guns');
 if (!html.includes('hangar-screen')) fail('no shipyard screen');
-if (!read('src/shipyard.js').includes('UnrealBloomPass')) fail('drydock has no lighting pass');
+if (!read('src/shipyard.js').includes('DirectionalLight')) fail('drydock has no key light');
 
 if (!audio.includes('_scheduleBeat')) fail('no sequenced score — still a pad drone');
 if (!audio.includes('setPaused')) fail('pause cannot mute');

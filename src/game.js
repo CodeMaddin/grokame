@@ -1012,9 +1012,10 @@ export class Game {
   }
 
   _applySlide(keyX, keyY, dt) {
-    const maxSpeed = 72;
-    const accel = 260;
-    const brake = 210;
+    const maxSpeed = 92;
+    const accel = 820;
+    const reverse = 1280;
+    const brake = 420;
     let ix = keyX;
     let iy = keyY;
     const mag = Math.hypot(ix, iy);
@@ -1022,15 +1023,20 @@ export class Game {
       ix /= mag;
       iy /= mag;
     }
-    this.slide.x = this._approachVel(this.slide.x, ix * maxSpeed, accel, brake, dt);
-    this.slide.y = this._approachVel(this.slide.y, iy * maxSpeed, accel, brake, dt);
+    this.slide.x = this._approachVel(this.slide.x, ix * maxSpeed, accel, brake, reverse, dt);
+    this.slide.y = this._approachVel(this.slide.y, iy * maxSpeed, accel, brake, reverse, dt);
   }
 
-  _approachVel(current, target, accel, brake, dt) {
-    const rate = target === 0 ? brake : accel;
-    if (current < target) return Math.min(target, current + rate * dt);
-    if (current > target) return Math.max(target, current - rate * dt);
-    return target;
+  _approachVel(current, target, accel, brake, reverse, dt) {
+    const turning = (current > 0.5 && target < 0) || (current < -0.5 && target > 0);
+    const rate = target === 0 ? brake : turning ? reverse : accel;
+    let next = current;
+    if (next < target) next = Math.min(target, next + rate * dt);
+    else if (next > target) next = Math.max(target, next - rate * dt);
+    if (target !== 0 && Math.abs(next) < Math.abs(target) * 0.22) {
+      next = target * 0.22;
+    }
+    return next;
   }
 
   _playfieldHalf() {

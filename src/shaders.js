@@ -367,8 +367,8 @@ void main() {
   float ndv = max(dot(N, V), 0.0);
   float fresnel = pow(1.0 - ndv, 2.4);
   float ndl = max(dot(N, normalize(uLightDir)), 0.0);
-  vec3 col = uColor * (0.18 + ndl * 0.75);
-  col += uRim * fresnel * 1.8;
+  vec3 col = uColor * (0.5 + ndl * 0.7);
+  col += uRim * fresnel * 2.2;
   col += uRim * pow(ndv, 8.0) * 0.15;
   gl_FragColor = vec4(col, 1.0);
 }

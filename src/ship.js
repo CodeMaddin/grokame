@@ -6,105 +6,92 @@ function hullMaterial(color, rim) {
     uniforms: {
       uColor: { value: new THREE.Color(color) },
       uRim: { value: new THREE.Color(rim) },
-      uLightDir: { value: new THREE.Vector3(0.4, 0.7, 0.5).normalize() },
+      uLightDir: { value: new THREE.Vector3(0.35, 0.8, 0.4).normalize() },
     },
     vertexShader: hullVertex,
     fragmentShader: hullFragment,
   });
 }
 
+function addEdges(mesh, color = 0x9be7ff) {
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(mesh.geometry, 18),
+    new THREE.LineBasicMaterial({ color })
+  );
+  mesh.add(edges);
+}
+
 export function createShip() {
   const group = new THREE.Group();
-  group.scale.setScalar(2.35);
+  group.scale.setScalar(3.1);
 
-  const hullMat = hullMaterial('#9eb6d8', '#7cf0ff');
-  const accentMat = hullMaterial('#3a2458', '#ff64e8');
-  const glowMat = new THREE.MeshBasicMaterial({
-    color: 0x9be7ff,
-    transparent: true,
-    opacity: 0.95,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const glassMat = new THREE.MeshBasicMaterial({
-    color: 0xb8f0ff,
-    transparent: true,
-    opacity: 0.9,
-  });
-  const trimMat = new THREE.MeshBasicMaterial({ color: 0x5ce1ff });
+  const hullMat = hullMaterial('#647a9a', '#7ad8ff');
+  const darkMat = hullMaterial('#2a3348', '#ff7ae0');
+  const engineMat = new THREE.MeshBasicMaterial({ color: 0x9be7ff });
+  const cockpitMat = new THREE.MeshBasicMaterial({ color: 0x8ce7ff });
 
-  const body = new THREE.Mesh(new THREE.ConeGeometry(0.48, 2.8, 6), hullMat);
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.9, 5), hullMat);
   body.rotation.x = -Math.PI / 2;
+  addEdges(body);
   group.add(body);
 
-  const mid = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.28, 1.55), accentMat);
-  mid.position.z = 0.15;
-  group.add(mid);
+  const fuselage = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.28, 1.9), darkMat);
+  fuselage.position.z = 0.1;
+  addEdges(fuselage, 0xff9be0);
+  group.add(fuselage);
 
-  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), glassMat);
-  cockpit.scale.set(1, 0.72, 1.45);
-  cockpit.position.set(0, 0.22, -0.2);
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), cockpitMat);
+  cockpit.scale.set(1, 0.62, 1.35);
+  cockpit.position.set(0, 0.2, -0.35);
   group.add(cockpit);
 
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.85), hullMat);
-  wing.position.set(0, -0.06, 0.5);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.07, 0.95), hullMat);
+  wing.position.set(0, -0.08, 0.55);
+  addEdges(wing);
   group.add(wing);
 
-  const wingEdge = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.03, 0.08), trimMat);
-  wingEdge.position.set(0, -0.04, 0.12);
-  group.add(wingEdge);
+  const wingSweep = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.05, 0.18), engineMat);
+  wingSweep.position.set(0, -0.05, 0.18);
+  group.add(wingSweep);
 
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.72, 0.8), hullMat);
-  fin.position.set(0, 0.38, 0.6);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.78, 0.7), hullMat);
+  fin.position.set(0, 0.42, 0.7);
+  addEdges(fin);
   group.add(fin);
 
-  const engineL = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 0.78, 12), accentMat);
+  const engineL = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 0.55, 10), darkMat);
   engineL.rotation.x = Math.PI / 2;
-  engineL.position.set(-0.46, -0.08, 1.12);
+  engineL.position.set(-0.55, -0.1, 1.15);
   const engineR = engineL.clone();
-  engineR.position.x = 0.46;
+  engineR.position.x = 0.55;
   group.add(engineL, engineR);
 
-  const exhaustL = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.35, 12), glowMat);
-  exhaustL.rotation.x = Math.PI / 2;
-  exhaustL.position.set(-0.46, -0.08, 1.72);
+  const exhaustL = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), engineMat);
+  exhaustL.position.set(-0.55, -0.1, 1.42);
   const exhaustR = exhaustL.clone();
-  exhaustR.position.x = 0.46;
+  exhaustR.position.x = 0.55;
   group.add(exhaustL, exhaustR);
 
-  const halo = new THREE.Mesh(
-    new THREE.SphereGeometry(0.85, 20, 16),
-    new THREE.MeshBasicMaterial({
-      color: 0x5ce1ff,
-      transparent: true,
-      opacity: 0.16,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    })
-  );
-  halo.position.z = 0.4;
-  group.add(halo);
-
   const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 12, 10),
-    new THREE.MeshBasicMaterial({ color: 0xff3bd4 })
+    new THREE.SphereGeometry(0.12, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xff5ad4 })
   );
-  core.position.set(0, 0.02, 0.9);
+  core.position.set(0, 0.05, 0.85);
   group.add(core);
 
-  const lightL = new THREE.PointLight(0x5ce1ff, 10, 32, 2);
-  lightL.position.set(-0.46, -0.08, 1.4);
-  const lightR = new THREE.PointLight(0x5ce1ff, 10, 32, 2);
-  lightR.position.set(0.46, -0.08, 1.4);
-  const nose = new THREE.PointLight(0xff64e8, 5, 22, 2);
-  nose.position.set(0, 0.12, -1.2);
+  const lightL = new THREE.PointLight(0x5ce1ff, 3.5, 18, 2);
+  lightL.position.set(-0.55, -0.1, 1.35);
+  const lightR = new THREE.PointLight(0x5ce1ff, 3.5, 18, 2);
+  lightR.position.set(0.55, -0.1, 1.35);
+  const nose = new THREE.PointLight(0xff64e8, 2.2, 14, 2);
+  nose.position.set(0, 0.15, -1.3);
   group.add(lightL, lightR, nose);
 
-  return { group, exhausts: [exhaustL, exhaustR], lights: [lightL, lightR], core, halo };
+  return { group, exhausts: [exhaustL, exhaustR], lights: [lightL, lightR], core };
 }
 
 export class EngineTrail {
-  constructor(scene, max = 56) {
+  constructor(scene, max = 40) {
     this.max = max;
     this.history = [];
     const positions = new Float32Array(max * 3);
@@ -138,10 +125,10 @@ export class EngineTrail {
       this.positions[i * 3 + 1] = p.y;
       this.positions[i * 3 + 2] = p.z;
       const t = 1 - i / this.max;
-      this.colors[i * 3] = boost > 0.4 ? 1.0 : 0.35 * t;
-      this.colors[i * 3 + 1] = 0.75 * t;
-      this.colors[i * 3 + 2] = 1.0 * t;
-      this.alphas[i] = 0.55 * t;
+      this.colors[i * 3] = (boost > 0.4 ? 0.7 : 0.2) * t;
+      this.colors[i * 3 + 1] = 0.45 * t;
+      this.colors[i * 3 + 2] = 0.7 * t;
+      this.alphas[i] = 0.28 * t;
     }
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.aColor.needsUpdate = true;

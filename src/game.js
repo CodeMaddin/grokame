@@ -62,7 +62,7 @@ export class Game {
     const size = new THREE.Vector2(window.innerWidth, window.innerHeight);
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(size, 0.72, 0.64, 0.22);
+    this.bloom = new UnrealBloomPass(size, 0.48, 0.5, 0.42);
     this.composer.addPass(this.bloom);
     this.fx = new ShaderPass(cinematicShader);
     this.fx.uniforms.uSunPos.value = new THREE.Vector2(0.72, 0.68);
@@ -82,6 +82,8 @@ export class Game {
     this.shipLights = ship.lights;
     this.shipCore = ship.core;
     this.scene.add(this.ship);
+    this._lookDummy = new THREE.Object3D();
+    this.scene.add(this._lookDummy);
     this.trail = new EngineTrail(this.scene);
   }
 
@@ -267,28 +269,31 @@ export class Game {
       .addScaledVector(frame.binormal, this.offset.x)
       .addScaledVector(frame.normal, this.offset.y + 0.2);
 
-    const look = sample.pos.clone().addScaledVector(sample.tangent, 12);
-    const m = new THREE.Matrix4().lookAt(this.ship.position, look, frame.normal);
-    const q = new THREE.Quaternion().setFromRotationMatrix(m);
-    const bank = new THREE.Quaternion().setFromAxisAngle(sample.tangent, -this.offset.x * 0.18);
-    q.multiply(bank);
-    this.ship.quaternion.slerp(q, 1 - Math.exp(-dt * 8));
+    const look = this.ship.position.clone().addScaledVector(sample.tangent, 18);
+    const tmp = this._lookDummy;
+    tmp.position.copy(this.ship.position);
+    tmp.up.copy(frame.normal);
+    tmp.lookAt(look);
+    const bank = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -this.offset.x * 0.12);
+    tmp.quaternion.multiply(bank);
+    this.ship.quaternion.slerp(tmp.quaternion, 1 - Math.exp(-dt * 8));
 
     const camTarget = this.ship.position.clone()
-      .addScaledVector(sample.tangent, -16.5)
-      .addScaledVector(frame.normal, 4.2)
-      .addScaledVector(frame.binormal, this.offset.x * 0.22);
-    this.camera.position.lerp(camTarget, 1 - Math.exp(-dt * 4.5));
-    const camLook = this.ship.position.clone().addScaledVector(sample.tangent, 16).addScaledVector(frame.normal, 0.15);
+      .addScaledVector(sample.tangent, -22)
+      .addScaledVector(frame.normal, 9.2)
+      .addScaledVector(frame.binormal, this.offset.x * 0.25);
+    this.camera.position.lerp(camTarget, 1 - Math.exp(-dt * 5));
+    const camLook = this.ship.position.clone().addScaledVector(sample.tangent, 8).addScaledVector(frame.normal, 0.2);
     this.camera.up.lerp(frame.normal, 0.15);
     this.camera.lookAt(camLook);
 
     const boostAmt = wantBoost;
     for (const ex of this.exhausts) {
-      ex.scale.set(1 + boostAmt * 0.5, 1 + boostAmt * 1.8, 1 + boostAmt * 0.5);
-      ex.material.color.set(boostAmt > 0.2 ? 0xffd166 : 0x5ce1ff);
+      const pulse = 1 + boostAmt * 0.8;
+      ex.scale.setScalar(pulse);
+      ex.material.color.set(boostAmt > 0.2 ? 0xffd166 : 0x9be7ff);
     }
-    for (const l of this.shipLights) l.intensity = 7 + boostAmt * 10;
+    for (const l of this.shipLights) l.intensity = 3.2 + boostAmt * 3;
     this.trail.push(this.ship.position.clone().addScaledVector(sample.tangent, -1.4), boostAmt);
     this.audio.setBoost(boostAmt);
 
@@ -316,10 +321,10 @@ export class Game {
     if (this.state === 'playing') {
       const firing = this.input.firing || this.input.keys.has('Space');
       if (firing && this.fireCd <= 0) {
-        const origin = this.ship.position.clone().addScaledVector(sample.tangent, 2.4);
+        const origin = this.ship.position.clone().addScaledVector(sample.tangent, 5.4);
         const dir = sample.tangent.clone().addScaledVector(frame.binormal, this.steer.x * 0.08).normalize();
-        const left = origin.clone().addScaledVector(frame.binormal, -0.7);
-        const right = origin.clone().addScaledVector(frame.binormal, 0.7);
+        const left = origin.clone().addScaledVector(frame.binormal, -1.8);
+        const right = origin.clone().addScaledVector(frame.binormal, 1.8);
         const shotA = this.entities.fire(left, dir);
         const shotB = this.entities.fire(right, dir);
         if (shotA || shotB) {

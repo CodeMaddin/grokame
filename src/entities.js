@@ -3,6 +3,7 @@ import { orbVertex, orbFragment } from './shaders.js';
 import { createFrenet, sampleRail } from './math.js';
 import { lanesFor, rowStagger } from './stage.js';
 import { eliteHp } from './weapons.js';
+import { tractorPull } from './hangar.js';
 import { nextVolley } from './patterns.js';
 import {
   createDiveHunter,
@@ -68,6 +69,7 @@ export class EntityField {
     this.bullets = [];
     this.enemyShots = [];
     this.pickups = [];
+    this._tractor = { range: 0, force: 0 };
     this.explosions = [];
     this.impacts = [];
     this.boss = null;
@@ -1065,10 +1067,12 @@ export class EntityField {
     this.enemyFireRail(path, s + 1, x, 8);
   }
 
-  update(dt, path, traveled, shipPos, playerOffset, difficulty, holdY = 8) {
+  update(dt, path, traveled, shipPos, playerOffset, difficulty, holdY = 8, tractor = null) {
+    this._tractor = tractor || { range: 0, force: 0 };
     this.time += dt;
     for (const orb of this.orbs) {
       if (!orb.alive) continue;
+      this._attractOrb(orb, dt, traveled, holdY, playerOffset);
       orb.mesh.material.uniforms.uTime.value = this.time;
       orb.mesh.rotation.y += dt * 1.4;
       const sample = path.sample(orb.pathDist);
@@ -1249,9 +1253,27 @@ export class EntityField {
     if (dy > 0) b.pathDist += Math.min(dy, steer * 0.35 * dt);
   }
 
+  _attractOrb(orb, dt, traveled, holdY, playerOffset) {
+    const spec = this._tractor;
+    if (!spec?.range) return;
+    const px = playerOffset?.x || 0;
+    const along = traveled + holdY;
+    const dx = px - (orb.offset?.x || 0);
+    const dy = along - orb.pathDist;
+    const dz = -(orb.offset?.y || 0);
+    const dist = Math.hypot(dx, dy, dz);
+    const speed = tractorPull(dist, spec) * dt;
+    if (speed <= 0 || dist < 1e-4) return;
+    const k = speed / dist;
+    orb.offset.x += dx * k;
+    orb.offset.y += dz * k;
+    orb.pathDist += dy * k;
+  }
+
   _stepPickups(dt, path, traveled, holdY, playerOffset) {
     const along = traveled + holdY;
     const px = playerOffset?.x || 0;
+    const spec = this._tractor;
     for (const p of this.pickups) {
       if (!p.alive) continue;
       if (p.grace > 0) p.grace -= dt;
@@ -1261,14 +1283,16 @@ export class EntityField {
       const dx = px - p.laneX;
       const dy = along - p.pathDist;
       const dist = Math.hypot(dx, dy);
-      const magnetR = dy > 0 ? 14.5 : 11;
-      if (p.grace <= 0 && dist < magnetR && dist > 0.001) {
-        const pull = (1 - dist / magnetR) * 38 * dt;
-        p.laneX += (dx / dist) * pull;
-        p.pathDist += (dy / dist) * pull;
+      let sucked = 0;
+      if (p.grace <= 0 && spec?.range) {
+        sucked = tractorPull(dist, spec) * dt;
+        if (sucked > 0 && dist > 1e-4) {
+          p.laneX += (dx / dist) * sucked;
+          p.pathDist += (dy / dist) * sucked;
+        }
       }
       const pulse = 0.85 + 0.18 * Math.sin(this.time * 8 + p.pathDist);
-      p.mesh.scale.setScalar(pulse);
+      p.mesh.scale.setScalar(pulse * (sucked > 0 ? 1.08 : 1));
       this._placeMote(p, path);
     }
   }

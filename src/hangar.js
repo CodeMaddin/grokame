@@ -10,6 +10,16 @@ export const CATALOG = {
     blurb: 'Forward guns. Every hull launches with these. Powerups thicken the volley — they never fan wide.',
     unlock: 0,
   },
+  tractor: {
+    title: 'TRACTOR WELL',
+    blurb: 'A belly well that drinks gold and powerups. This bay is range — how far the sip starts. Force is a different install. Mark 1 only tugs what you almost touch.',
+    unlock: 200,
+  },
+  pull: {
+    title: 'TRACTOR FORCE',
+    blurb: 'How hard the well yanks. Logarithmic: fat near the hull, a whisper at the rim. Without the well you still have to be on top of the loot.',
+    unlock: 260,
+  },
   needle: {
     title: 'NEEDLE LASERS',
     blurb: 'Coherent lances under the wings. Bought once. The rift can charge them after that.',
@@ -210,6 +220,26 @@ export function clearPayout(ci, li, { superBoss = false, finale = false, mids = 
   const boss = finale ? 260 : superBoss ? 200 : 130;
   const mid = Math.max(0, mids) * 36;
   return { clear, boss, mid, total: clear + boss + mid };
+}
+
+const TRACTOR_NEAR = 0.28;
+
+export function tractorSpec(loadout = {}) {
+  const rangeLv = loadout.tractor | 0;
+  const forceLv = loadout.pull | 0;
+  if (rangeLv <= 0 && forceLv <= 0) return { range: 0, force: 0, rangeLv, forceLv };
+  const range = rangeLv > 0 ? 6.2 + (rangeLv - 1) * 3.15 : 5.4;
+  const force = forceLv > 0 ? 28 + (forceLv - 1) * 22 : 16;
+  return { range, force, rangeLv, forceLv };
+}
+
+export function tractorPull(dist, spec) {
+  const range = spec?.range || 0;
+  const force = spec?.force || 0;
+  if (range <= 0 || force <= 0 || dist >= range || dist <= 0) return 0;
+  const span = Math.log(range / TRACTOR_NEAR);
+  if (!(span > 1e-8)) return force;
+  return force * (Math.log(range / Math.max(dist, TRACTOR_NEAR)) / span);
 }
 
 export function buyLabel(levels, id) {

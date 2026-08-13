@@ -8,7 +8,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { cinematicShader } from './shaders.js';
 import { InfinitePath, createFrenet, sampleRail, clamp, lerp } from './math.js';
 import { World } from './world.js';
-import { createShip, EngineTrail, dressShip } from './ship.js';
+import { createShip, EngineTrail, dressShip, spinShipKits } from './ship.js';
 import { EntityField } from './entities.js';
 import { AudioBus } from './audio.js';
 import { StageDirector, gradeRun, loadScores, saveScore } from './stage.js';
@@ -35,6 +35,7 @@ import {
   runFill,
   clearPayout,
   buyLabel,
+  tractorSpec,
 } from './hangar.js';
 import { Shipyard } from './shipyard.js';
 
@@ -1235,6 +1236,7 @@ export class Game {
     this.ship.position.copy(rail.pos);
     this.ship.up.copy(shipFrame.normal);
     this.ship.lookAt(this.ship.position.clone().add(shipSample.tangent));
+    spinShipKits(this.shipCraft, dt);
     if (this.shipRig) {
       const bank = 1 - Math.exp(-dt * 9);
       this.shipRig.rotation.z = lerp(this.shipRig.rotation.z, -this.steer.x * 0.35, bank);
@@ -1289,6 +1291,7 @@ export class Game {
       this.offset,
       difficulty,
       this.holdY,
+      tractorSpec(this.loadout),
     );
     this.audio.setIntensity(this.stage.intensity(
       this.traveled,

@@ -1,5 +1,7 @@
 export const MODULES = {
   spark:  { max: 8, tag: 'SPARK',  unlock: 'SPARK ARRAY' },
+  tractor: { max: 5, tag: 'TRACTOR', unlock: 'TRACTOR WELL' },
+  pull:    { max: 5, tag: 'PULL',    unlock: 'TRACTOR FORCE' },
   needle: { max: 8, tag: 'NEEDLE', unlock: 'LASERS ONLINE' },
   seeker: { max: 8, tag: 'SEEKER', unlock: 'SEEKERS LOCKED' },
   shard:  { max: 7, tag: 'SHARD',  unlock: 'CRYSTAL SHARDS' },

@@ -4,7 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createShip, dressShip } from './ship.js';
+import { createShip, dressShip, spinShipKits } from './ship.js';
 
 export class Shipyard {
   constructor(renderer) {
@@ -166,6 +166,7 @@ export class Shipyard {
         ex.scale.setScalar(0.85 + Math.sin(t * 8 + ex.position.x) * 0.18);
       }
     }
+    spinShipKits(this.craft, dt);
     if (this._portrait) {
       this.camera.position.set(0.35, 1.85, 9.8);
       this.camera.lookAt(0, 0.12, 0);

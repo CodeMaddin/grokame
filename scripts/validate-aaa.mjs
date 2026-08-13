@@ -110,7 +110,10 @@ ok(game.includes('_openMap') && game.includes('_deployLevel') && game.includes('
 ok(src('src/campaigns.js').includes('MVP_SCRIPT'), 'MVP script is preserved');
 ok(html.includes('hangar-screen') && html.includes('hangar-list'), 'shipyard screen exists');
 ok(html.includes('id="gold"'), 'gold is on the HUD');
-ok(src('src/hangar.js').includes('buyModule') && src('src/hangar.js').includes('mergeLoadout'), 'hangar persistence exists');
+ok(src('src/hangar.js').includes('tractorSpec') && src('src/hangar.js').includes('tractorPull'), 'tractor range/force math exists');
+ok(src('src/hangar.js').includes('title: \'TRACTOR WELL\'') && src('src/hangar.js').includes('title: \'TRACTOR FORCE\''), 'range and force are separate hangar buys');
+ok(src('src/entities.js').includes('tractorPull') && !src('src/entities.js').includes('magnetR = dy > 0 ? 14.5'), 'pickup vacuum is the purchased tractor, not a free 14.5u suck');
+ok(src('src/ship.js').includes('buildTractorKit') && src('src/ship.js').includes('buildPullKit'), 'hull wears tractor well and force coils');
 ok(src('src/ship.js').includes('dressShip') && src('src/ship.js').includes('buildTitanKit'), 'ship wears purchased systems');
 ok(src('src/shipyard.js').includes('class Shipyard'), 'drydock renderer exists');
 ok(entities.includes('spawnCoins') && game.includes('_gainGold'), 'gold can be collected');

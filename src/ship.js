@@ -315,6 +315,67 @@ function buildPrismKit() {
   return kit;
 }
 
+function buildTractorKit() {
+  const kit = makeKit();
+  const dish = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.42, 0.22, 0.12, 16),
+    kitMat(0x101820, 0x5ce1ff, 1.4)
+  );
+  dish.position.set(0, -0.38, 0.15);
+  addKitPart(kit.group, dish, kit.glows, kit.extras);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.03, 8, 20), kitGlow(0x5ce1ff, 0.55));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(0, -0.42, 0.15);
+  kit.group.add(ring);
+  kit.auras.push(ring);
+  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.025, 8, 20), kitGlow(0x9be7ff, 0.4));
+  ring2.rotation.x = Math.PI / 2;
+  ring2.position.set(0, -0.44, 0.15);
+  kit.group.add(ring2);
+  kit.auras.push(ring2);
+  const wide = new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.02, 8, 22), kitGlow(0x5ce1ff, 0.32));
+  wide.rotation.x = Math.PI / 2;
+  wide.position.set(0, -0.46, 0.15);
+  addKitPart(kit.group, wide, kit.glows, kit.extras, 3);
+  kit.auras.push(wide);
+  return kit;
+}
+
+function buildPullKit() {
+  const kit = makeKit();
+  for (const s of [-1, 1]) {
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 8, 12), kitMat(0x1a0814, 0xff64e8, 1.7));
+    coil.position.set(s * 0.38, -0.36, 0.15);
+    coil.rotation.z = s * 0.5;
+    addKitPart(kit.group, coil, kit.glows, kit.extras);
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), kitGlow(0xff64e8, 0.7));
+    core.position.copy(coil.position);
+    kit.group.add(core);
+    kit.auras.push(core);
+  }
+  const heart = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), kitMat(0x120818, 0xffd166, 2));
+  heart.position.set(0, -0.48, 0.15);
+  addKitPart(kit.group, heart, kit.glows, kit.extras);
+  const extraL = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 6, 12), kitMat(0x1a0814, 0xff64e8, 1.8));
+  extraL.position.set(-0.22, -0.5, 0.32);
+  addKitPart(kit.group, extraL, kit.glows, kit.extras, 3);
+  const extraR = extraL.clone();
+  extraR.position.x = 0.22;
+  addKitPart(kit.group, extraR, kit.glows, kit.extras, 3);
+  return kit;
+}
+
+export function spinShipKits(craft, dt) {
+  const tractor = craft?.kits?.tractor;
+  if (tractor) {
+    for (const aura of tractor.auras) aura.rotation.z += dt * 1.6;
+  }
+  const pull = craft?.kits?.pull;
+  if (pull) {
+    for (const aura of pull.auras) aura.rotation.y += dt * 2.4;
+  }
+}
+
 export function dressShip(craft, loadout = {}, previewId = null) {
   const kits = craft?.kits;
   if (!kits) return;
@@ -456,6 +517,8 @@ export function createShip() {
   kits.spire = buildSpireKit();
   kits.nova = buildNovaKit();
   kits.prism = buildPrismKit();
+  kits.tractor = buildTractorKit();
+  kits.pull = buildPullKit();
   for (const id of MODULE_ORDER) {
     if (kits[id]) rig.add(kits[id].group);
   }

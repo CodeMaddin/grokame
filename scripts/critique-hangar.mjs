@@ -6,6 +6,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { tractorSpec, tractorPull, CATALOG } from '../src/hangar.js';
+import { MODULES, MODULE_ORDER, UNLOCK_ORDER, arsenal, starterLoadout } from '../src/weapons.js';
 
 const root = resolve(import.meta.dirname, '..');
 const read = (p) => readFileSync(resolve(root, p), 'utf8');
@@ -277,6 +279,74 @@ if (Number.isFinite(peekVh) && Number.isFinite(tap)) {
   if (peekPx < 220) fail(`on 390×844 the hull peek is ${peekPx.toFixed(0)}px — not enough to see what is being built`);
   const halfBtn = (PHONE_W - 20 - 6) / 2;
   if (halfBtn < 140) fail('install/continue columns are too narrow for NOT ENOUGH ₡N');
+}
+
+if (!CATALOG.tractor || !CATALOG.pull) fail('shipyard is missing separate tractor range / force bays');
+if (CATALOG.tractor === CATALOG.pull) fail('range and force are the same catalog row');
+if (!MODULES.tractor || !MODULES.pull) fail('uncertain: tractor modules are not in MODULES');
+if ((MODULES.tractor.max | 0) < 2 || (MODULES.pull.max | 0) < 2) fail('tractor range/force cannot be upgraded');
+if (UNLOCK_ORDER.includes('tractor') || UNLOCK_ORDER.includes('pull')) {
+  fail('the tractor is leaking into the gun unlock sequence — it must be a hangar buy');
+}
+for (const id of MODULE_ORDER) {
+  if (!CATALOG[id]) fail(`uncertain: CATALOG is missing ${id}`);
+}
+if (!html.includes('TRACTOR') && !game.includes('tractorSpec')) fail('tractor is not wired into the hangar UI path');
+
+const entities = read('src/entities.js');
+if (/magnetR\s*=\s*dy\s*>\s*0\s*\?\s*14\.5/.test(entities)) fail('free 14.5u vacuum is still on every pickup — the tractor is not a purchase');
+if (!entities.includes('tractorPull')) fail('pickup stepping does not call tractorPull');
+if (!entities.includes('_attractOrb')) fail('orbs are not attracted — magnet must drink gold and powerups');
+if (!game.includes('tractorSpec(this.loadout)')) fail('the run does not pass the hangar tractor spec into the stage');
+if (!read('src/ship.js').includes('buildTractorKit') || !read('src/ship.js').includes('buildPullKit')) {
+  fail('the hull does not wear separate tractor range / force kits');
+}
+
+const none = tractorSpec({ spark: 1 });
+if (!uncertain(none && typeof none.range === 'number', 'tractorSpec({spark:1}) did not return a spec')) {
+  /* fail already */
+} else {
+  note(`starter tractor range ${none.range} force ${none.force}`);
+  if (none.range > 0 || none.force > 0) fail('starter hulls still have a free magnet');
+}
+
+const r1 = tractorSpec({ tractor: 1 });
+const r5 = tractorSpec({ tractor: 5 });
+const f1 = tractorSpec({ pull: 1 });
+const f5 = tractorSpec({ pull: 5 });
+const both = tractorSpec({ tractor: 3, pull: 3 });
+if (!uncertain(r1.range > 0 && f1.force > 0, 'mark-1 tractor spec is empty')) {
+  /* fail already */
+} else {
+  note(`tractor mk1 range ${r1.range.toFixed(2)} / force-only range ${f1.range.toFixed(2)}`);
+  note(`pull mk1 force ${f1.force.toFixed(1)} / range-only force ${r1.force.toFixed(1)}`);
+  if (r1.range > 8) fail(`mark 1 tractor range ${r1.range.toFixed(2)} is a free vacuum — it must start close`);
+  if (r5.range <= r1.range) fail('range upgrades do not grow the well');
+  if (f5.force <= f1.force) fail('force upgrades do not yank harder');
+  if (Math.abs(r1.range - f1.range) < 0.2) fail('range and force installs collapse to the same radius');
+  if (r1.force >= f1.force) fail('buying force does not beat a range-only tug');
+  if (f1.range >= r1.range) fail('buying range does not beat a force-only stub well');
+  if (both.range < r1.range || both.force < f1.force) fail('range and force do not stack');
+  const near = tractorPull(r1.range * 0.15, r1);
+  const mid = tractorPull(r1.range * 0.5, r1);
+  const rim = tractorPull(r1.range * 0.92, r1);
+  const linearMid = r1.force * 0.5;
+  if (!uncertain(near > 0 && mid >= 0, 'tractorPull returned nothing inside range')) {
+    /* fail already */
+  } else {
+    note(`log falloff mk1 near ${near.toFixed(1)} mid ${mid.toFixed(1)} rim ${rim.toFixed(1)}`);
+    if (mid >= near * 0.55) fail('tractor force does not fall off logarithmically — mid-range is still too fat');
+    if (mid >= linearMid * 0.92) fail('tractor falloff is still basically linear');
+    if (rim >= mid * 0.7) fail('rim pull is too strong — logarithmic well should be a whisper at the edge');
+    if (tractorPull(r1.range, r1) !== 0) fail('pull at exact range must be zero (hard cutoff is the range bay)');
+    if (tractorPull(r1.range + 0.2, r1) !== 0) fail('pull outside range must be zero');
+  }
+}
+
+const sparks = arsenal(starterLoadout()).primary.shots;
+if (sparks.some((s) => Math.abs(s.x) >= 1.2)) fail('starter blasters fanned out while adding the tractor');
+if (arsenal({ tractor: 5, pull: 5, spark: 1 }).primary.shots.length !== sparks.length) {
+  fail('the tractor is leaking into the gun banks');
 }
 
 if (fails.length) {

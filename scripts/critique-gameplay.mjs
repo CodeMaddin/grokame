@@ -182,6 +182,8 @@ if (!game.includes('_openHangar')) fail('no shipyard after a clear');
 if (!game.includes('applyMotes')) fail('in-run motes do not charge the hangar loadout');
 if (!entities.includes('spawnCoins')) fail('no gold in the stage');
 if (!readFileSync(resolve(root, 'src/hangar.js'), 'utf8').includes('buyModule')) fail('systems cannot be bought');
+if (!readFileSync(resolve(root, 'src/hangar.js'), 'utf8').includes('tractorSpec')) fail('no tractor range/force spec');
+if (entities.includes('magnetR = dy > 0 ? 14.5')) fail('pickups still vacuum for free from 14 units');
 
 if (fails.length) {
   console.error('GAMEPLAY CRITIQUE FAIL\n' + notes.map((n) => `  · ${n}`).join('\n') + '\n' + fails.map((f) => `  ✖ ${f}`).join('\n'));

@@ -500,7 +500,7 @@ export class Game {
 
     this.hurt = Math.max(0, this.hurt - dt * 1.8);
     this.invuln = Math.max(0, this.invuln - dt);
-    this.gateFx = Math.max(0, this.gateFx - dt * 1.05);
+    this.gateFx = Math.max(0, this.gateFx - dt * 1.35);
     this.comboTimer -= dt;
     if (this.comboTimer <= 0) this.combo = 1;
     this.fireCd = Math.max(0, this.fireCd - dt);
@@ -619,9 +619,9 @@ export class Game {
     const flare = sunInView ? (view === 'cockpit' ? 0 : 0.85) : 0;
     this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
     this.fx.uniforms.uCockpit.value = lerp(this.fx.uniforms.uCockpit.value, view === 'cockpit' ? 1 : 0, 1 - Math.exp(-dt * 8));
-    const bloomStr = (view === 'cockpit' ? 0.08 : 0.48) + this.gateFx * 0.7;
+    const bloomStr = (view === 'cockpit' ? 0.08 : 0.48) + this.gateFx * 0.28;
     const bloomThr = view === 'cockpit' ? 0.72 : 0.42;
-    const bloomRad = (view === 'cockpit' ? 0.18 : 0.5) + this.gateFx * 0.35;
+    const bloomRad = (view === 'cockpit' ? 0.18 : 0.5) + this.gateFx * 0.12;
     this.bloom.strength = lerp(this.bloom.strength, bloomStr, 1 - Math.exp(-dt * 6));
     this.bloom.threshold = lerp(this.bloom.threshold, bloomThr, 1 - Math.exp(-dt * 6));
     this.bloom.radius = lerp(this.bloom.radius, bloomRad, 1 - Math.exp(-dt * 6));

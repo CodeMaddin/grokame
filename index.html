@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
-    <script type="module" crossorigin src="./assets/index-BGxrRun_.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BDU8w3y4.css">
+    <script type="module" crossorigin src="./assets/index-t_tkR1Zr.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-a0Sr8QqC.css">
   </head>
   <body>
     <canvas id="c"></canvas>
@@ -107,7 +107,18 @@
         <div>Touch: hold to fire · drag to slide the ship</div>
         <div><kbd>Shift</kbd> / LT boost · <kbd>B</kbd> / <kbd>C</kbd> / face B bomb · <kbd>P</kbd> / Start pause</div>
         <div><kbd>1</kbd> chase · <kbd>2</kbd> cockpit · <kbd>3</kbd> scroll · <kbd>V</kbd> cycle · MENU / <kbd>Esc</kbd> / <kbd>P</kbd> pause</div>
-        <div>Arcade lives. Limited continues. Filaments stack eighty weapons. Three bombs. Survive the Sentinel.</div>
+        <div>Five campaigns. Super bosses. The Sentinel waits at the end of the last.</div>
+      </div>
+    </div>
+
+    <div id="map-screen" class="screen hidden pause-dim">
+      <p class="kicker" id="map-kicker">CAMPAIGN MAP</p>
+      <h2 id="map-title">THE AETHER RIFT</h2>
+      <p class="tagline" id="map-tag">Five campaigns. A super boss at the end of each. The Sentinel last.</p>
+      <div id="campaign-map" class="campaign-map"></div>
+      <div class="menu-actions">
+        <button id="deploy-btn" type="button">DEPLOY</button>
+        <button id="map-menu-btn" type="button">MAIN MENU</button>
       </div>
     </div>
 

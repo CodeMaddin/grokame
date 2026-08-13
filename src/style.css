@@ -577,41 +577,104 @@ kbd {
 
 @media (max-width: 900px) {
   .hud-top {
-    flex-wrap: wrap;
-    row-gap: 10px;
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      "score combo stock"
+      "depth hunters .";
+    column-gap: 14px;
+    row-gap: 2px;
+    align-items: end;
+    flex-wrap: nowrap;
   }
 
   .hud-scoreboard {
-    flex: 1 1 100%;
-    gap: 14px;
+    display: contents;
   }
 
+  .hud-score { grid-area: score; }
+  .combo-panel { grid-area: combo; }
+  .hud-depth { grid-area: depth; }
+  .threat-panel { grid-area: hunters; }
+
   .hud-stock {
-    margin-left: auto;
+    grid-area: stock;
+    margin-left: 0;
+    gap: 14px;
+    justify-self: end;
   }
 
   .hud-chrome {
-    justify-content: flex-end;
+    position: fixed;
+    grid-area: 1 / 1;
+    top: auto;
+    left: max(3vw, env(safe-area-inset-left, 0px) + 12px);
+    right: max(3vw, env(safe-area-inset-right, 0px) + 12px);
+    bottom: max(2vh, env(safe-area-inset-bottom, 0px) + 8px);
+    justify-content: stretch;
+    gap: 6px;
+    z-index: 5;
+  }
+
+  #view-switcher {
+    flex: 3 1 0;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .hud-chrome .view-btn,
+  .hud-chrome #pause-btn {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .view-name {
     display: none;
   }
 
+  .hud-bottom {
+    bottom: calc(max(2vh, env(safe-area-inset-bottom, 0px) + 8px) + 52px);
+    gap: 8px;
+    align-items: stretch;
+  }
+
   .hud-arsenal,
   .hud-vitals {
-    width: min(46vw, 280px);
-    flex-basis: auto;
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .hud-vitals {
+    flex: 2 1 0;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .hud-vitals .bar-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .hud-arsenal .label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bar {
+    margin-top: 4px;
+    height: 6px;
   }
 
   .boss-meter {
-    top: max(18vh, env(safe-area-inset-top, 0px) + 7.2rem);
+    top: max(12vh, env(safe-area-inset-top, 0px) + 5.2rem);
     left: 8vw;
     right: 8vw;
   }
 
   #toast {
-    top: 26vh;
+    top: 22vh;
   }
 }
 

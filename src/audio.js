@@ -104,23 +104,69 @@ export class AudioBus {
     if (!this.enabled) return;
     const ctx = this.ctx;
     const t = ctx.currentTime;
-    this._osc('sine', 180, t, 0.55, 0.14);
-    this._osc('triangle', 360, t, 0.48, 0.1);
-    this._osc('sine', 720, t + 0.04, 0.5, 0.09);
-    this._osc('sine', 1080, t + 0.08, 0.4, 0.07);
-    this._osc('sine', 1480, t + 0.12, 0.32, 0.05);
-    const o = ctx.createOscillator();
+    const dur = 2.05;
+
+    const carrier = ctx.createOscillator();
+    const harm = ctx.createOscillator();
+    const sub = ctx.createOscillator();
+    carrier.type = 'sine';
+    harm.type = 'triangle';
+    sub.type = 'sine';
+    carrier.frequency.setValueAtTime(196, t);
+    carrier.frequency.exponentialRampToValueAtTime(110, t + dur);
+    harm.frequency.setValueAtTime(294, t);
+    harm.frequency.exponentialRampToValueAtTime(165, t + dur);
+    sub.frequency.setValueAtTime(98, t);
+    sub.frequency.exponentialRampToValueAtTime(55, t + dur);
+
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'bandpass';
+    filt.Q.setValueAtTime(6.5, t);
+    filt.Q.linearRampToValueAtTime(4.2, t + dur);
+    filt.frequency.setValueAtTime(380, t);
+    filt.frequency.exponentialRampToValueAtTime(1650, t + 0.22);
+    filt.frequency.exponentialRampToValueAtTime(340, t + 0.55);
+    filt.frequency.exponentialRampToValueAtTime(1200, t + 0.92);
+    filt.frequency.exponentialRampToValueAtTime(280, t + 1.28);
+    filt.frequency.exponentialRampToValueAtTime(820, t + 1.64);
+    filt.frequency.exponentialRampToValueAtTime(200, t + dur);
+
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(2.15, t);
+    lfo.frequency.exponentialRampToValueAtTime(0.85, t + dur);
+    lfoGain.gain.value = 0.22;
+
+    const trem = ctx.createGain();
+    trem.gain.value = 0.78;
+    lfo.connect(lfoGain);
+    lfoGain.connect(trem.gain);
+
     const g = ctx.createGain();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(140, t);
-    o.frequency.exponentialRampToValueAtTime(1600, t + 0.42);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.09, t + 0.03);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
-    o.connect(g);
+    g.gain.exponentialRampToValueAtTime(0.15, t + 0.05);
+    g.gain.linearRampToValueAtTime(0.06, t + 0.52);
+    g.gain.linearRampToValueAtTime(0.12, t + 0.9);
+    g.gain.linearRampToValueAtTime(0.04, t + 1.26);
+    g.gain.linearRampToValueAtTime(0.08, t + 1.62);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    carrier.connect(filt);
+    harm.connect(filt);
+    sub.connect(g);
+    filt.connect(trem);
+    trem.connect(g);
     g.connect(this.master);
-    o.start(t);
-    o.stop(t + 0.52);
+
+    carrier.start(t);
+    harm.start(t);
+    sub.start(t);
+    lfo.start(t);
+    carrier.stop(t + dur + 0.02);
+    harm.stop(t + dur + 0.02);
+    sub.stop(t + dur + 0.02);
+    lfo.stop(t + dur + 0.02);
   }
 
   hit() {

@@ -500,7 +500,11 @@ export class Game {
 
     this.hurt = Math.max(0, this.hurt - dt * 1.8);
     this.invuln = Math.max(0, this.invuln - dt);
-    this.gateFx = Math.max(0, this.gateFx - dt * 1.35);
+    let gatePulse = 0;
+    for (const gate of this.entities.gates) {
+      if (gate.burst > 0) gatePulse = Math.max(gatePulse, gate.pulse || 0);
+    }
+    this.gateFx = gatePulse;
     this.comboTimer -= dt;
     if (this.comboTimer <= 0) this.combo = 1;
     this.fireCd = Math.max(0, this.fireCd - dt);
@@ -534,7 +538,6 @@ export class Game {
         } else {
           this._combatScore(500);
           this.boost = 1;
-          this.gateFx = 1;
           this.audio.gate();
           this.toast('GATE BREAK');
         }

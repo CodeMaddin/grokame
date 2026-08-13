@@ -105,6 +105,8 @@ export class EntityField {
         locked: true,
         hp: 4,
         burst: 0,
+        burstAge: 0,
+        pulse: 0,
       });
     }
   }
@@ -271,6 +273,7 @@ export class EntityField {
         if ('locked' in item) item.locked = true;
         if ('nearMiss' in item) item.nearMiss = false;
         if ('burst' in item) item.burst = 0;
+        if ('burstAge' in item) item.burstAge = 0;
       }
     }
     if (this.boss) {
@@ -354,6 +357,7 @@ export class EntityField {
       item.locked = true;
       item.hp = 4;
       item.burst = 0;
+      item.burstAge = 0;
       item.shield.visible = true;
       item.shield.material.color.set(0xff3bd4);
       item.shield.material.opacity = 0.32;
@@ -506,22 +510,29 @@ export class EntityField {
       gate.mesh.position.copy(sample.pos);
       gate.mesh.lookAt(sample.pos.clone().add(sample.tangent));
       if (gate.burst > 0) {
-        gate.burst = Math.max(0, gate.burst - dt * 1.35);
-        const elapsed = 1 - gate.burst;
-        const env = gate.burst;
-        const wave = Math.sin(elapsed * Math.PI * 10);
-        const diameter = 1 + wave * env * 0.72;
-        gate.pulse = Math.abs(wave) * env;
+        gate.burstAge = (gate.burstAge || 0) + dt;
+        const t = gate.burstAge;
+        const gaus = (x, w) => Math.exp(-(x * x) / (w * w));
+        const wave =
+          1.00 * gaus(t - 0.24, 0.18) +
+          0.62 * gaus(t - 0.92, 0.26) +
+          0.32 * gaus(t - 1.64, 0.32) -
+          0.24 * gaus(t - 0.55, 0.14) -
+          0.14 * gaus(t - 1.26, 0.18);
+        const diameter = 1 + wave * 1.18;
+        gate.pulse = Math.max(0, wave);
         gate.ring.scale.set(diameter, diameter, 1);
-        gate.ring.rotation.z += dt * (1.2 + env * 6);
-        const glow = 3.2 + env * 7 + Math.abs(wave) * env * 5;
+        gate.ring.rotation.z += dt * (0.7 + gate.pulse * 2.4);
+        const glow = 3.2 + gate.pulse * 8.5;
         gate.ring.material.emissive.setRGB(
-          0.45 + env * 0.55,
-          0.85 + env * 0.15,
+          0.42 + gate.pulse * 0.55,
+          0.82 + gate.pulse * 0.18,
           1
         );
         gate.ring.material.emissiveIntensity = glow;
-        if (gate.burst <= 0) {
+        if (t > 2.2) {
+          gate.burst = 0;
+          gate.burstAge = 0;
           gate.alive = false;
           gate.mesh.visible = false;
           gate.ring.scale.set(1, 1, 1);
@@ -641,6 +652,7 @@ export class EntityField {
         } else {
           gate.passed = true;
           gate.burst = 1;
+          gate.burstAge = 0;
           hits.push({ gate, blocked: false });
         }
       }

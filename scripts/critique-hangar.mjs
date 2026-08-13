@@ -256,12 +256,22 @@ if (!yard.includes('setViewport') || !yard.includes('setScissor')) {
 if (!/this\._stage \? this\._stage\.width/.test(yard) && !/filmW = this\._stage \? this\._stage\.width/.test(yard)) {
   fail('hangar camera film is not the stage box');
 }
-if (!/r\.render\(this\.scene, this\.camera\)/.test(yard) && !/this\.renderer\.render\(this\.scene, this\.camera\)/.test(yard)) {
-  fail('hangar does not draw the hull with a direct render — edges will not read');
-}
-if (/\.composer\.render\(/.test(yard)) fail('hangar still composites bloom over the hull');
+if (!/\.composer\.render\(/.test(yard)) fail('drydock lost its bloom lighting pass');
+if (!yard.includes('UnrealBloomPass')) fail('drydock has no UnrealBloomPass');
 if (/setViewOffset\(/.test(yard) && !/clearViewOffset\(/.test(yard)) {
   fail('hangar still uses setViewOffset as the only framing — that crops a tall frustum');
+}
+
+const bloom = yard.match(/UnrealBloomPass\(new THREE\.Vector2\([^)]+\),\s*([0-9.]+),\s*([0-9.]+),\s*([0-9.]+)\)/);
+if (!uncertain(bloom, 'shipyard UnrealBloomPass args not found')) {
+  /* fail already */
+} else {
+  const strength = Number(bloom[1]);
+  const radius = Number(bloom[2]);
+  note(`hangar bloom strength ${strength} radius ${radius}`);
+  if (strength < 0.18) fail(`hangar bloom strength ${strength} is a flat unlit bay`);
+  if (strength > 0.45) fail(`hangar bloom strength ${strength} smears the hull into bokeh`);
+  if (radius > 0.22) fail(`hangar bloom radius ${radius} is the old smear`);
 }
 
 const pmrem = yard.match(/fromScene\(new RoomEnvironment\(\),\s*([0-9.]+)\)/);

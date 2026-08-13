@@ -156,6 +156,36 @@ canvas {
   transform: translateY(0);
 }
 
+#view-switcher {
+  position: absolute;
+  right: 4vw;
+  bottom: 11vh;
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.view-btn {
+  letter-spacing: 0.22em;
+  font-size: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(92, 225, 255, 0.35);
+  background: rgba(5, 1, 13, 0.45);
+  color: rgba(232, 246, 255, 0.7);
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.view-btn:hover,
+.view-btn.active {
+  transform: none;
+  color: #fff;
+  border-color: var(--cyan);
+  background: linear-gradient(180deg, rgba(92, 225, 255, 0.22), rgba(92, 225, 255, 0.06));
+  box-shadow: 0 0 16px rgba(92, 225, 255, 0.2);
+  text-shadow: 0 0 10px var(--cyan);
+}
+
 .screen {
   position: fixed;
   inset: 0;

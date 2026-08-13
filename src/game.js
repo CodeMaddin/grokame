@@ -23,6 +23,11 @@ export class Game {
       firing: false,
     };
     this.audio = new AudioBus();
+    this.view = localStorage.getItem('aether-view') || 'chase';
+    if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'chase';
+    this._viewSnap = 1;
+    this._camLook = new THREE.Vector3();
+    this._camUp = new THREE.Vector3(0, 1, 0);
     this._setupRenderer();
     this._setupScene();
     this._setupPost();
@@ -52,7 +57,7 @@ export class Game {
   _setupScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#05010d');
-    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1400);
+    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.08, 1400);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
@@ -92,6 +97,10 @@ export class Game {
       this.input.keys.add(e.code);
       if (e.code === 'KeyP' && this.state === 'playing') this.pause();
       if (e.code === 'Space') e.preventDefault();
+      if (e.code === 'Digit1' || e.code === 'Numpad1') this.setView('chase');
+      if (e.code === 'Digit2' || e.code === 'Numpad2') this.setView('cockpit');
+      if (e.code === 'Digit3' || e.code === 'Numpad3') this.setView('scroll');
+      if (e.code === 'KeyV') this.cycleView();
     });
     window.addEventListener('keyup', (e) => this.input.keys.delete(e.code));
     window.addEventListener('mousemove', (e) => {
@@ -132,10 +141,106 @@ export class Game {
       pause: document.getElementById('pause-screen'),
       dead: document.getElementById('dead-screen'),
       stats: document.getElementById('final-stats'),
+      viewBtns: [...document.querySelectorAll('[data-view]')],
     };
     document.getElementById('start-btn').addEventListener('click', () => this.startPlay());
     document.getElementById('resume-btn').addEventListener('click', () => this.resume());
     document.getElementById('retry-btn').addEventListener('click', () => this.startPlay());
+    for (const btn of this.ui.viewBtns) {
+      btn.addEventListener('click', () => this.setView(btn.dataset.view));
+      btn.addEventListener('mousedown', (e) => e.stopPropagation());
+      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    }
+    this._syncViewHud();
+  }
+
+  cycleView() {
+    const order = ['chase', 'cockpit', 'scroll'];
+    const i = order.indexOf(this.view);
+    this.setView(order[(i + 1) % order.length]);
+  }
+
+  setView(name) {
+    if (!['chase', 'cockpit', 'scroll'].includes(name)) return;
+    if (this.view === name && this._viewSnap === 0) {
+      this._syncViewHud();
+      return;
+    }
+    this.view = name;
+    this._viewSnap = 1;
+    localStorage.setItem('aether-view', name);
+    this._syncViewHud();
+    const labels = {
+      chase: 'CHASE CAM',
+      cockpit: 'COCKPIT',
+      scroll: 'SCROLL CAM',
+    };
+    if (this.state === 'playing' || this.state === 'paused') this.toast(labels[name]);
+  }
+
+  _syncViewHud() {
+    if (!this.ui?.viewBtns) return;
+    for (const btn of this.ui.viewBtns) {
+      btn.classList.toggle('active', btn.dataset.view === this.view);
+    }
+  }
+
+  _activeView() {
+    return this.state === 'title' ? 'chase' : this.view;
+  }
+
+  _applyCamera(dt, sample, frame) {
+    const view = this._activeView();
+    this.ship.visible = view !== 'cockpit';
+
+    const camPos = new THREE.Vector3();
+    const camLook = new THREE.Vector3();
+    const camUp = new THREE.Vector3();
+    let fov = 62;
+
+    if (view === 'cockpit') {
+      fov = 78;
+      camPos.copy(this.ship.position)
+        .addScaledVector(sample.tangent, 1.85)
+        .addScaledVector(frame.normal, 0.72);
+      camLook.copy(this.ship.position)
+        .addScaledVector(sample.tangent, 30)
+        .addScaledVector(frame.binormal, this.steer.x * 11)
+        .addScaledVector(frame.normal, this.steer.y * 7);
+      camUp.copy(frame.normal);
+    } else if (view === 'scroll') {
+      fov = 54;
+      camPos.copy(this.ship.position)
+        .addScaledVector(frame.normal, 38)
+        .addScaledVector(sample.tangent, -8);
+      camLook.copy(this.ship.position)
+        .addScaledVector(sample.tangent, 24)
+        .addScaledVector(frame.normal, 1.5);
+      camUp.copy(sample.tangent);
+    } else {
+      fov = 62;
+      camPos.copy(this.ship.position)
+        .addScaledVector(sample.tangent, -24)
+        .addScaledVector(frame.normal, 10.5)
+        .addScaledVector(frame.binormal, this.offset.x * 0.12);
+      camLook.copy(this.ship.position)
+        .addScaledVector(sample.tangent, 10)
+        .addScaledVector(frame.binormal, this.steer.x * 2)
+        .addScaledVector(frame.normal, this.steer.y * 1.2);
+      camUp.copy(frame.normal);
+    }
+
+    const snap = this._viewSnap > 0.02;
+    const posK = snap ? 13 : 4.2;
+    const lookK = snap ? 11 : 5;
+    this.camera.position.lerp(camPos, 1 - Math.exp(-dt * posK));
+    this._camLook.lerp(camLook, 1 - Math.exp(-dt * lookK));
+    this._camUp.lerp(camUp, 1 - Math.exp(-dt * lookK));
+    this.camera.up.copy(this._camUp);
+    this.camera.lookAt(this._camLook);
+    this.camera.fov = lerp(this.camera.fov, fov, 1 - Math.exp(-dt * 7));
+    this.camera.updateProjectionMatrix();
+    this._viewSnap = Math.max(0, this._viewSnap - dt * 2.4);
   }
 
   reset(layout = true) {
@@ -179,6 +284,7 @@ export class Game {
     this.ui.dead.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
     this.ui.hud.classList.add('visible');
+    this._viewSnap = 1;
     this.toast('HUNTERS INBOUND');
     this.clock.getDelta();
   }
@@ -300,17 +406,7 @@ export class Game {
     tmp.quaternion.multiply(bank);
     this.ship.quaternion.slerp(tmp.quaternion, 1 - Math.exp(-dt * 7));
 
-    const camTarget = this.ship.position.clone()
-      .addScaledVector(sample.tangent, -24)
-      .addScaledVector(frame.normal, 10.5)
-      .addScaledVector(frame.binormal, this.offset.x * 0.12);
-    this.camera.position.lerp(camTarget, 1 - Math.exp(-dt * 4.2));
-    const camLook = this.ship.position.clone()
-      .addScaledVector(sample.tangent, 10)
-      .addScaledVector(frame.binormal, this.steer.x * 2)
-      .addScaledVector(frame.normal, this.steer.y * 1.2);
-    this.camera.up.lerp(frame.normal, 0.15);
-    this.camera.lookAt(camLook);
+    this._applyCamera(dt, sample, frame);
 
     const boostAmt = wantBoost;
     for (const ex of this.exhausts) {

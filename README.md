@@ -25,6 +25,8 @@ npm run preview
 | W / S | Throttle / brake |
 | Click / Space | Fire |
 | Shift | Boost |
+| 1 / 2 / 3 | Chase / cockpit / scroll camera |
+| V | Cycle camera |
 | P | Pause |
 
 The cyan ribbon is a guide, not a cage — fly out into the canyon. Amber cores sit in your path and will wreck the hull unless you shoot them. Red hunters chase you; gold gunships sit ahead and fire. Locked magenta gates have to be shot open. Combat is the score. Orbs off the path are just snacks.

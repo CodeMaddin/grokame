@@ -209,13 +209,12 @@ export class Game {
         .addScaledVector(frame.normal, this.steer.y * 7);
       camUp.copy(frame.normal);
     } else if (view === 'scroll') {
-      fov = 54;
+      fov = 44;
       camPos.copy(this.ship.position)
-        .addScaledVector(frame.normal, 38)
-        .addScaledVector(sample.tangent, -8);
+        .addScaledVector(frame.normal, 118)
+        .addScaledVector(sample.tangent, 10);
       camLook.copy(this.ship.position)
-        .addScaledVector(sample.tangent, 24)
-        .addScaledVector(frame.normal, 1.5);
+        .addScaledVector(sample.tangent, 26);
       camUp.copy(sample.tangent);
     } else {
       fov = 62;
@@ -231,8 +230,9 @@ export class Game {
     }
 
     const snap = this._viewSnap > 0.02;
-    const posK = snap ? 13 : 4.2;
-    const lookK = snap ? 11 : 5;
+    const locked = view === 'scroll';
+    const posK = snap ? 16 : locked ? 11 : 4.2;
+    const lookK = snap ? 14 : locked ? 10 : 5;
     this.camera.position.lerp(camPos, 1 - Math.exp(-dt * posK));
     this._camLook.lerp(camLook, 1 - Math.exp(-dt * lookK));
     this._camUp.lerp(camUp, 1 - Math.exp(-dt * lookK));

@@ -212,7 +212,7 @@ export class EntityField {
   }
 
   _seedBullets() {
-    for (let i = 0; i < 220; i++) {
+    for (let i = 0; i < 480; i++) {
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(0.38, 0.38, 9),
         new THREE.MeshBasicMaterial({ color: 0xe8ffff })
@@ -230,6 +230,14 @@ export class EntityField {
         speed: 120,
         laneDrift: 0,
         damage: 1,
+        home: 0,
+        homeSteer: 0,
+        pierce: 0,
+        hitR: 1.6,
+        wobble: 0,
+        phase: 0,
+        hitList: [],
+        kind: 'spark',
       });
     }
     for (let i = 0; i < 32; i++) {
@@ -264,7 +272,7 @@ export class EntityField {
   }
 
   _seedPickups() {
-    for (let i = 0; i < 36; i++) {
+    for (let i = 0; i < 48; i++) {
       const mesh = new THREE.Mesh(
         new THREE.TetrahedronGeometry(1.15, 0),
         new THREE.MeshBasicMaterial({ color: 0x7af0ff })
@@ -462,7 +470,7 @@ export class EntityField {
     en.weave = 0.55 + Math.random() * 0.7;
     const extra = difficulty > 2.4 ? 1 : 0;
     if (role === 'heavy') {
-      en.hp = 9 + extra;
+      en.hp = 11 + extra;
       en.radius = 4.6;
       en.descent = 0.85 + Math.random() * 0.55;
       en.cooldown = 1.4 + Math.random() * 0.8;
@@ -472,7 +480,7 @@ export class EntityField {
       en.body.material.emissive.set(0xff6a1a);
       en.body.material.emissiveIntensity = 2.6;
     } else if (role === 'sine') {
-      en.hp = 5 + extra;
+      en.hp = 6 + extra;
       en.radius = 3.8;
       en.descent = 1.35 + Math.random() * 1.1;
       en.cooldown = 1.9 + Math.random() * 1.3;
@@ -482,7 +490,7 @@ export class EntityField {
       en.body.material.emissive.set(0xff7a3a);
       en.body.material.emissiveIntensity = 2.0;
     } else {
-      en.hp = 4 + extra;
+      en.hp = 5 + extra;
       en.radius = 3.35;
       en.descent = 2.1 + Math.random() * 1.5;
       en.cooldown = 1.7 + Math.random() * 1.4;
@@ -492,7 +500,7 @@ export class EntityField {
       en.body.material.emissive.set(0xff2458);
       en.body.material.emissiveIntensity = 2.3;
     }
-    en.drop = role === 'heavy' ? 2 : Math.random() < 0.72 ? 1 : 0;
+      en.drop = role === 'heavy' ? 2 : 1;
   }
 
   _spawnBoss(path, dist) {
@@ -522,8 +530,8 @@ export class EntityField {
       mesh: group,
       shell,
       pathDist: dist,
-      hp: 22,
-      maxHp: 22,
+      hp: 32,
+      maxHp: 32,
       cooldown: 0.5,
       radius: 4.6,
       alive: true,
@@ -543,13 +551,36 @@ export class EntityField {
     b.speed = spec.speed ?? 124;
     b.laneDrift = spec.drift ?? 0;
     b.damage = spec.damage ?? 1;
-    const sx = spec.scale ?? 1;
-    const sz = spec.kind === 'wing' ? 0.72 : spec.kind === 'crown' ? 0.58 : 1;
-    b.mesh.scale.set(sx, sx, sz);
-    b.mesh.material.color.set(spec.color ?? 0xe8ffff);
+    b.home = spec.home ?? 0;
+    b.homeSteer = spec.homeSteer ?? 0;
+    b.pierce = spec.pierce ?? 0;
+    b.hitR = spec.hitR ?? 1.6;
+    b.wobble = spec.wobble ?? 0;
+    b.phase = spec.phase ?? Math.random() * 6.28;
+    b.kind = spec.kind || 'spark';
+    b.hitList = [];
+    this._dressBullet(b, spec);
     b.mesh.visible = true;
     this._placeRailShot(b, path);
     return true;
+  }
+
+  _dressBullet(b, spec) {
+    const kind = spec.kind || 'spark';
+    const s = spec.scale ?? 1;
+    let sx = s;
+    let sy = s;
+    let sz = 1;
+    if (kind === 'spark' || kind === 'shard' || kind === 'prism') sz = 0.16;
+    else if (kind === 'seeker') { sx = s * 1.15; sy = s * 1.15; sz = 0.42; }
+    else if (kind === 'titan') { sx = s * 1.05; sy = s * 1.05; sz = 0.95; }
+    else if (kind === 'mine') { sx = s * 1.2; sy = s * 1.2; sz = 0.28; }
+    else if (kind === 'wing' || kind === 'nova') sz = 0.62;
+    else if (kind === 'spire') { sx = 0.55 * s; sy = 0.55 * s; sz = 1.15; }
+    else if (kind === 'needle') sz = 1;
+    else if (kind === 'helix' || kind === 'shear' || kind === 'drone') sz = 0.7;
+    b.mesh.scale.set(sx, sy, sz);
+    b.mesh.material.color.set(spec.color ?? 0xe8ffff);
   }
 
   enemyFireRail(path, pathDist, laneX, speed = 8) {
@@ -780,6 +811,8 @@ export class EntityField {
     for (const b of list) {
       if (!b.alive) continue;
       b.life -= dt;
+      if (b.home) this._steerHome(b, dt);
+      if (b.wobble) b.laneX += Math.sin(this.time * 7.5 + (b.phase || 0)) * b.wobble * dt;
       b.pathDist += (b.along || 1) * (b.speed || 100) * dt;
       b.laneX += (b.laneDrift || 0) * dt;
       if (b.life <= 0 || b.pathDist < 12) {
@@ -789,6 +822,35 @@ export class EntityField {
       }
       this._placeRailShot(b, path);
     }
+  }
+
+  _steerHome(b, dt) {
+    let best = null;
+    let bestD = 1e9;
+    for (const en of this.enemies) {
+      if (!en.alive) continue;
+      if (en.pathDist < b.pathDist - 4) continue;
+      const d = Math.hypot(en.offset.x - b.laneX, en.pathDist - b.pathDist);
+      if (d < bestD) {
+        bestD = d;
+        best = en;
+      }
+    }
+    if (this.boss?.alive && this.boss.pathDist > b.pathDist - 6) {
+      const d = Math.hypot(0 - b.laneX, this.boss.pathDist - b.pathDist);
+      if (d < bestD) {
+        bestD = d;
+        best = this.boss;
+      }
+    }
+    if (!best) return;
+    const tx = best.offset?.x ?? 0;
+    const ty = best.pathDist;
+    const steer = b.homeSteer || 60;
+    const dx = tx - b.laneX;
+    const dy = ty - b.pathDist;
+    b.laneX += Math.sign(dx) * Math.min(Math.abs(dx), steer * dt);
+    if (dy > 0) b.pathDist += Math.min(dy, steer * 0.35 * dt);
   }
 
   _stepPickups(dt, path, traveled, holdY, playerOffset) {
@@ -897,20 +959,38 @@ export class EntityField {
     return bullet.mesh.position.clone().addScaledVector(bullet.vel, 0.04);
   }
 
+  _strike(b, pos, radius) {
+    const pad = b.hitR ?? 1.6;
+    return this._hitPoint(b).distanceTo(pos) < radius + pad;
+  }
+
+  _alreadyHit(b, target) {
+    return b.hitList && b.hitList.includes(target);
+  }
+
+  _applyHit(b, target) {
+    if (!b.hitList) b.hitList = [];
+    b.hitList.push(target);
+    if ((b.pierce || 0) > 0) {
+      b.pierce -= 1;
+      return false;
+    }
+    b.alive = false;
+    b.mesh.visible = false;
+    return true;
+  }
+
   bulletHits() {
     const events = [];
     for (const b of this.bullets) {
       if (!b.alive) continue;
-      const tip = this._hitPoint(b);
       let consumed = false;
 
       for (const en of this.enemies) {
-        if (!en.alive) continue;
-        if (tip.distanceTo(en.mesh.position) < en.radius + 1.6) {
-          b.alive = false;
-          b.mesh.visible = false;
+        if (!en.alive || this._alreadyHit(b, en)) continue;
+        if (this._strike(b, en.mesh.position, en.radius)) {
           en.hp -= b.damage || 1;
-          consumed = true;
+          consumed = this._applyHit(b, en);
           if (en.hp <= 0) {
             en.alive = false;
             en.mesh.visible = false;
@@ -925,18 +1005,16 @@ export class EntityField {
           } else {
             events.push({ type: 'ping', pos: en.mesh.position.clone() });
           }
-          break;
+          if (consumed) break;
         }
       }
       if (consumed) continue;
 
       for (const blk of this.blockers) {
-        if (!blk.alive) continue;
-        if (tip.distanceTo(blk.mesh.position) < blk.radius + 1.6) {
-          b.alive = false;
-          b.mesh.visible = false;
+        if (!blk.alive || this._alreadyHit(b, blk)) continue;
+        if (this._strike(b, blk.mesh.position, blk.radius)) {
           blk.hp -= b.damage || 1;
-          consumed = true;
+          consumed = this._applyHit(b, blk);
           if (blk.hp <= 0) {
             blk.alive = false;
             blk.mesh.visible = false;
@@ -945,23 +1023,21 @@ export class EntityField {
               pos: blk.mesh.position.clone(),
               pathDist: blk.pathDist,
               laneX: blk.offset.x,
-              drop: Math.random() < 0.4 ? 1 : 0,
+              drop: Math.random() < 0.45 ? 1 : 0,
             });
           } else {
             events.push({ type: 'ping', pos: blk.mesh.position.clone() });
           }
-          break;
+          if (consumed) break;
         }
       }
       if (consumed) continue;
 
       for (const gate of this.gates) {
-        if (!gate.alive || !gate.locked) continue;
-        if (tip.distanceTo(gate.mesh.position) < 6.4) {
-          b.alive = false;
-          b.mesh.visible = false;
+        if (!gate.alive || !gate.locked || this._alreadyHit(b, gate)) continue;
+        if (this._strike(b, gate.mesh.position, 5.2)) {
           gate.hp -= b.damage || 1;
-          consumed = true;
+          consumed = this._applyHit(b, gate);
           if (gate.hp <= 0) {
             gate.locked = false;
             gate.shield.visible = false;
@@ -977,15 +1053,14 @@ export class EntityField {
           } else {
             events.push({ type: 'ping', pos: gate.mesh.position.clone() });
           }
-          break;
+          if (consumed) break;
         }
       }
       if (consumed) continue;
 
-      if (this.boss?.alive && tip.distanceTo(this.boss.mesh.position) < this.boss.radius + 1.2) {
-        b.alive = false;
-        b.mesh.visible = false;
+      if (this.boss?.alive && !this._alreadyHit(b, this.boss) && this._strike(b, this.boss.mesh.position, this.boss.radius)) {
         this.boss.hp -= b.damage || 1;
+        this._applyHit(b, this.boss);
         if (this.boss.hp <= 0) {
           this.boss.alive = false;
           this.boss.mesh.visible = false;

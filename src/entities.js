@@ -204,9 +204,20 @@ export class EntityField {
     }
     for (let i = 0; i < 32; i++) {
       const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.22, 8, 8),
+        new THREE.SphereGeometry(0.4, 10, 8),
         new THREE.MeshBasicMaterial({ color: 0xff4d6d })
       );
+      const glow = new THREE.Mesh(
+        new THREE.SphereGeometry(0.68, 10, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0xff6b8a,
+          transparent: true,
+          opacity: 0.4,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      );
+      mesh.add(glow);
       mesh.visible = false;
       this.scene.add(mesh);
       this.enemyShots.push({
@@ -306,7 +317,7 @@ export class EntityField {
       const lane = lanes[liveEnemies % lanes.length];
       this._placeOne(idle, path, traveled + 96 + row * 36 + Math.random() * 12, 'enemy');
       idle.hp = 2 + (difficulty > 2.5 ? 1 : 0);
-      idle.cooldown = 0.9 + Math.random() * 1.1;
+      idle.cooldown = 1.8 + Math.random() * 1.6;
       idle.role = Math.random() < 0.55 ? 'dive' : 'sine';
       idle.nearMiss = false;
       idle.offset.x = lane + (Math.random() - 0.5) * span * 0.04;
@@ -427,7 +438,7 @@ export class EntityField {
     return true;
   }
 
-  enemyFireRail(path, pathDist, laneX, speed = 14) {
+  enemyFireRail(path, pathDist, laneX, speed = 8) {
     const b = this.enemyShots.find((x) => !x.alive);
     if (!b) return;
     b.alive = true;
@@ -570,9 +581,9 @@ export class EntityField {
       en.mesh.up.copy(rail.frame.normal);
       en.mesh.lookAt(rail.pos.clone().addScaledVector(rail.sample.tangent, -12));
       en.cooldown -= dt;
-      if (en.cooldown <= 0 && en.pathDist > traveled - 4 && en.pathDist < traveled + 110) {
-        this.enemyFireRail(path, en.pathDist - 3, en.offset.x, 14);
-        en.cooldown = Math.max(0.95, 1.55 - difficulty * 0.06);
+      if (en.cooldown <= 0 && en.pathDist > traveled + 6 && en.pathDist < traveled + 72) {
+        this.enemyFireRail(path, en.pathDist - 3, en.offset.x, 8);
+        en.cooldown = Math.max(2.1, 2.8 - difficulty * 0.08);
       }
     }
     if (this.boss?.alive) {
@@ -586,10 +597,10 @@ export class EntityField {
       this.boss.cooldown -= dt;
       if (this.boss.cooldown <= 0) {
         const spread = (this.laneLimit || 24) * 0.28;
-        this.enemyFireRail(path, this.boss.pathDist - 4, 0, 13);
-        this.enemyFireRail(path, this.boss.pathDist - 4, -spread, 12);
-        this.enemyFireRail(path, this.boss.pathDist - 4, spread, 12);
-        this.boss.cooldown = 1.05;
+        this.enemyFireRail(path, this.boss.pathDist - 4, 0, 8);
+        this.enemyFireRail(path, this.boss.pathDist - 4, -spread, 7);
+        this.enemyFireRail(path, this.boss.pathDist - 4, spread, 7);
+        this.boss.cooldown = 1.85;
       }
     }
 

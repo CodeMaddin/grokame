@@ -97,21 +97,38 @@ export class Game {
   }
 
   _bindInput() {
-    window.addEventListener('keydown', (e) => {
+    this.canvas.tabIndex = 0;
+    const moveKeys = new Set([
+      'KeyW', 'KeyA', 'KeyS', 'KeyD',
+      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+      'Numpad8', 'Numpad4', 'Numpad6', 'Numpad2',
+      'Space',
+    ]);
+    const onDown = (e) => {
       if (e.code === 'Escape') {
         e.preventDefault();
         if (!e.repeat) this._onEscape();
         return;
       }
-      this.input.keys.add(e.code);
+      if (moveKeys.has(e.code)) e.preventDefault();
+      this._setKey(e, true);
+      if (this.state === 'playing' && !e.repeat) this._releaseUiFocus();
       if (e.code === 'KeyP' && this.state === 'playing') this.pause();
-      if (e.code === 'Space') e.preventDefault();
       if (e.code === 'Digit1' || e.code === 'Numpad1') this.setView('chase');
       if (e.code === 'Digit2' || e.code === 'Numpad2') this.setView('cockpit');
       if (e.code === 'Digit3' || e.code === 'Numpad3') this.setView('scroll');
       if (e.code === 'KeyV') this.cycleView();
+    };
+    const onUp = (e) => {
+      if (moveKeys.has(e.code)) e.preventDefault();
+      this._setKey(e, false);
+    };
+    window.addEventListener('keydown', onDown, true);
+    window.addEventListener('keyup', onUp, true);
+    window.addEventListener('blur', () => this._clearInput());
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this._clearInput();
     });
-    window.addEventListener('keyup', (e) => this.input.keys.delete(e.code));
     window.addEventListener('mousemove', (e) => {
       this.input.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       this.input.mouse.y = -((e.clientY / window.innerHeight) * 2 - 1);
@@ -169,9 +186,13 @@ export class Game {
     for (const btn of menuButtons) {
       btn.addEventListener('mousedown', (e) => e.stopPropagation());
       btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      btn.addEventListener('click', () => this._releaseUiFocus());
     }
     for (const btn of this.ui.viewBtns) {
-      btn.addEventListener('click', () => this.setView(btn.dataset.view));
+      btn.addEventListener('click', () => {
+        this.setView(btn.dataset.view);
+        this._releaseUiFocus();
+      });
       btn.addEventListener('mousedown', (e) => e.stopPropagation());
       btn.addEventListener('pointerdown', (e) => e.stopPropagation());
     }
@@ -185,9 +206,28 @@ export class Game {
     this.ui.startBtn.textContent = this._hasRun ? 'NEW RUN' : 'ENGAGE';
   }
 
+  _setKey(e, down) {
+    const tokens = [e.code];
+    const letter = (e.key || '').toLowerCase();
+    if (letter.length === 1) tokens.push(letter);
+    for (const token of tokens) {
+      if (down) this.input.keys.add(token);
+      else this.input.keys.delete(token);
+    }
+  }
+
+  _releaseUiFocus() {
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== this.canvas && typeof active.blur === 'function') {
+      active.blur();
+    }
+    this.canvas?.focus({ preventScroll: true });
+  }
+
   _clearInput() {
     this.input.keys.clear();
     this.input.firing = false;
+    this.slide?.set(0, 0);
   }
 
   _onEscape() {
@@ -223,6 +263,7 @@ export class Game {
     this.ui.dead.classList.add('hidden');
     this.ui.hud.classList.add('visible');
     this.clock.getDelta();
+    this._releaseUiFocus();
   }
 
   cycleView() {
@@ -289,7 +330,7 @@ export class Game {
       camUp.copy(focus.tangent);
     } else {
       fov = 62;
-      const focus = this.path.sample(this.traveled + this.holdY * 0.25 + 8);
+      const focus = this.path.sample(this.traveled + this.holdY + 6);
       const focusFrame = createFrenet(focus.tangent);
       const chaseK = snap ? 14 : 2.45;
       this._chaseX += (this.offset.x - this._chaseX) * (1 - Math.exp(-dt * chaseK));
@@ -331,7 +372,7 @@ export class Game {
     this.kills = 0;
     this._blockWarn = false;
     this.offset = new THREE.Vector2(0, 0);
-    this.holdY = 0;
+    this.holdY = 8;
     this._chaseX = 0;
     this.steer = new THREE.Vector2(0, 0);
     this.slide = new THREE.Vector2(0, 0);
@@ -364,6 +405,7 @@ export class Game {
     this._viewSnap = 1;
     this.toast('HUNTERS INBOUND');
     this.clock.getDelta();
+    this._releaseUiFocus();
   }
 
   pause() {
@@ -375,6 +417,7 @@ export class Game {
     this.state = 'playing';
     this.ui.pause.classList.add('hidden');
     this.clock.getDelta();
+    this._releaseUiFocus();
   }
 
   die() {
@@ -443,22 +486,23 @@ export class Game {
     const frame = createFrenet(sample.tangent);
 
     if (this.state === 'playing') {
-      const keyX = (this.input.keys.has('KeyD') || this.input.keys.has('ArrowRight') ? 1 : 0)
-        - (this.input.keys.has('KeyA') || this.input.keys.has('ArrowLeft') ? 1 : 0);
-      const keyY = (this.input.keys.has('KeyW') || this.input.keys.has('ArrowUp') ? 1 : 0)
-        - (this.input.keys.has('KeyS') || this.input.keys.has('ArrowDown') ? 1 : 0);
-      const maxSpeed = 72;
-      const accel = 260;
-      const brake = 210;
-      this._accelAxis('x', keyX, maxSpeed, accel, brake, dt);
-      this._accelAxis('y', keyY, maxSpeed, accel, brake, dt);
+      const keyX = this._axisHeld(
+        ['KeyA', 'ArrowLeft', 'Numpad4', 'a'],
+        ['KeyD', 'ArrowRight', 'Numpad6', 'd'],
+      );
+      const keyY = this._axisHeld(
+        ['KeyS', 'ArrowDown', 'Numpad2', 's'],
+        ['KeyW', 'ArrowUp', 'Numpad8', 'w'],
+      );
+      this._applySlide(keyX, keyY, dt);
       const lane = this._laneLimit();
+      const depth = this._depthLimit();
       this.offset.x = clamp(this.offset.x + this.slide.x * dt, -lane, lane);
-      this.holdY = clamp(this.holdY + this.slide.y * dt, 0, 26);
+      this.holdY = clamp(this.holdY + this.slide.y * dt, depth.min, depth.max);
       if (this.offset.x <= -lane && this.slide.x < 0) this.slide.x = 0;
       if (this.offset.x >= lane && this.slide.x > 0) this.slide.x = 0;
-      if (this.holdY <= 0 && this.slide.y < 0) this.slide.y = 0;
-      if (this.holdY >= 26 && this.slide.y > 0) this.slide.y = 0;
+      if (this.holdY <= depth.min && this.slide.y < 0) this.slide.y = 0;
+      if (this.holdY >= depth.max && this.slide.y > 0) this.slide.y = 0;
       this.offset.y = 0;
       this.steer.set(keyX, keyY);
     } else {
@@ -669,23 +713,51 @@ export class Game {
     this.composer.render();
   }
 
-  _accelAxis(axis, key, maxSpeed, accel, brake, dt) {
-    if (key !== 0) {
-      this.slide[axis] += key * accel * dt;
-      this.slide[axis] = clamp(this.slide[axis], -maxSpeed, maxSpeed);
-      return;
+  _axisHeld(neg, pos) {
+    let v = 0;
+    for (const code of neg) if (this.input.keys.has(code)) v -= 1;
+    for (const code of pos) if (this.input.keys.has(code)) v += 1;
+    return Math.max(-1, Math.min(1, v));
+  }
+
+  _applySlide(keyX, keyY, dt) {
+    const maxSpeed = 72;
+    const accel = 260;
+    const brake = 210;
+    let ix = keyX;
+    let iy = keyY;
+    const mag = Math.hypot(ix, iy);
+    if (mag > 1) {
+      ix /= mag;
+      iy /= mag;
     }
-    const sign = Math.sign(this.slide[axis]);
-    if (sign === 0) return;
-    this.slide[axis] -= sign * brake * dt;
-    if (Math.sign(this.slide[axis]) !== sign) this.slide[axis] = 0;
+    this.slide.x = this._approachVel(this.slide.x, ix * maxSpeed, accel, brake, dt);
+    this.slide.y = this._approachVel(this.slide.y, iy * maxSpeed, accel, brake, dt);
+  }
+
+  _approachVel(current, target, accel, brake, dt) {
+    const rate = target === 0 ? brake : accel;
+    if (current < target) return Math.min(target, current + rate * dt);
+    if (current > target) return Math.max(target, current - rate * dt);
+    return target;
+  }
+
+  _playfieldHalf() {
+    const height = 168;
+    const fov = 38 * Math.PI / 180;
+    return height * Math.tan(fov / 2);
+  }
+
+  _depthLimit() {
+    const halfH = this._playfieldHalf();
+    const focus = 22;
+    const pad = 5;
+    return { min: focus - halfH + pad, max: focus + halfH - pad };
   }
 
   _laneLimit() {
-    const height = 168;
-    const fov = 38 * Math.PI / 180;
-    const halfWidth = height * Math.tan(fov / 2) * this.camera.aspect;
-    return Math.max(22, halfWidth - 6);
+    const halfWidth = this._playfieldHalf() * this.camera.aspect;
+    return Math.max(22, halfWidth - 5);
   }
 
   _onResize() {

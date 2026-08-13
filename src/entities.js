@@ -29,6 +29,7 @@ export class EntityField {
     this.explosions = [];
     this.boss = null;
     this.time = 0;
+    this.laneLimit = 24;
     this._seedOrbs();
     this._seedGates();
     this._seedEnemies();

@@ -70,10 +70,10 @@ const FORMS = {
 
 const ROLES = {
   stinger: {},
-  crimson: { dive: 'heavy', sine: 'dive', heavy: 'heavy' },
-  cathedral: { dive: 'sine', sine: 'sine', heavy: 'heavy' },
-  iris: { dive: 'dive', sine: 'dive', heavy: 'sine' },
-  heart: { dive: 'dive', sine: 'heavy', heavy: 'sine' },
+  crimson: { sine: 'cinder', heavy: 'slag' },
+  cathedral: { sine: 'acolyte', heavy: 'chime' },
+  iris: { sine: 'bloom', heavy: 'prism' },
+  heart: { sine: 'ion', heavy: 'wisp' },
 };
 
 function remapMvp({ mid = ['queen', 'warden'], boss = 'finale', formOf = {}, roleOf = {} }) {
@@ -145,7 +145,7 @@ export const CAMPAIGNS = [
     id: 'stinger',
     kicker: 'CAMPAIGN 01',
     name: 'STINGER FAN',
-    blurb: 'The original rift. Mini-bosses in the lane. A level boss at the far end.',
+    blurb: 'The original rift. Sine weavers and heavy bricks live here. Dive fodder still leaks through.',
     world: 'default',
     levels: [
       mvpLevel(),
@@ -160,7 +160,7 @@ export const CAMPAIGNS = [
     id: 'crimson',
     kicker: 'CAMPAIGN 02',
     name: 'CRIMSON SHOALS',
-    blurb: 'Hot ribbon. Heavy hulls. The coil is the law here.',
+    blurb: 'Hot ribbon. Ember darts and slag hulls. The coil is the law here.',
     world: 'coil',
     levels: [
       themedLevel('2-1', 'EMBER DRIFT', 'coil', { mid: ['queen', 'empress'], boss: 'coil', forms: 'B', roles: 'crimson' }),
@@ -175,7 +175,7 @@ export const CAMPAIGNS = [
     id: 'cathedral',
     kicker: 'CAMPAIGN 03',
     name: 'NULL CATHEDRAL',
-    blurb: 'Gold hush and crossfire aisles. The Warden keeps every door.',
+    blurb: 'Gold hush. Acolyte spires and chime discs fill the aisles. The Warden keeps every door.',
     world: 'warden',
     levels: [
       themedLevel('3-1', 'AISLE FIRE', 'warden', { mid: ['coil', 'queen'], boss: 'empress', forms: 'C', roles: 'cathedral' }),
@@ -189,7 +189,7 @@ export const CAMPAIGNS = [
     id: 'iris',
     kicker: 'CAMPAIGN 04',
     name: 'IRIS FORGE',
-    blurb: 'Magenta heat. The silk learns your name.',
+    blurb: 'Magenta heat. Bloom drones and prism shards. The silk learns your name.',
     world: 'empress',
     levels: [
       themedLevel('4-1', 'BLOOM CUT', 'empress', { mid: ['coil', 'warden'], boss: 'queen', forms: 'B', roles: 'iris' }),
@@ -205,7 +205,7 @@ export const CAMPAIGNS = [
     id: 'heart',
     kicker: 'CAMPAIGN 05',
     name: 'HEART OF THE RIFT',
-    blurb: 'The ribbon ends here. Everything you fought was a door.',
+    blurb: 'The ribbon ends here. Ion lances and void wisps. Everything you fought was a door.',
     world: 'finale',
     levels: [
       themedLevel('5-1', 'LAST LIGHT', 'finale', { mid: ['queen', 'coil'], boss: 'warden', forms: 'B', roles: 'heart' }),

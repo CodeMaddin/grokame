@@ -13,7 +13,7 @@ export function nextVolley(en, span, playerLane, time, fire) {
   if (en.role === 'warden') return wardenVolley(i, s, x, aim, span, fire);
   if (en.role === 'coil') return coilVolley(i, s, x, aim, span, fire);
   if (en.role === 'finale') return finaleVolley(en, s, span, aim, time, fire);
-  if (en.role === 'heavy') {
+  if (en.role === 'heavy' || en.role === 'slag' || en.role === 'chime') {
     const spread = Math.min(8, span * 0.08);
     if (i % 3 === 0) {
       fire(s, x - spread, 7, false);
@@ -26,6 +26,27 @@ export function nextVolley(en, span, playerLane, time, fire) {
       fire(s, x + spread * 0.5, 6.8, false);
       fire(s - 3, x, 7.2, true);
     }
+    return 0;
+  }
+  if (en.role === 'prism') {
+    fire(s, x - span * 0.08, 7.2, false);
+    fire(s, x + span * 0.08, 7.2, false);
+    fire(s - 2, x - span * 0.14, 6.6, false);
+    fire(s - 2, x + span * 0.14, 6.6, false);
+    return 0;
+  }
+  if (en.role === 'ion') {
+    fire(s, x - span * 0.045, 8.2, false);
+    fire(s, x + span * 0.045, 8.2, false);
+    return 0;
+  }
+  if (en.role === 'bloom') {
+    fire(s, x - span * 0.06, 7.6, false);
+    fire(s, x + span * 0.06, 7.6, false);
+    return 0;
+  }
+  if (en.role === 'wisp') {
+    fire(s + 1, x + Math.sin(time * 3.2) * span * 0.1, 7.4, false);
     return 0;
   }
   fire(s + 1, x, 8, false);

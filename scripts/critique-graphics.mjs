@@ -109,6 +109,9 @@ if (!game.includes('lives = 3')) fail('arcade lives missing');
 if (!read('src/world.js').includes('setChapter')) fail('chapters do not recolor the rift');
 if (!audio.includes('sting(')) fail('no score stings');
 if (!read('src/crafts.js').includes('createQueen')) fail('queen has no authored craft');
+if (!read('src/crafts.js').includes('createCoilTyrant')) fail('coil is still a scaled heavy');
+if (!read('src/crafts.js').includes('createEmpressCraft')) fail('empress is still a queen reskin');
+if (!read('src/crafts.js').includes('createCinderHunter')) fail('campaigns share one hunter roster');
 if (!entities.includes('createSentinel')) fail('sentinel is still a generic icosa');
 if (!entities.includes('nextVolley')) fail('elites still dump the same 3–5 fan');
 

@@ -577,6 +577,342 @@ export function createSentinel() {
   return makeCraft(mesh, body, wings, ring, core, engines, weak, parts);
 }
 
+function sidePair(make) {
+  return [make(-1), make(1)];
+}
+
+function hunterKit({
+  hull = HULL_DARK,
+  emit = MAGENTA,
+  emitI = 2.1,
+  accent = CYAN,
+  flame = ORANGE,
+  body,
+  extras = [],
+  wingMeshes = [],
+  ringR = 0.68,
+  ringW = 0.07,
+  ringZ = -1.05,
+  coreR = 0.28,
+  coreZ = -0.42,
+  engine = [[-0.4, -0.08, 1.72], [0.4, -0.08, 1.72]],
+}) {
+  const mesh = new THREE.Group();
+  const wings = new THREE.Group();
+  const parts = [];
+  for (const piece of wingMeshes) {
+    wings.add(piece);
+    parts.push(piece);
+  }
+  for (const piece of extras) parts.push(piece);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(ringR, ringW, 8, 22), glowMat(accent, 0.82));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.z = ringZ;
+  const core = new THREE.Mesh(new THREE.SphereGeometry(coreR, 12, 8), glowMat(accent, 0.8));
+  core.position.z = coreZ;
+  const weak = new THREE.Mesh(new THREE.SphereGeometry(coreR * 1.18, 10, 8), glowMat(emit, 0.94));
+  weak.position.copy(core.position);
+  const nozzleMat = stdMat(hull, flame, 1.45);
+  const engines = [];
+  const nozzles = [];
+  for (const [x, y, z] of engine) {
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.28, 0.34, 8), nozzleMat);
+    nozzle.rotation.x = Math.PI / 2;
+    nozzle.position.set(x, y, z);
+    const fire = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), glowMat(flame, 0.92));
+    fire.position.set(x, y, z + 0.3);
+    nozzles.push(nozzle);
+    engines.push(fire);
+  }
+  parts.push(...nozzles);
+  mesh.add(body, wings, ...extras, ring, core, weak, ...nozzles, ...engines);
+  return makeCraft(mesh, body, wings, ring, core, engines, weak, parts);
+}
+
+/** C2 ember dart — teardrop hull, swept orange fins. */
+export function createCinderHunter() {
+  const bodyMat = stdMat(0x2a0804, ORANGE_EMISSIVE, 2.5);
+  const finMat = stdMat(0x1a0604, ORANGE, 1.7);
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.72, 2.6, 6), bodyMat);
+  body.rotation.x = Math.PI / 2;
+  body.position.z = -0.12;
+  const fins = sidePair((s) => {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.1, 0.72), finMat);
+    fin.position.set(s * 0.85, 0.02, 0.35);
+    fin.rotation.z = s * 0.42;
+    fin.rotation.y = s * -0.18;
+    return fin;
+  });
+  const keel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.7, 1.1), finMat);
+  keel.position.set(0, -0.28, 0.4);
+  return hunterKit({
+    hull: 0x1a0604, emit: ORANGE_EMISSIVE, accent: ORANGE, flame: ORANGE,
+    body, extras: [keel], wingMeshes: fins,
+    ringR: 0.55, ringZ: -1.35, coreR: 0.24, coreZ: -0.7,
+    engine: [[0, -0.06, 1.55]],
+  });
+}
+
+/** C2 ore brick — chunky slag plates. */
+export function createSlagHunter() {
+  const bodyMat = stdMat(0x241208, ORANGE_EMISSIVE, 2.3);
+  const plateMat = stdMat(0x3a2208, GOLD, 1.6);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.15, 2.4), bodyMat);
+  const plates = [
+    ...sidePair((s) => {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.55, 1.35), plateMat);
+      p.position.set(s * 1.45, 0.05, 0.2);
+      p.rotation.z = s * 0.12;
+      return p;
+    }),
+  ];
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.28, 0.55), plateMat);
+  brow.position.set(0, 0.55, -0.7);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.45, 0.9), bodyMat);
+  snout.position.set(0, -0.05, -1.45);
+  return hunterKit({
+    hull: 0x241208, emit: ORANGE_EMISSIVE, accent: GOLD, flame: ORANGE,
+    body, extras: [brow, snout], wingMeshes: plates,
+    ringR: 1.15, ringW: 0.12, ringZ: -0.35, coreR: 0.42, coreZ: 0.05,
+    engine: [[-0.7, -0.35, 1.55], [0.7, -0.35, 1.55], [0, -0.42, 1.72]],
+  });
+}
+
+/** C3 tall gold spire. */
+export function createAcolyteHunter() {
+  const bodyMat = stdMat(0x1a1208, GOLD, 2.1);
+  const trimMat = stdMat(HULL_DARK, GOLD, 1.5);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.55, 2.9, 6), bodyMat);
+  body.rotation.x = Math.PI / 2;
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.05, 6, 18), glowMat(GOLD, 0.9));
+  halo.position.set(0, 0.55, -0.2);
+  const arms = sidePair((s) => {
+    const a = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.12, 0.22), trimMat);
+    a.position.set(s * 0.85, 0.35, 0.15);
+    a.rotation.z = s * -0.35;
+    return a;
+  });
+  const mitre = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 4), trimMat);
+  mitre.rotation.x = -Math.PI / 2;
+  mitre.position.z = -1.7;
+  return hunterKit({
+    hull: 0x1a1208, emit: GOLD, accent: GOLD, flame: GOLD,
+    body, extras: [halo, mitre], wingMeshes: arms,
+    ringR: 0.48, ringZ: -1.1, coreR: 0.26, coreZ: -0.15,
+    engine: [[0, -0.12, 1.7]],
+  });
+}
+
+/** C3 bell disc. */
+export function createChimeHunter() {
+  const bodyMat = stdMat(0x221808, GOLD, 2.0);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.55, 0.42, 14), bodyMat);
+  body.rotation.x = Math.PI / 2;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.12, 8, 24), glowMat(GOLD, 0.85));
+  rim.rotation.x = Math.PI / 2;
+  const clapper = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), glowMat(CYAN, 0.8));
+  clapper.position.z = 0.55;
+  const lugs = sidePair((s) => {
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), bodyMat);
+    l.position.set(s * 1.15, 0.55, 0);
+    return l;
+  });
+  return hunterKit({
+    hull: 0x221808, emit: GOLD, accent: GOLD, flame: ORANGE,
+    body, extras: [rim, clapper], wingMeshes: lugs,
+    ringR: 1.05, ringW: 0.1, ringZ: -0.15, coreR: 0.4, coreZ: -0.02,
+    engine: [[-0.55, -0.2, 0.95], [0.55, -0.2, 0.95]],
+  });
+}
+
+/** C4 petal drone. */
+export function createBloomHunter() {
+  const bodyMat = stdMat(0x1a0614, MAGENTA, 2.2);
+  const petalMat = stdMat(0x2a0818, MAGENTA, 1.7);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8), bodyMat);
+  const petals = [];
+  for (let i = 0; i < 6; i++) {
+    const p = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.35, 5), petalMat);
+    const a = (i / 6) * Math.PI * 2;
+    p.position.set(Math.cos(a) * 0.95, Math.sin(a) * 0.55, 0.15);
+    p.rotation.z = a + Math.PI / 2;
+    p.rotation.x = 0.55;
+    petals.push(p);
+  }
+  const stamen = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.1, 5), glowMat(GOLD, 0.85));
+  stamen.rotation.x = -Math.PI / 2;
+  stamen.position.z = -1.05;
+  return hunterKit({
+    hull: 0x1a0614, emit: MAGENTA, accent: MAGENTA, flame: MAGENTA,
+    body, extras: [stamen], wingMeshes: petals,
+    ringR: 0.82, ringZ: 0.05, coreR: 0.3, coreZ: 0,
+    engine: [[0, -0.15, 1.05]],
+  });
+}
+
+/** C4 crystal cluster. */
+export function createPrismHunter() {
+  const bodyMat = stdMat(0x140820, MAGENTA, 2.0);
+  const shardMat = stdMat(0x2a1040, CYAN, 1.8);
+  const body = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), bodyMat);
+  body.scale.set(0.7, 0.7, 1.35);
+  const shards = [];
+  for (const [x, y, z, sx, sy, sz] of [
+    [-0.95, 0.25, -0.2, 0.45, 0.45, 1.4],
+    [0.95, 0.2, 0.1, 0.4, 0.4, 1.25],
+    [-0.55, -0.45, 0.35, 0.35, 0.55, 1.1],
+    [0.5, -0.4, -0.45, 0.38, 0.38, 1.2],
+    [0, 0.7, 0.15, 0.32, 0.7, 0.9],
+  ]) {
+    const sh = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), shardMat);
+    sh.scale.set(sx, sy, sz);
+    sh.position.set(x, y, z);
+    shards.push(sh);
+  }
+  return hunterKit({
+    hull: 0x140820, emit: MAGENTA, accent: CYAN, flame: MAGENTA,
+    body, extras: [], wingMeshes: shards,
+    ringR: 0.9, ringZ: -0.85, coreR: 0.32, coreZ: -0.1,
+    engine: [[-0.35, -0.2, 1.35], [0.35, -0.2, 1.35]],
+  });
+}
+
+/** C5 twin-boom ion lance. */
+export function createIonHunter() {
+  const bodyMat = stdMat(0x081018, CYAN, 2.3);
+  const boomMat = stdMat(0x0a1528, CYAN, 1.6);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.4, 2.2), bodyMat);
+  const booms = sidePair((s) => {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 2.8, 6), boomMat);
+    b.rotation.x = Math.PI / 2;
+    b.position.set(s * 0.85, 0.08, -0.15);
+    return b;
+  });
+  const tips = sidePair((s) => {
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.7, 5), glowMat(CYAN, 0.9));
+    t.rotation.x = -Math.PI / 2;
+    t.position.set(s * 0.85, 0.08, -1.7);
+    return t;
+  });
+  const yoke = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.16, 0.28), boomMat);
+  yoke.position.set(0, 0.08, 0.35);
+  return hunterKit({
+    hull: 0x081018, emit: CYAN, accent: CYAN, flame: CYAN,
+    body, extras: [yoke, ...tips], wingMeshes: booms,
+    ringR: 0.5, ringZ: -0.55, coreR: 0.26, coreZ: 0.05,
+    engine: [[-0.85, 0.08, 1.45], [0.85, 0.08, 1.45]],
+  });
+}
+
+/** C5 void moth. */
+export function createWispHunter() {
+  const bodyMat = stdMat(0x0a0618, GOLD, 1.8);
+  const wingMat = glowMat(CYAN, 0.45);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.48, 10, 8), bodyMat);
+  body.scale.set(0.7, 0.55, 1.4);
+  const wings = sidePair((s) => {
+    const w = new THREE.Mesh(new THREE.CircleGeometry(1.35, 7), wingMat);
+    w.position.set(s * 1.15, 0.15, 0.1);
+    w.rotation.y = s * 0.55;
+    w.rotation.z = s * 0.35;
+    return w;
+  });
+  const abdomen = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.4, 6), bodyMat);
+  abdomen.rotation.x = Math.PI / 2;
+  abdomen.position.z = 1.05;
+  return hunterKit({
+    hull: 0x0a0618, emit: GOLD, accent: CYAN, flame: GOLD,
+    body, extras: [abdomen], wingMeshes: wings,
+    ringR: 0.62, ringZ: -0.85, coreR: 0.28, coreZ: -0.35,
+    engine: [[0, -0.12, 1.85]],
+  });
+}
+
+/** C2 super — spiral coil tyrant. Do not extra-scale. */
+export function createCoilTyrant() {
+  const mesh = new THREE.Group();
+  const bodyMat = stdMat(0x2a0c04, ORANGE_EMISSIVE, 2.5);
+  const plateMat = stdMat(0x1a0804, GOLD, 1.7);
+  const body = new THREE.Mesh(new THREE.TorusGeometry(1.85, 0.55, 10, 22), bodyMat);
+  body.rotation.x = Math.PI / 2;
+  const wings = new THREE.Group();
+  const parts = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.28, 2.1), plateMat);
+    slab.position.set(Math.cos(a) * 2.15, Math.sin(a) * 0.35, Math.sin(a * 2) * 0.4);
+    slab.rotation.y = a;
+    wings.add(slab);
+    parts.push(slab);
+  }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 1.4, 8), bodyMat);
+  hub.rotation.x = Math.PI / 2;
+  parts.push(hub);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.12, 8, 28), glowMat(ORANGE, 0.88));
+  ring.rotation.x = Math.PI / 2;
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8), glowMat(ORANGE, 0.85));
+  const weak = new THREE.Mesh(new THREE.SphereGeometry(0.82, 10, 8), glowMat(GOLD, 0.95));
+  const engines = [];
+  const nozzles = [];
+  for (const [x, y] of [[-1.6, -0.4], [1.6, -0.4], [0, 0.7]]) {
+    const n = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.42, 0.5, 8), plateMat);
+    n.rotation.x = Math.PI / 2;
+    n.position.set(x, y, 1.7);
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.36, 8, 6), glowMat(ORANGE, 0.92));
+    f.position.set(x, y, 2.05);
+    nozzles.push(n);
+    engines.push(f);
+  }
+  parts.push(hub, ...nozzles);
+  mesh.add(body, hub, wings, ring, core, weak, ...nozzles, ...engines);
+  return makeCraft(mesh, body, wings, ring, core, engines, weak, parts);
+}
+
+/** C4 super — petal crown empress. Do not extra-scale. */
+export function createEmpressCraft() {
+  const mesh = new THREE.Group();
+  const bodyMat = stdMat(HULL_MID, MAGENTA, 2.4);
+  const petalMat = stdMat(0x2a0818, GOLD, 1.85);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1.15, 12, 10), bodyMat);
+  body.scale.set(0.85, 0.7, 1.55);
+  const wings = new THREE.Group();
+  const parts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const petal = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.4, 5), petalMat);
+    petal.position.set(Math.cos(a) * 1.7, Math.sin(a) * 0.85, -0.2);
+    petal.rotation.z = a + Math.PI / 2;
+    petal.rotation.x = 0.7;
+    wings.add(petal);
+    parts.push(petal);
+  }
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.6, 6), glowMat(GOLD, 0.8));
+  crown.rotation.x = -Math.PI / 2;
+  crown.position.z = -2.15;
+  parts.push(crown);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.05, 0.14, 8, 28), glowMat(MAGENTA, 0.88));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.z = -0.4;
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.62, 12, 8), glowMat(GOLD, 0.85));
+  core.position.z = -0.15;
+  const weak = new THREE.Mesh(new THREE.SphereGeometry(0.72, 10, 8), glowMat(MAGENTA, 0.95));
+  weak.position.copy(core.position);
+  const engines = [];
+  const nozzles = [];
+  for (const x of [-0.7, 0.7]) {
+    const n = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.38, 0.45, 8), petalMat);
+    n.rotation.x = Math.PI / 2;
+    n.position.set(x, -0.25, 1.85);
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), glowMat(MAGENTA, 0.92));
+    f.position.set(x, -0.25, 2.18);
+    nozzles.push(n);
+    engines.push(f);
+  }
+  parts.push(crown, ...nozzles);
+  mesh.add(body, wings, crown, ring, core, weak, ...nozzles, ...engines);
+  return makeCraft(mesh, body, wings, ring, core, engines, weak, parts);
+}
+
 export function applyCraftFlash(craft, amount) {
   const base = craft._baseEmissive ?? 2.2;
   const flash = Math.max(0, Math.min(1, amount));

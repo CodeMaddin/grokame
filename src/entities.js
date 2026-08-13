@@ -8,8 +8,18 @@ import {
   createDiveHunter,
   createSineHunter,
   createHeavyHunter,
+  createCinderHunter,
+  createSlagHunter,
+  createAcolyteHunter,
+  createChimeHunter,
+  createBloomHunter,
+  createPrismHunter,
+  createIonHunter,
+  createWispHunter,
   createQueen,
   createWarden,
+  createCoilTyrant,
+  createEmpressCraft,
   createSentinel,
   applyCraftFlash,
   setCraftPhase,
@@ -19,10 +29,18 @@ const HUNTER_FACTORY = {
   dive: createDiveHunter,
   sine: createSineHunter,
   heavy: createHeavyHunter,
+  cinder: createCinderHunter,
+  slag: createSlagHunter,
+  acolyte: createAcolyteHunter,
+  chime: createChimeHunter,
+  bloom: createBloomHunter,
+  prism: createPrismHunter,
+  ion: createIonHunter,
+  wisp: createWispHunter,
   queen: createQueen,
   warden: createWarden,
-  coil: createHeavyHunter,
-  empress: createQueen,
+  coil: createCoilTyrant,
+  empress: createEmpressCraft,
 };
 
 function makeOrbMaterial(color) {
@@ -543,7 +561,7 @@ export class EntityField {
     en.baseX = en.offset.x;
     en.weave = 0.55 + Math.random() * 0.7;
     const extra = difficulty > 2.4 ? 1 : 0;
-    en.mesh.scale.setScalar(role === 'coil' ? 1.45 : 1);
+    en.mesh.scale.setScalar(1);
     if (en.craft) setCraftPhase(en.craft, 1);
     if (role === 'queen') {
       en.hp = eliteHp('queen', step);
@@ -590,7 +608,25 @@ export class EntityField {
       en.windMax = 0.45;
       en.drop = 2;
       en.bombDrop = 0;
+    } else if (role === 'slag' || role === 'chime') {
+      en.hp = 11 + extra;
+      en.maxHp = en.hp;
+      en.radius = 4.8;
+      en.descent = 0.85 + Math.random() * 0.55;
+      en.cooldown = 1.4 + Math.random() * 0.8;
+      en.windMax = 0.45;
+      en.drop = 2;
+      en.bombDrop = 0;
     } else if (role === 'sine') {
+      en.hp = 6 + extra;
+      en.maxHp = en.hp;
+      en.radius = 4.2;
+      en.descent = 1.35 + Math.random() * 1.1;
+      en.cooldown = 1.9 + Math.random() * 1.3;
+      en.windMax = 0.22;
+      en.drop = 1;
+      en.bombDrop = 0;
+    } else if (role === 'acolyte' || role === 'prism' || role === 'wisp') {
       en.hp = 6 + extra;
       en.maxHp = en.hp;
       en.radius = 4.2;
@@ -953,7 +989,9 @@ export class EntityField {
     if (en.role === 'empress') return 1.48;
     if (en.role === 'warden') return 1.7;
     if (en.role === 'coil') return 1.62;
-    if (en.role === 'heavy') return Math.max(1.85, 2.4 - difficulty * 0.06);
+    if (en.role === 'heavy' || en.role === 'slag' || en.role === 'chime') {
+      return Math.max(1.85, 2.4 - difficulty * 0.06);
+    }
     return Math.max(2.1, 2.8 - difficulty * 0.08);
   }
 

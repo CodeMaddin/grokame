@@ -131,6 +131,34 @@ const mvp = CAMPAIGNS[0].levels[0].script;
 if (!mvp.some((e) => e.kind === 'midboss' && e.id === 'queen' && e.at === 380)) fail('1-1 is missing the original Queen');
 if (!mvp.some((e) => e.kind === 'midboss' && e.id === 'warden' && e.at === 820)) fail('1-1 is missing the original Warden');
 if (!mvp.some((e) => e.kind === 'finale' && e.at === 1320)) fail('1-1 is not the original MVP run');
+if (!mvp.some((e) => e.kind === 'squad' && e.role === 'sine')) fail('1-1 lost the original sine weavers');
+if (!mvp.some((e) => e.kind === 'squad' && e.role === 'heavy')) fail('1-1 lost the original heavy bricks');
+const UNIQUE = {
+  stinger: ['sine', 'heavy'],
+  crimson: ['cinder', 'slag'],
+  cathedral: ['acolyte', 'chime'],
+  iris: ['bloom', 'prism'],
+  heart: ['ion', 'wisp'],
+};
+for (const camp of CAMPAIGNS) {
+  const squadRoles = new Set();
+  for (const lv of camp.levels) {
+    for (const e of lv.script) {
+      if (e.kind === 'squad') squadRoles.add(e.role);
+    }
+  }
+  const mine = UNIQUE[camp.id];
+  if (!mine) fail(`campaign ${camp.id} has no unique roster`);
+  for (const role of mine) {
+    if (!squadRoles.has(role)) fail(`${camp.id} is missing unique enemy ${role}`);
+  }
+  for (const [id, roles] of Object.entries(UNIQUE)) {
+    if (id === camp.id) continue;
+    for (const role of roles) {
+      if (squadRoles.has(role)) fail(`${camp.id} stole ${id}'s unique enemy ${role}`);
+    }
+  }
+}
 for (const camp of CAMPAIGNS) {
   for (const lv of camp.levels) {
     const mids = lv.script.filter((e) => e.kind === 'midboss');

@@ -209,12 +209,12 @@ export class Game {
         .addScaledVector(frame.normal, this.steer.y * 7);
       camUp.copy(frame.normal);
     } else if (view === 'scroll') {
-      fov = 44;
+      fov = 38;
       camPos.copy(this.ship.position)
-        .addScaledVector(frame.normal, 118)
-        .addScaledVector(sample.tangent, 10);
+        .addScaledVector(frame.normal, 168)
+        .addScaledVector(sample.tangent, 6);
       camLook.copy(this.ship.position)
-        .addScaledVector(sample.tangent, 26);
+        .addScaledVector(sample.tangent, 16);
       camUp.copy(sample.tangent);
     } else {
       fov = 62;

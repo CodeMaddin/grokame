@@ -74,6 +74,7 @@ export class Game {
     this.fx = new ShaderPass(cinematicShader);
     this.fx.uniforms.uSunPos.value = new THREE.Vector2(0.72, 0.68);
     this.fx.uniforms.uFlare.value = 1;
+    this.fx.uniforms.uCockpit.value = 0;
     this.fx.uniforms.uResolution.value = size.clone();
     this.composer.addPass(this.fx);
     this.composer.addPass(new OutputPass());
@@ -609,12 +610,15 @@ export class Game {
     const sunInView = sunNdc.z < 1
       && sunNdc.x > -1.2 && sunNdc.x < 1.2
       && sunNdc.y > -1.2 && sunNdc.y < 1.2;
-    const flare = sunInView ? (view === 'cockpit' ? 0.07 : 1) : 0;
+    const flare = sunInView ? (view === 'cockpit' ? 0 : 0.85) : 0;
     this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
-    const bloomStr = view === 'cockpit' ? 0.18 : 0.48;
-    const bloomThr = view === 'cockpit' ? 0.58 : 0.42;
+    this.fx.uniforms.uCockpit.value = lerp(this.fx.uniforms.uCockpit.value, view === 'cockpit' ? 1 : 0, 1 - Math.exp(-dt * 8));
+    const bloomStr = view === 'cockpit' ? 0.08 : 0.48;
+    const bloomThr = view === 'cockpit' ? 0.72 : 0.42;
+    const bloomRad = view === 'cockpit' ? 0.18 : 0.5;
     this.bloom.strength = lerp(this.bloom.strength, bloomStr, 1 - Math.exp(-dt * 6));
     this.bloom.threshold = lerp(this.bloom.threshold, bloomThr, 1 - Math.exp(-dt * 6));
+    this.bloom.radius = lerp(this.bloom.radius, bloomRad, 1 - Math.exp(-dt * 6));
 
     this._syncHud();
   }

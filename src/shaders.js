@@ -383,6 +383,7 @@ export const cinematicShader = {
     uSunPos: { value: new THREE.Vector2(0.72, 0.68) },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uFlare: { value: 1 },
+    uCockpit: { value: 0 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -399,6 +400,7 @@ export const cinematicShader = {
     uniform vec2 uSunPos;
     uniform vec2 uResolution;
     uniform float uFlare;
+    uniform float uCockpit;
     varying vec2 vUv;
 
     void main() {
@@ -406,7 +408,7 @@ export const cinematicShader = {
       vec2 center = uv - 0.5;
       float dist = length(center);
 
-      float aberr = 0.0018 + uBoost * 0.0045 + dist * 0.004;
+      float aberr = (0.0018 + uBoost * 0.0045 + dist * 0.004) * mix(1.0, 0.28, uCockpit);
       vec3 col;
       col.r = texture2D(tDiffuse, uv + center * aberr).r;
       col.g = texture2D(tDiffuse, uv).g;

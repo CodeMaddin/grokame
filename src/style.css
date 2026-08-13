@@ -66,31 +66,69 @@ canvas {
   opacity: 1;
 }
 
-#hud.visible #view-switcher {
-  display: none;
-}
-
 .hud-top,
 .hud-bottom {
   position: absolute;
-  left: 4vw;
-  right: 4vw;
+  left: max(3vw, env(safe-area-inset-left, 0px) + 12px);
+  right: max(3vw, env(safe-area-inset-right, 0px) + 12px);
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px;
+  align-items: flex-start;
+  gap: 16px;
 }
 
 .hud-top {
-  top: 3.5vh;
+  top: max(2.4vh, env(safe-area-inset-top, 0px) + 10px);
+  justify-content: space-between;
+  align-items: flex-end;
 }
 
 .hud-bottom {
-  bottom: 4vh;
+  bottom: max(3vh, env(safe-area-inset-bottom, 0px) + 12px);
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.hud-scoreboard {
+  display: flex;
+  gap: 22px;
+  align-items: flex-end;
+  min-width: 0;
+  flex: 1;
+}
+
+.hud-stock {
+  display: flex;
+  gap: 18px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.hud-chrome {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+  pointer-events: auto;
+  z-index: 4;
+}
+
+.hud-arsenal {
+  width: min(38vw, 380px);
+  flex: 0 0 min(38vw, 380px);
+}
+
+.hud-vitals {
+  width: min(32vw, 320px);
+  flex: 0 0 min(32vw, 320px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .hud-panel .label,
-.bar-wrap .label {
+.bar-wrap .label,
+.life-wrap .label,
+.bomb-wrap .label {
   font-size: 11px;
   letter-spacing: 0.38em;
   color: rgba(92, 225, 255, 0.7);
@@ -127,7 +165,7 @@ canvas {
 }
 
 .bar-wrap {
-  flex: 1;
+  width: 100%;
 }
 
 .bar {
@@ -179,6 +217,26 @@ canvas {
 
 .bomb-wrap {
   min-width: 88px;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0;
+  padding: 4px 2px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  letter-spacing: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.bomb-wrap:hover {
+  transform: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .bomb-pips {
@@ -249,9 +307,9 @@ canvas {
 
 .boss-meter {
   position: absolute;
-  top: 11vh;
-  left: 16vw;
-  right: 16vw;
+  top: max(12vh, env(safe-area-inset-top, 0px) + 5.6rem);
+  left: 18vw;
+  right: 18vw;
   opacity: 0;
   transform: translateY(-8px);
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -288,25 +346,24 @@ canvas {
 }
 
 #view-switcher {
-  position: absolute;
-  right: 4vw;
-  bottom: 11vh;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   pointer-events: auto;
 }
 
+.hud-btn,
 .view-btn {
   letter-spacing: 0.22em;
   font-size: 10px;
   padding: 8px 12px;
   border: 1px solid rgba(92, 225, 255, 0.35);
-  background: rgba(5, 1, 13, 0.45);
+  background: rgba(5, 1, 13, 0.55);
   color: rgba(232, 246, 255, 0.7);
   box-shadow: none;
   text-shadow: none;
 }
 
+.hud-btn:hover,
 .view-btn:hover,
 .view-btn.active {
   transform: none;
@@ -503,35 +560,78 @@ kbd {
   color: var(--cyan);
 }
 
+@media (max-width: 900px) {
+  .hud-top {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .hud-scoreboard {
+    flex: 1 1 100%;
+    gap: 14px;
+  }
+
+  .hud-stock {
+    margin-left: auto;
+  }
+
+  .hud-chrome {
+    justify-content: flex-end;
+  }
+
+  .view-name {
+    display: none;
+  }
+
+  .hud-arsenal,
+  .hud-vitals {
+    width: min(46vw, 280px);
+    flex-basis: auto;
+  }
+
+  .boss-meter {
+    top: max(18vh, env(safe-area-inset-top, 0px) + 7.2rem);
+    left: 8vw;
+    right: 8vw;
+  }
+
+  #toast {
+    top: 26vh;
+  }
+}
+
 @media (max-width: 700px) {
   .hud-panel .value,
   h2 {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   h1 {
     font-size: 48px;
   }
 
-  .hud-bottom {
-    flex-direction: column;
-  }
-
-  /* Phone HUD stacks the bars; keep camera chips off that column. */
-  #hud.visible #view-switcher {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    top: calc(11vh + 2.8rem);
-    right: 3vw;
-    bottom: auto;
-    gap: 6px;
-    z-index: 3;
-  }
-
-  .view-btn {
-    padding: 8px 10px;
+  .hud-panel .label,
+  .bar-wrap .label,
+  .life-wrap .label,
+  .bomb-wrap .label {
     font-size: 9px;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.28em;
+  }
+
+  .hud-btn,
+  .view-btn {
+    padding: 10px 12px;
+    font-size: 11px;
+    min-height: 40px;
+  }
+
+  .life-pip {
+    width: 14px;
+    height: 14px;
+  }
+
+  .bomb-pip {
+    width: 16px;
+    height: 16px;
   }
 }

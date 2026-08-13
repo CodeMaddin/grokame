@@ -191,7 +191,7 @@ export class Game {
   _isUiTouch(e) {
     const el = e.target;
     if (!(el instanceof Element)) return false;
-    return !!el.closest('button, .screen, a, input, textarea, label');
+    return !!el.closest('button, .screen, a, input, textarea, label, .hud-chrome, .hud-stock');
   }
 
   _touchFromList(list, id) {
@@ -298,6 +298,8 @@ export class Game {
       startBtn: document.getElementById('start-btn'),
       resumeTitleBtn: document.getElementById('resume-title-btn'),
       viewBtns: [...document.querySelectorAll('[data-view]')],
+      pauseBtn: document.getElementById('pause-btn'),
+      bombBtn: document.getElementById('bomb-btn'),
     };
     this.ui.startBtn.addEventListener('click', () => this.startPlay());
     this.ui.resumeTitleBtn.addEventListener('click', () => this.resumeFromMenu());
@@ -306,6 +308,11 @@ export class Game {
     document.getElementById('retry-btn').addEventListener('click', () => this.startPlay());
     document.getElementById('continue-yes')?.addEventListener('click', () => this._acceptContinue());
     document.getElementById('continue-no')?.addEventListener('click', () => this._declineContinue());
+    this.ui.pauseBtn?.addEventListener('click', () => {
+      if (this.state === 'playing') this.pause();
+      else if (this.state === 'paused') this.resume();
+    });
+    this.ui.bombBtn?.addEventListener('click', () => this._tryBomb());
     const menuButtons = [
       this.ui.startBtn,
       this.ui.resumeTitleBtn,
@@ -314,6 +321,8 @@ export class Game {
       document.getElementById('retry-btn'),
       document.getElementById('continue-yes'),
       document.getElementById('continue-no'),
+      this.ui.pauseBtn,
+      this.ui.bombBtn,
     ].filter(Boolean);
     for (const btn of menuButtons) {
       btn.addEventListener('mousedown', (e) => e.stopPropagation());

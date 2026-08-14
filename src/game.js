@@ -609,7 +609,7 @@ export class Game {
       fov = 58;
       const focus = this.path.sample(this.traveled + this.holdY + 8);
       const focusFrame = createFrenet(focus.tangent);
-      const chaseK = snap ? 14 : 2.45;
+      const chaseK = snap ? 14 : 5.2;
       this._chaseX += (this.offset.x - this._chaseX) * (1 - Math.exp(-dt * chaseK));
       camPos.copy(focus.pos)
         .addScaledVector(focus.tangent, -48)

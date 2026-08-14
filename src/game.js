@@ -57,6 +57,7 @@ export class Game {
     this.view = localStorage.getItem('aether-view') || 'scroll';
     if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'scroll';
     this._hasRun = false;
+    this._levelBossSpawned = false;
     this.gateFx = 0;
     this._viewSnap = 1;
     this._camLook = new THREE.Vector3();
@@ -750,6 +751,7 @@ export class Game {
     this.kickAmt = 0;
     this.bombCd = 0;
     this._chapterAt = -1;
+    this._levelBossSpawned = false;
     this.muzzleFlash = 0;
     this._midsThisLevel = 0;
     this.hangar = loadHangar();
@@ -1345,7 +1347,7 @@ export class Game {
     this.entities.laneLimit = this._laneLimit();
     this.entities.coinValue = coinValue(this.campaignIndex);
     this.entities.spawnAhead(this.path, this.traveled);
-    this._runStage();
+    if (this.state === 'playing') this._runStage();
     this.entities.recycleBehind(this.traveled, this.holdY);
     this.entities.update(
       dt,
@@ -1862,16 +1864,42 @@ export class Game {
           this.entities.spawnNamed(this.path, this.traveled, id, 96, this.step, this.loadout, this._stageHeat());
         }
         this.stage.finaleAlive = true;
+        this._levelBossSpawned = true;
       }
     }
+    this._ensureLevelBoss();
     this._maybeClearLevel();
+  }
+
+  _ensureLevelBoss() {
+    const slot = this._currentLevel();
+    if (!slot || this.state !== 'playing') return;
+    const boss = slot.lv.boss;
+    if (!boss) return;
+    const at = slot.lv.script.find((e) => e.kind === 'finale' || e.kind === 'boss')?.at ?? slot.lv.exitAt;
+    if (this.traveled < at) return;
+    if (this.entities.boss?.alive) return;
+    if (this.entities.enemies.some((e) => e.alive && e.elite && (e.role === boss || boss === 'finale' && e.role === 'finale'))) return;
+    if (this._levelBossSpawned) return;
+    this._levelBossSpawned = true;
+    if (boss === 'finale') {
+      this.entities.spawnFinale(this.path, this.traveled, 96, this.step, this.loadout, this._stageHeat());
+    } else {
+      this.entities.spawnNamed(this.path, this.traveled, boss, 96, this.step, this.loadout, this._stageHeat());
+    }
+    this.stage.finaleAlive = true;
   }
 
   _maybeClearLevel() {
     const slot = this._currentLevel();
-    if (!slot || slot.lv.boss) return;
+    if (!slot) return;
     if (this.stage.peek()) return;
     if (this.traveled < slot.lv.exitAt) return;
+    if (slot.lv.boss) {
+      if (this.entities.boss?.alive) return;
+      if (this.entities.enemies.some((e) => e.alive && e.elite && e.role === slot.lv.boss)) return;
+      if (!this._levelBossSpawned && this.traveled < slot.lv.exitAt + 80) return;
+    }
     this._clearLevel();
   }
 

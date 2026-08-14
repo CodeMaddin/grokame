@@ -497,6 +497,10 @@ export class EntityField {
 
   spawnFinale(path, traveled, ahead = 96, step = 0, loadout = null, heat = 1) {
     if (this.boss?.alive) return;
+    if (this.boss) {
+      this.scene.remove(this.boss.mesh);
+      this.boss = null;
+    }
     this._spawnBoss(path, traveled + ahead, step, loadout, heat);
   }
 
@@ -894,7 +898,7 @@ export class EntityField {
     for (let i = 0; i < n; i++) {
       const p = this.pickups.find((x) => !x.alive);
       if (!p) break;
-      this._paintPickup(p, 'mote');
+      this._paintPickup(p, 'mote', 1);
       p.alive = true;
       p.pathDist = pathDist + (Math.random() - 0.5) * 3;
       p.laneX = laneX + (i - (n - 1) / 2) * spread + (Math.random() - 0.5) * 1.6;
@@ -914,7 +918,7 @@ export class EntityField {
     for (let i = 0; i < n; i++) {
       const p = this.pickups.find((x) => !x.alive);
       if (!p) break;
-      this._paintPickup(p, 'coin');
+      this._paintPickup(p, 'coin', opts.value || this.coinValue || 5);
       p.alive = true;
       p.pathDist = pathDist + (Math.random() - 0.5) * 4;
       p.laneX = laneX + (i - (n - 1) / 2) * spread + (Math.random() - 0.5) * 1.8;
@@ -928,10 +932,10 @@ export class EntityField {
     return spawned;
   }
 
-  _paintPickup(p, kind) {
+  _paintPickup(p, kind, value) {
     const coin = kind === 'coin';
     p.kind = coin ? 'coin' : 'mote';
-    p.value = coin ? (opts.value || this.coinValue || 5) : 1;
+    p.value = coin ? (value || this.coinValue || 5) : 1;
     p.radius = coin ? 2.45 : 2.1;
     p.mesh.material.color.set(coin ? 0xffd166 : 0x7af0ff);
     p.glow.material.color.set(coin ? 0xffb703 : 0x5ce1ff);

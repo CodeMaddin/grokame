@@ -34,6 +34,13 @@ if (coinValue(0) !== 5) fail('1-1 coins are not the 5-gold baseline');
 if (coinValue(4) < 8) fail('late-campaign coins do not step up');
 
 if (!game.includes('stageHeat') || !game.includes('_stageHeat')) fail('spawns are not heated by campaign slot');
+if (!game.includes('if (this.state === \'playing\') this._runStage()')) {
+  fail('the title flythrough still consumes the level script');
+}
+if (/_paintPickup\(p, kind[\s\S]{0,200}opts\./.test(entities)) {
+  fail('pickup paint still reads a missing opts — first coin/mote throws and the stage dies');
+}
+if (!game.includes('_ensureLevelBoss')) fail('no failsafe if the level boss event is skipped');
 if (!game.includes('spawnSquad') || !/spawnSquad\([^)]*_stageHeat/.test(game)) {
   fail('squads still spawn at heat 1 on every level');
 }

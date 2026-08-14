@@ -60,7 +60,8 @@ export class Game {
     this._camLook = new THREE.Vector3();
     this._camUp = new THREE.Vector3(0, 1, 0);
     this._chaseX = 0;
-    this._chaseUrgency = 0;
+    this._chaseV = 0;
+    this._chasePull = 0;
     this._proj = new THREE.Vector3();
     this._camFwd = new THREE.Vector3();
     this._camRight = new THREE.Vector3();
@@ -611,27 +612,22 @@ export class Game {
       camUp.copy(focus.tangent);
     } else {
       fov = 58;
-      const focus = this.path.sample(this.traveled + this.holdY + 8);
+      const focus = this.path.sample(this.traveled + this.holdY + 10);
       const focusFrame = createFrenet(focus.tangent);
-      const urgency = snap ? 1 : this._chaseEdgeUrgency();
-      const chaseK = lerp(5.2, 28, urgency);
-      this._chaseX += (this.offset.x - this._chaseX) * (1 - Math.exp(-dt * chaseK));
-      const maxLag = this._chaseMaxLag();
-      this._chaseX = clamp(this._chaseX, this.offset.x - maxLag, this.offset.x + maxLag);
+      this._stepChaseFollow(dt, snap);
       camPos.copy(focus.pos)
-        .addScaledVector(focus.tangent, -48)
-        .addScaledVector(focusFrame.normal, 20)
+        .addScaledVector(focus.tangent, -56)
+        .addScaledVector(focusFrame.normal, 23)
         .addScaledVector(focusFrame.binormal, this._chaseX);
       camLook.copy(focus.pos)
-        .addScaledVector(focus.tangent, 24)
+        .addScaledVector(focus.tangent, 28)
         .addScaledVector(focusFrame.binormal, this._chaseX);
       camUp.copy(focusFrame.normal);
-      this._chaseUrgency = urgency;
     }
 
-    const urgency = view === 'chase' ? (this._chaseUrgency || 0) : 0;
-    const posK = snap ? 16 : view === 'scroll' ? 12 : view === 'chase' ? lerp(8.2, 26, urgency) : 5;
-    const lookK = snap ? 14 : view === 'scroll' ? 11 : view === 'chase' ? lerp(7.2, 24, urgency) : 5.5;
+    const pull = view === 'chase' ? this._chasePull : 0;
+    const posK = snap ? 16 : view === 'scroll' ? 12 : view === 'chase' ? lerp(9.5, 22, pull) : 5;
+    const lookK = snap ? 14 : view === 'scroll' ? 11 : view === 'chase' ? lerp(8.2, 20, pull) : 5.5;
     this.camera.position.lerp(camPos, 1 - Math.exp(-dt * posK));
     this.camera.position.addScaledVector(this.kick, this.kickAmt);
     this._camLook.lerp(camLook, 1 - Math.exp(-dt * lookK));
@@ -644,34 +640,38 @@ export class Game {
     this._viewSnap = Math.max(0, this._viewSnap - dt * 2.4);
   }
 
-  _chaseEdgeUrgency() {
-    const ndc = this._proj.copy(this.ship.position).project(this.camera);
-    if (!Number.isFinite(ndc.x)) return 0;
-    const ax = Math.abs(ndc.x);
-    let u = clamp((ax - 0.38) / 0.50, 0, 1);
-    if (this.slide.x * ndc.x > 8) {
-      const vfov = this.camera.fov * Math.PI / 180;
-      const hfov = 2 * Math.atan(Math.tan(vfov / 2) * this.camera.aspect);
-      const worldHalf = Math.max(8, Math.tan(hfov / 2) * 44);
-      const ndcVel = Math.abs(this.slide.x) / worldHalf;
-      const room = Math.max(0.05, 0.88 - ax);
-      const tte = room / Math.max(0.08, ndcVel);
-      if (tte < 0.32) u = Math.max(u, 1 - tte / 0.32);
-    }
-    return u * u * (3 - 2 * u);
+  _chaseViewHalf() {
+    const vfov = this.camera.fov * Math.PI / 180;
+    return Math.max(8, Math.tan(vfov / 2) * this.camera.aspect * 66);
   }
 
-  _chaseMaxLag() {
-    const vfov = this.camera.fov * Math.PI / 180;
-    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * this.camera.aspect);
-    const half = Math.tan(hfov / 2) * 44;
-    return Math.max(3.5, half * 0.42);
+  _stepChaseFollow(dt, snap) {
+    const err = this.offset.x - this._chaseX;
+    const half = this._chaseViewHalf();
+    const norm = clamp(Math.abs(err) / half, 0, 1.35);
+    this._chasePull = clamp(norm * norm, 0, 1);
+    if (snap) {
+      this._chaseX = this.offset.x;
+      this._chaseV = 0;
+      this._chasePull = 1;
+      return;
+    }
+    const omega = 1.45 + 11 * this._chasePull;
+    const damp = 2 * omega;
+    this._chaseV += (err * omega * omega - this._chaseV * damp) * dt;
+    this._chaseX += this._chaseV * dt;
+    const maxLag = Math.max(4, half * 0.72);
+    const next = clamp(this._chaseX, this.offset.x - maxLag, this.offset.x + maxLag);
+    if (next !== this._chaseX) {
+      this._chaseX = next;
+      this._chaseV = 0;
+    }
   }
 
   _keepShipInFrame() {
     this.camera.updateMatrixWorld();
     const ndc = this._proj.copy(this.ship.position).project(this.camera);
-    const limit = 0.84;
+    const limit = 0.86;
     if (!Number.isFinite(ndc.x) || Math.abs(ndc.x) <= limit) return;
     this.camera.getWorldDirection(this._camFwd);
     const depth = Math.max(
@@ -688,6 +688,7 @@ export class Game {
     this.camera.position.addScaledVector(this._camRight, shift);
     this._camLook.addScaledVector(this._camRight, shift);
     this._chaseX += shift;
+    this._chaseV = 0;
     this.camera.lookAt(this._camLook);
   }
 
@@ -737,6 +738,8 @@ export class Game {
     this.offset = new THREE.Vector2(0, 0);
     this.holdY = 8;
     this._chaseX = 0;
+    this._chaseV = 0;
+    this._chasePull = 0;
     this.steer = new THREE.Vector2(0, 0);
     this.slide = new THREE.Vector2(0, 0);
     this._ribbonAt = -1;

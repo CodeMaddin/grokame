@@ -299,3 +299,12 @@ export function catchupStep(ci, li) {
   const prior = CAMPAIGNS.slice(0, ci).reduce((n, c) => n + c.levels.length, 0) + li;
   return Math.min(80, prior * 3);
 }
+
+/** 1-1 is the MVP baseline (1.0). Later slots thicken hulls and fire, not script density. */
+export function stageHeat(ci = 0, li = 0) {
+  return 1 + Math.max(0, ci) * 0.16 + Math.max(0, li) * 0.045;
+}
+
+export function coinValue(ci = 0) {
+  return 5 + Math.max(0, ci);
+}

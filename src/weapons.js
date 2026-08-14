@@ -251,7 +251,7 @@ export function arsenal(loadout, t = 0) {
       speed: 64 + tn * 3,
       life: 1.05,
       color: 0xffd166,
-      damage: 5 + tn,
+      damage: 6 + tn,
       hitR: 3.2 + tn * 0.35,
     }));
     if (tn >= 4) {
@@ -266,7 +266,7 @@ export function arsenal(loadout, t = 0) {
     for (let i = 0; i < n; i++) {
       const u = n === 1 ? 0 : i / (n - 1) - 0.5;
       mine.push(pellet(u * (3 + mn * 0.8), u * 5, {
-        kind: 'mine', scale: 1.35, speed: 16 + mn, life: 1.7, color: 0x5ce1ff, damage: 3, hitR: 2.1,
+        kind: 'mine', scale: 1.35, speed: 16 + mn, life: 1.7, color: 0x5ce1ff, damage: 4, hitR: 2.1,
       }));
     }
   }
@@ -277,7 +277,7 @@ export function arsenal(loadout, t = 0) {
     for (let i = 0; i < rays; i++) {
       const u = i / (rays - 1) - 0.5;
       nova.push(pellet(u * 2, u * (36 + nv * 6), {
-        kind: 'nova', scale: 0.95, speed: 88, life: 0.62, color: 0xff64e8, damage: 1, hitR: 1.5,
+        kind: 'nova', scale: 0.95, speed: 88, life: 0.62, color: 0xff64e8, damage: 2, hitR: 1.5,
       }));
     }
   }
@@ -286,7 +286,7 @@ export function arsenal(loadout, t = 0) {
   return {
     primary: { cd: primaryCd, shots: primary },
     missile: { cd: Math.max(0.28, 0.42 - sk * 0.018), shots: missile },
-    titan: { cd: Math.max(0.55, 0.92 - tn * 0.05), shots: titan },
+    titan: { cd: Math.max(0.52, 0.86 - tn * 0.048), shots: titan },
     mine: { cd: 0.52, shots: mine },
     nova: { cd: Math.max(0.72, 1.18 - nv * 0.08), shots: nova },
   };

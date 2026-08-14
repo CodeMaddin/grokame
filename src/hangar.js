@@ -23,22 +23,22 @@ export const CATALOG = {
   needle: {
     title: 'NEEDLE LASERS',
     blurb: 'Coherent lances under the wings. Bought once. The rift can charge them after that.',
-    unlock: 260,
+    unlock: 240,
   },
   seeker: {
     title: 'HOMING MISSILES',
     blurb: 'Heat-seekers on the racks. They turn. You buy the rack before they exist.',
-    unlock: 400,
+    unlock: 380,
   },
   shard: {
     title: 'CRYSTAL SHARDS',
     blurb: 'Splinter fire from the nose. Cheap, vicious, and locked until you pay for the cutter.',
-    unlock: 340,
+    unlock: 400,
   },
   titan: {
     title: 'TITAN CANNON',
     blurb: 'A belly slab that hits like a door. The hull has to be rebuilt around it.',
-    unlock: 620,
+    unlock: 580,
   },
   wing: {
     title: 'WING FILAMENTS',
@@ -58,7 +58,7 @@ export const CATALOG = {
   mine: {
     title: 'AETHER MINES',
     blurb: 'Slow gifts left in the lane. The dispenser is a shipyard job.',
-    unlock: 380,
+    unlock: 360,
   },
   shear: {
     title: 'RIFT SHEAR',
@@ -73,12 +73,12 @@ export const CATALOG = {
   nova: {
     title: 'NOVA BURST',
     blurb: 'A crown that coughs a radial bloom. Pretty. Mean. Expensive.',
-    unlock: 740,
+    unlock: 700,
   },
   prism: {
     title: 'PRISM SPLIT',
     blurb: 'The bow learns to fan violet. Last luxury before the Sentinel.',
-    unlock: 800,
+    unlock: 760,
   },
 };
 
@@ -142,7 +142,7 @@ export function upgradeCost(id, current) {
   if (!spec) return 0;
   const lv = Math.max(1, current | 0);
   const weight = 0.75 + (spec.unlock || 120) / 900;
-  return Math.round((65 + lv * 52) * (1 + lv * 0.2) * weight);
+  return Math.round((58 + lv * 46) * (1 + lv * 0.16) * weight);
 }
 
 export function nextCost(levels, id) {
@@ -216,9 +216,9 @@ export function runFill(hangarLevels, runBonus) {
 }
 
 export function clearPayout(ci, li, { superBoss = false, finale = false, mids = 2 } = {}) {
-  const clear = 80 + ci * 28 + li * 10;
-  const boss = finale ? 260 : superBoss ? 200 : 130;
-  const mid = Math.max(0, mids) * 36;
+  const clear = 55 + ci * 30 + li * 12;
+  const boss = finale ? 220 : superBoss ? 175 : 110;
+  const mid = Math.max(0, mids) * 28;
   return { clear, boss, mid, total: clear + boss + mid };
 }
 

@@ -75,6 +75,7 @@ export class EntityField {
     this.boss = null;
     this.time = 0;
     this.laneLimit = 24;
+    this.coinValue = 5;
     this._seedOrbs();
     this._seedGates();
     this._seedEnemies();
@@ -445,13 +446,14 @@ export class EntityField {
     }
     this.time = 0;
     this.laneLimit = 24;
+    this.coinValue = 5;
   }
 
   spawnAhead(path, traveled) {
     this._placeInactive(this.orbs, path, traveled, 78, 7, 'orb');
   }
 
-  spawnSquad(path, traveled, form, role, n, ahead = 90) {
+  spawnSquad(path, traveled, form, role, n, ahead = 90, heat = 1) {
     const span = this.laneLimit || 24;
     const count = n || 4;
     const lanes = lanesFor(form, count, span);
@@ -460,21 +462,21 @@ export class EntityField {
       if (!idle) break;
       const dist = traveled + ahead + rowStagger(form, i);
       this._placeOne(idle, path, dist, 'enemy');
-      this._dressEnemy(idle, role || 'dive', 1, lanes[i] ?? 0, span);
+      this._dressEnemy(idle, role || 'dive', heat, lanes[i] ?? 0, span);
     }
   }
 
-  spawnNamed(path, traveled, id, ahead = 96, step = 0, loadout = null) {
+  spawnNamed(path, traveled, id, ahead = 96, step = 0, loadout = null, heat = 1) {
     const idle = this.enemies.find((e) => !e.alive);
     if (!idle) return;
     this._placeOne(idle, path, traveled + ahead, 'enemy');
-    this._dressEnemy(idle, id, 1, 0, this.laneLimit || 24, step, loadout);
+    this._dressEnemy(idle, id, heat, 0, this.laneLimit || 24, step, loadout);
   }
 
-  spawnGateAt(path, traveled, ahead = 72) {
+  spawnGateAt(path, traveled, ahead = 72, heat = 1) {
     const idle = this.gates.find((g) => !g.alive);
     if (!idle) return;
-    this._placeOne(idle, path, traveled + ahead, 'gate');
+    this._placeOne(idle, path, traveled + ahead, 'gate', heat);
   }
 
   spawnOrbsAt(path, traveled, n = 4, ahead = 48) {
@@ -485,17 +487,17 @@ export class EntityField {
     }
   }
 
-  spawnBlockersAt(path, traveled, n = 2, ahead = 80) {
+  spawnBlockersAt(path, traveled, n = 2, ahead = 80, heat = 1) {
     for (let i = 0; i < n; i++) {
       const idle = this.blockers.find((b) => !b.alive);
       if (!idle) break;
-      this._placeOne(idle, path, traveled + ahead + i * 14, 'blocker');
+      this._placeOne(idle, path, traveled + ahead + i * 14, 'blocker', heat);
     }
   }
 
-  spawnFinale(path, traveled, ahead = 96, step = 0, loadout = null) {
+  spawnFinale(path, traveled, ahead = 96, step = 0, loadout = null, heat = 1) {
     if (this.boss?.alive) return;
-    this._spawnBoss(path, traveled + ahead, step, loadout);
+    this._spawnBoss(path, traveled + ahead, step, loadout, heat);
   }
 
   _placeInactive(list, path, traveled, spacing, count, kind) {
@@ -508,7 +510,7 @@ export class EntityField {
     }
   }
 
-  _placeOne(item, path, dist, kind) {
+  _placeOne(item, path, dist, kind, heat = 1) {
     const sample = path.sample(dist);
     const frame = createFrenet(sample.tangent);
     const span = this.laneLimit || 24;
@@ -526,11 +528,11 @@ export class EntityField {
       const scale = 2.4 + Math.random() * 1.6;
       item.mesh.scale.setScalar(scale);
       item.radius = 1.15 * scale;
-      item.hp = 3;
+      item.hp = 3 + Math.max(0, Math.round((heat - 1) * 2));
     } else if (kind === 'gate') {
       item.passed = false;
       item.locked = true;
-      item.hp = 4;
+      item.hp = 4 + Math.max(0, Math.round((heat - 1) * 3));
       item.burst = 0;
       item.burstAge = 0;
       item.shield.visible = true;
@@ -563,89 +565,91 @@ export class EntityField {
     en.offset.x = lane + (Math.random() - 0.5) * span * 0.03;
     en.baseX = en.offset.x;
     en.weave = 0.55 + Math.random() * 0.7;
-    const extra = difficulty > 2.4 ? 1 : 0;
+    const heat = Number(difficulty) || 1;
+    const bump = (base) => (heat <= 1.001 ? 0 : Math.max(0, Math.round(base * (heat - 1) * 0.75)));
+    const eliteScale = 1 + Math.max(0, heat - 1) * 0.18;
     en.mesh.scale.setScalar(1);
     if (en.craft) setCraftPhase(en.craft, 1);
     if (role === 'queen') {
-      en.hp = eliteHp('queen', step, loadout);
+      en.hp = Math.round(eliteHp('queen', step, loadout) * eliteScale);
       en.maxHp = en.hp;
       en.radius = 7.4;
       en.descent = 0.52;
       en.cooldown = 0.85;
       en.windMax = 0.46;
-      en.drop = 4;
+      en.drop = 3;
       en.bombDrop = 1;
     } else if (role === 'warden') {
-      en.hp = eliteHp('warden', step, loadout);
+      en.hp = Math.round(eliteHp('warden', step, loadout) * eliteScale);
       en.maxHp = en.hp;
       en.radius = 7.6;
       en.descent = 0.38;
       en.cooldown = 1.05;
       en.windMax = 0.55;
-      en.drop = 5;
+      en.drop = 3;
       en.bombDrop = 1;
     } else if (role === 'coil') {
-      en.hp = eliteHp('coil', step, loadout);
+      en.hp = Math.round(eliteHp('coil', step, loadout) * eliteScale);
       en.maxHp = en.hp;
       en.radius = 6.4;
       en.descent = 0.44;
       en.cooldown = 0.95;
       en.windMax = 0.48;
-      en.drop = 4;
+      en.drop = 3;
       en.bombDrop = 1;
     } else if (role === 'empress') {
-      en.hp = eliteHp('empress', step, loadout);
+      en.hp = Math.round(eliteHp('empress', step, loadout) * eliteScale);
       en.maxHp = en.hp;
       en.radius = 7.4;
       en.descent = 0.48;
       en.cooldown = 0.9;
       en.windMax = 0.5;
-      en.drop = 5;
+      en.drop = 3;
       en.bombDrop = 1;
     } else if (role === 'heavy') {
-      en.hp = 11 + extra;
+      en.hp = 11 + bump(11);
       en.maxHp = en.hp;
       en.radius = 4.8;
       en.descent = 0.85 + Math.random() * 0.55;
       en.cooldown = 1.4 + Math.random() * 0.8;
       en.windMax = 0.45;
-      en.drop = 2;
+      en.drop = 1;
       en.bombDrop = 0;
-    } else if (role === 'slag' || role === 'chime') {
-      en.hp = 11 + extra;
+    } else if (role === 'slag' || role === 'chime' || role === 'prism' || role === 'wisp') {
+      en.hp = 11 + bump(11);
       en.maxHp = en.hp;
       en.radius = 4.8;
       en.descent = 0.85 + Math.random() * 0.55;
       en.cooldown = 1.4 + Math.random() * 0.8;
       en.windMax = 0.45;
-      en.drop = 2;
+      en.drop = 1;
       en.bombDrop = 0;
     } else if (role === 'sine') {
-      en.hp = 6 + extra;
+      en.hp = 6 + bump(6);
       en.maxHp = en.hp;
       en.radius = 4.2;
       en.descent = 1.35 + Math.random() * 1.1;
       en.cooldown = 1.9 + Math.random() * 1.3;
       en.windMax = 0.22;
-      en.drop = 1;
+      en.drop = 0;
       en.bombDrop = 0;
-    } else if (role === 'acolyte' || role === 'prism' || role === 'wisp') {
-      en.hp = 6 + extra;
+    } else if (role === 'cinder' || role === 'acolyte' || role === 'bloom' || role === 'ion') {
+      en.hp = 6 + bump(6);
       en.maxHp = en.hp;
       en.radius = 4.2;
       en.descent = 1.35 + Math.random() * 1.1;
       en.cooldown = 1.9 + Math.random() * 1.3;
       en.windMax = 0.22;
-      en.drop = 1;
+      en.drop = 0;
       en.bombDrop = 0;
     } else {
-      en.hp = 5 + extra;
+      en.hp = 5 + bump(5);
       en.maxHp = en.hp;
       en.radius = 3.35;
       en.descent = 2.1 + Math.random() * 1.5;
       en.cooldown = 1.7 + Math.random() * 1.4;
       en.windMax = 0.16;
-      en.drop = 1;
+      en.drop = 0;
       en.bombDrop = 0;
     }
   }
@@ -670,7 +674,7 @@ export class EntityField {
     en.weak = craft.weak;
   }
 
-  _spawnBoss(path, dist, step = 0, loadout = null) {
+  _spawnBoss(path, dist, step = 0, loadout = null, heat = 1) {
     const craft = createSentinel();
     this.scene.add(craft.mesh);
     this.boss = {
@@ -683,8 +687,8 @@ export class EntityField {
       weak: craft.weak,
       shell: craft.ring,
       pathDist: dist,
-      hp: eliteHp('finale', step, loadout),
-      maxHp: eliteHp('finale', step, loadout),
+      hp: Math.round(eliteHp('finale', step, loadout) * (1 + Math.max(0, heat - 1) * 0.18)),
+      maxHp: Math.round(eliteHp('finale', step, loadout) * (1 + Math.max(0, heat - 1) * 0.18)),
       cooldown: 0.6,
       windup: 0,
       windMax: 0.42,
@@ -697,7 +701,7 @@ export class EntityField {
       patternI: 0,
       flash: 0,
       bombDrop: 0,
-      drop: 8,
+      drop: 5,
       offset: new THREE.Vector3(0, 0, 0),
     };
     setCraftPhase(craft, 1);
@@ -875,7 +879,7 @@ export class EntityField {
             pos: this.boss.mesh.position.clone(),
             pathDist: this.boss.pathDist,
             laneX: 0,
-            drop: 8,
+            drop: this.boss.drop ?? 5,
             bombDrop: 0,
           });
         }
@@ -927,7 +931,7 @@ export class EntityField {
   _paintPickup(p, kind) {
     const coin = kind === 'coin';
     p.kind = coin ? 'coin' : 'mote';
-    p.value = coin ? 8 : 1;
+    p.value = coin ? (opts.value || this.coinValue || 5) : 1;
     p.radius = coin ? 2.45 : 2.1;
     p.mesh.material.color.set(coin ? 0xffd166 : 0x7af0ff);
     p.glow.material.color.set(coin ? 0xffb703 : 0x5ce1ff);
@@ -1022,8 +1026,8 @@ export class EntityField {
     if (en.role === 'empress') return 1.48;
     if (en.role === 'warden') return 1.7;
     if (en.role === 'coil') return 1.62;
-    if (en.role === 'heavy' || en.role === 'slag' || en.role === 'chime') {
-      return Math.max(1.85, 2.4 - difficulty * 0.06);
+    if (en.role === 'heavy' || en.role === 'slag' || en.role === 'chime' || en.role === 'prism' || en.role === 'wisp') {
+      return Math.max(1.7, 2.4 - difficulty * 0.07);
     }
     return Math.max(2.1, 2.8 - difficulty * 0.08);
   }
@@ -1142,8 +1146,8 @@ export class EntityField {
         const park = traveled + 32;
         if (en.pathDist < park) en.pathDist = park;
       }
-      if (en.role === 'sine' || en.role === 'queen' || en.role === 'empress') {
-        const weave = (this.laneLimit || 24) * (en.role === 'sine' ? 0.08 : 0.22);
+      if (en.role === 'sine' || en.role === 'cinder' || en.role === 'acolyte' || en.role === 'bloom' || en.role === 'ion' || en.role === 'queen' || en.role === 'empress') {
+        const weave = (this.laneLimit || 24) * (en.role === 'queen' || en.role === 'empress' ? 0.22 : 0.08);
         en.offset.x = (en.baseX || 0) + Math.sin(this.time * (en.weave || 0.9) + en.pathDist * 0.03) * weave;
       }
       en.offset.y = 0;
@@ -1500,7 +1504,7 @@ export class EntityField {
             pos: this.boss.mesh.position.clone(),
             pathDist: this.boss.pathDist,
             laneX: 0,
-            drop: 8,
+            drop: this.boss.drop ?? 5,
           });
         } else {
           this.boss.flash = 0.22;

@@ -19,6 +19,8 @@ import {
   loadProgress,
   saveProgress,
   markCleared,
+  stageHeat,
+  coinValue,
 } from './campaigns.js';
 import { MODULES, MODULE_ORDER, hudName, arsenal } from './weapons.js';
 import {
@@ -1338,8 +1340,10 @@ export class Game {
     this.world.update(dt, this.camera, this.traveled);
     this.world.recycleCrystals(this.path, this.traveled, this._laneLimit());
 
-    const difficulty = 1 + this.traveled / 900;
+    const heat = this._stageHeat();
+    const difficulty = (1 + this.traveled / 900) * heat;
     this.entities.laneLimit = this._laneLimit();
+    this.entities.coinValue = coinValue(this.campaignIndex);
     this.entities.spawnAhead(this.path, this.traveled);
     this._runStage();
     this.entities.recycleBehind(this.traveled, this.holdY);
@@ -1417,7 +1421,7 @@ export class Game {
       const motes = pickups.filter((p) => p.kind !== 'coin');
       const coins = pickups.filter((p) => p.kind === 'coin');
       if (motes.length) this._gainMotes(motes.length);
-      if (coins.length) this._gainGold(coins.reduce((n, p) => n + (p.value || 8), 0), coins.length);
+      if (coins.length) this._gainGold(coins.reduce((n, p) => n + (p.value || this.entities.coinValue || 5), 0), coins.length);
 
       const gateHits = this.entities.collectGates(this.ship.position);
       for (const hit of gateHits) {
@@ -1579,8 +1583,8 @@ export class Game {
     let coins = 0;
     if (src?.type === 'boss' || role === 'finale') coins = 5;
     else if (src?.type === 'midboss' || src?.elite) coins = 3;
-    else if (role === 'heavy' || role === 'slag' || role === 'chime') coins = 1;
-    else if (Math.random() < 0.2) coins = 1;
+    else if (role === 'heavy' || role === 'slag' || role === 'chime' || role === 'prism' || role === 'wisp') coins = 1;
+    else if (Math.random() < 0.16) coins = 1;
     if (coins) this.entities.spawnCoins(this.path, dist, lane, coins, { grace: 0.12 });
   }
 
@@ -1796,6 +1800,10 @@ export class Game {
     return Math.max(22, halfWidth - 5);
   }
 
+  _stageHeat() {
+    return stageHeat(this.campaignIndex || 0, this.levelIndex || 0);
+  }
+
   _onResize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -1835,23 +1843,23 @@ export class Game {
     while (this.stage.peek() && this.stage.peek().at <= this.traveled) {
       const ev = this.stage.consume();
       if (ev.kind === 'squad') {
-        this.entities.spawnSquad(this.path, this.traveled, ev.form, ev.role, ev.n, ev.ahead);
+        this.entities.spawnSquad(this.path, this.traveled, ev.form, ev.role, ev.n, ev.ahead, this._stageHeat());
       } else if (ev.kind === 'gate') {
-        this.entities.spawnGateAt(this.path, this.traveled);
+        this.entities.spawnGateAt(this.path, this.traveled, 72, this._stageHeat());
       } else if (ev.kind === 'orbs') {
-        this.entities.spawnOrbsAt(this.path, this.traveled, 5);
-        this.entities.spawnCoins(this.path, this.traveled + 48, 0, 3);
+        this.entities.spawnOrbsAt(this.path, this.traveled, 3);
+        this.entities.spawnCoins(this.path, this.traveled + 48, 0, 2);
       } else if (ev.kind === 'blockers') {
-        this.entities.spawnBlockersAt(this.path, this.traveled, ev.n || 2);
+        this.entities.spawnBlockersAt(this.path, this.traveled, ev.n || 2, 80, this._stageHeat());
       } else if (ev.kind === 'midboss') {
-        this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step, this.loadout);
+        this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step, this.loadout, this._stageHeat());
         this.stage.finaleAlive = false;
       } else if (ev.kind === 'boss' || ev.kind === 'finale') {
         const id = ev.id || 'finale';
         if (ev.kind === 'finale' || id === 'finale' || id === 'sentinel') {
-          this.entities.spawnFinale(this.path, this.traveled, 96, this.step, this.loadout);
+          this.entities.spawnFinale(this.path, this.traveled, 96, this.step, this.loadout, this._stageHeat());
         } else {
-          this.entities.spawnNamed(this.path, this.traveled, id, 96, this.step, this.loadout);
+          this.entities.spawnNamed(this.path, this.traveled, id, 96, this.step, this.loadout, this._stageHeat());
         }
         this.stage.finaleAlive = true;
       }

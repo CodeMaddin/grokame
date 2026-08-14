@@ -13,6 +13,16 @@ export function nextVolley(en, span, playerLane, time, fire) {
   if (en.role === 'warden') return wardenVolley(i, s, x, aim, span, fire);
   if (en.role === 'coil') return coilVolley(i, s, x, aim, span, fire);
   if (en.role === 'finale') return finaleVolley(en, s, span, aim, time, fire);
+  if (en.role === 'cinder') {
+    fire(s, x - span * 0.04, 7.8, false);
+    fire(s, x + span * 0.04, 7.8, false);
+    return 0;
+  }
+  if (en.role === 'acolyte') {
+    fire(s, x, 7.2, false);
+    fire(s - 3, x, 6.8, false);
+    return 0;
+  }
   if (en.role === 'heavy' || en.role === 'slag' || en.role === 'chime') {
     const spread = Math.min(8, span * 0.08);
     if (i % 3 === 0) {

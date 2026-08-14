@@ -606,17 +606,17 @@ export class Game {
       camLook.copy(focus.pos);
       camUp.copy(focus.tangent);
     } else {
-      fov = 62;
-      const focus = this.path.sample(this.traveled + this.holdY + 6);
+      fov = 58;
+      const focus = this.path.sample(this.traveled + this.holdY + 8);
       const focusFrame = createFrenet(focus.tangent);
       const chaseK = snap ? 14 : 2.45;
       this._chaseX += (this.offset.x - this._chaseX) * (1 - Math.exp(-dt * chaseK));
       camPos.copy(focus.pos)
-        .addScaledVector(focus.tangent, -32)
-        .addScaledVector(focusFrame.normal, 14)
+        .addScaledVector(focus.tangent, -48)
+        .addScaledVector(focusFrame.normal, 20)
         .addScaledVector(focusFrame.binormal, this._chaseX);
       camLook.copy(focus.pos)
-        .addScaledVector(focus.tangent, 16)
+        .addScaledVector(focus.tangent, 24)
         .addScaledVector(focusFrame.binormal, this._chaseX);
       camUp.copy(focusFrame.normal);
     }

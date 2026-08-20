@@ -78,6 +78,7 @@ export class Game {
     this.levelIndex = this.progress.nextL || 0;
     this._runLive = false;
     this._hinted = new Set();
+    this._teachQueue = [];
     this._resumeTo = 'play';
     this._mapCursor = { c: this.campaignIndex, l: this.levelIndex };
     this.hitStop = 0;
@@ -729,7 +730,9 @@ export class Game {
     this.best = Number(localStorage.getItem('aether-best') || 0);
     this.campaignIndex = this.progress?.nextC || 0;
     this.levelIndex = this.progress?.nextL || 0;
-    this._hinted = new Set();
+    this._teachQueue = [];
+    clearTimeout(this._teachTimer);
+    if (this.ui?.teach) this.ui.teach.classList.remove('show');
   }
 
   _resetLevel(layout = true) {
@@ -926,21 +929,33 @@ export class Game {
     if (this._hinted.has(key)) return;
     this._hinted.add(key);
     if (!this.ui.teach) return;
+    if (this.ui.teach.classList.contains('show') || this._teachQueue.length) {
+      this._teachQueue.push(text);
+      return;
+    }
+    this._showTeach(text);
+  }
+
+  _showTeach(text) {
+    if (!this.ui.teach) return;
     this.ui.teach.textContent = text;
     this.ui.teach.classList.add('show');
     clearTimeout(this._teachTimer);
-    this._teachTimer = setTimeout(() => this.ui.teach.classList.remove('show'), 2200);
+    this._teachTimer = setTimeout(() => {
+      this.ui.teach.classList.remove('show');
+      const next = this._teachQueue.shift();
+      if (next) this._teachTimer = setTimeout(() => this._showTeach(next), 200);
+    }, 2200);
   }
 
   _maybeBoardTeach() {
-    if (this.state !== 'playing') return;
-    const reach = 108;
+    if (this.state !== 'playing' || !this.entities) return;
     if (!this._hinted.has('gate')) {
-      const gate = this.live.enemies.find((en) => en.alive && en.kind === 'gate' && en.pathDist - this.traveled < reach && en.pathDist - this.traveled > 18);
+      const gate = this.entities.gates.find((g) => g.alive && g.locked && g.pathDist - this.traveled < 64 && g.pathDist - this.traveled > 22);
       if (gate) this._teach('gate', 'SHOOT THE LOCK — OR SLIDE THE GAP');
     }
     if (!this._hinted.has('heavy')) {
-      const brick = this.live.enemies.find((en) => en.alive && /heavy|slag|chime|prism|wisp/.test(en.kind) && en.pathDist - this.traveled < reach && en.pathDist - this.traveled > 18);
+      const brick = this.entities.enemies.find((en) => en.alive && /heavy|slag|chime|prism|wisp/.test(en.role) && en.pathDist - this.traveled < 88 && en.pathDist - this.traveled > 22);
       if (brick) this._teach('heavy', 'HOLD FIRE ON THE BRICK');
     }
   }
@@ -1032,10 +1047,12 @@ export class Game {
         ? `CLEAR ₡${payout.clear}   BOSS ₡${payout.boss}   MINIS ₡${payout.mid}   BANKED ₡${payout.total}`
         : '';
     }
-    if (this.ui.hangarHint && slot && from !== 'map') {
-      this.ui.hangarHint.textContent = `${slot.lv.id} ${slot.lv.name} is done. Spend it. The next hull starts with what you buy here.`;
-    } else if (this.ui.hangarHint) {
-      this.ui.hangarHint.textContent = 'Preview a system on the hull. Install it. Powerups in the rift only charge what you bought.';
+    if (this.ui.hangarHint) {
+      const afterClear = from === 'clear' || from === 'win';
+      this.ui.hangarHint.hidden = afterClear;
+      this.ui.hangarHint.textContent = afterClear
+        ? ''
+        : 'Preview a system on the hull. Install it. Powerups in the rift only charge what you bought.';
     }
     if (this.ui.hangarDone) {
       this.ui.hangarDone.textContent = from === 'win' ? 'RESULTS' : from === 'clear' ? 'CAMPAIGN MAP' : 'RETURN';
@@ -1090,12 +1107,11 @@ export class Game {
     const poor = cost > 0 && this.hangar.gold < cost;
     if (this.ui.hangarName) this.ui.hangarName.textContent = spec.title;
     if (this.ui.hangarBlurb) {
-      const rec = this._hangarRecommend === id ? 'NEXT BUY — ' : '';
-      this.ui.hangarBlurb.textContent = rec + (lv <= 0
+      this.ui.hangarBlurb.textContent = lv <= 0
         ? `Not fitted. ${spec.blurb}`
         : lv >= MODULES[id].max
           ? `Mark ${lv}. The bay is glowing. ${spec.blurb}`
-          : `Mark ${lv}. ${spec.blurb}`);
+          : `Mark ${lv}. ${spec.blurb}`;
     }
     if (this.ui.hangarCost) {
       this.ui.hangarCost.classList.toggle('poor', poor);
@@ -1257,6 +1273,7 @@ export class Game {
         this._syncShipyardView();
         this.shipyard.update(dt);
         this.shipyard.render();
+        this._pinHangarNext();
         return;
       }
       this._render();
@@ -1878,6 +1895,16 @@ export class Game {
     this._syncShipyardView();
   }
 
+  _pinHangarNext() {
+    const el = this.ui.hangarNext;
+    const id = this._hangarRecommend;
+    if (!el || el.hidden || !id || !this.shipyard) return;
+    const pt = this.shipyard.projectKit(id);
+    if (!pt) return;
+    el.style.left = `${Math.round(pt.x)}px`;
+    el.style.top = `${Math.round(pt.y)}px`;
+  }
+
   _syncShipyardView() {
     if (this.state !== 'hangar' || !this.shipyard) return;
     if (!window.matchMedia('(max-width: 900px)').matches) this._setHangarShopMin(false);
@@ -1897,7 +1924,9 @@ export class Game {
     for (const ch of chapters) {
       if (this.traveled >= ch.at && this._chapterAt < ch.at) {
         this._chapterAt = ch.at;
-        this.toast(ch.toast);
+        const nameToast = slot ? `${slot.lv.id} — ${slot.lv.name}` : '';
+        const openerDup = ch.at <= 90 && (ch.toast === nameToast || /^WAVE 0?1\b/.test(ch.toast || ''));
+        if (!openerDup) this.toast(ch.toast);
         this._setChapter(ch.world || slot?.lv.world, ch.sting);
       }
     }

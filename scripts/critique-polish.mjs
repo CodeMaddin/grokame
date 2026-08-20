@@ -100,17 +100,29 @@ if (/<div class="controls">/.test(html)) fail('title still has the five-line con
 if (!html.includes('id="teach"') || !game.includes('_teach(') || !game.includes('_maybeBoardTeach')) {
   fail('first-run teach is not a dedicated plate');
 }
+if (game.includes('this.live.') || game.includes('this.live?') || !game.includes('this.entities.gates.find') || !/_maybeBoardTeach[\s\S]{0,800}en\.role/.test(game)) {
+  fail('board teach does not read live gates/enemies');
+}
+if (!game.includes('_teachQueue') || !game.includes('_showTeach')) {
+  fail('teach plate can still stomp a live lesson');
+}
 if (game.includes('_maybeTeach') || game.includes('RAM THE GATES')) {
   fail('school still uses toast or lies about ramming gates');
 }
 if (!game.includes('SHOOT THE LOCK') || !game.includes('HOLD FIRE ON THE BRICK') || !game.includes('MOTES CHARGE OWNED BAYS') || !game.includes('GOLD BUYS BAYS IN DRYDOCK')) {
   fail('first-run teach copy is missing');
 }
-if (!html.includes('id="hangar-next"') || !game.includes('hangarNext') || !game.includes('NEXT ·')) {
-  fail('hangar does not pin the next buy on the hull');
+if (!html.includes('id="hangar-next"') || !game.includes('hangarNext') || !game.includes('NEXT ·') || !game.includes('projectKit') || !game.includes('_pinHangarNext')) {
+  fail('hangar does not pin the next buy on the hull bay');
 }
-if (!hangar.includes('export function recommend') || !game.includes('NEXT BUY')) {
-  fail('hangar does not point at the next buy after a clear');
+if (game.includes('NEXT BUY —')) fail('hangar still captions NEXT BUY on the blurb');
+if (!hangar.includes('export function recommend')) fail('hangar has no recommend()');
+if (!game.includes('hangarHint.hidden = afterClear')) fail('clear hangar still dumps a hint paragraph');
+if (!game.includes('openerDup') || !game.includes('WAVE 0?1')) {
+  fail('WAVE 01 still double-names the opener');
+}
+if (/_resetRun\([\s\S]{0,400}_hinted = new Set/.test(game)) {
+  fail('first-run school resets every deploy');
 }
 
 if (fails.length) {

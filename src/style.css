@@ -722,9 +722,9 @@ button:hover {
 
 .hangar-next {
   position: absolute;
-  left: 42%;
-  top: 56%;
-  transform: translate(-50%, -50%);
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -130%);
   padding: 8px 16px;
   border: 1px solid rgba(255, 209, 102, 0.78);
   background: rgba(12, 4, 22, 0.74);
@@ -1121,8 +1121,6 @@ kbd {
   }
 
   .hangar-next {
-    left: 50%;
-    top: 68%;
     font-size: 10px;
     padding: 6px 12px;
   }

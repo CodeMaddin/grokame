@@ -7,7 +7,7 @@ export const HANGAR_KEY = 'aether-hangar';
 export const CATALOG = {
   spark: {
     title: 'PARTICLE BLASTERS',
-    blurb: 'The trickle. Forward guns. They never fan wide. Everything else is a different job.',
+    blurb: 'The trickle. Forward guns. They never fan wide. Marks stretch the throw. Everything else is a different job.',
     unlock: 0,
   },
   tractor: {

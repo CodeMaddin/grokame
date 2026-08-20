@@ -30,10 +30,6 @@
             <div class="label">GOLD</div>
             <div id="gold" class="value">0</div>
           </div>
-          <div class="hud-panel threat-panel">
-            <div class="label">HUNTERS</div>
-            <div id="threat" class="value">0</div>
-          </div>
           <div class="hud-panel hud-depth">
             <div class="label">DEPTH</div>
             <div id="depth" class="value">0 km</div>
@@ -107,6 +103,7 @@
       <div class="menu-actions fly-in delay-3">
         <button id="resume-title-btn" type="button" hidden>RESUME</button>
         <button id="start-btn" type="button">ENGAGE</button>
+        <button id="title-setup-btn" type="button">SETUP</button>
       </div>
       <p id="title-controls" class="title-controls fly-in delay-3">A/D SLIDE · W/S CLIMB · HOLD FIRE · B BOMB</p>
       <p class="title-touch fly-in delay-3">TOUCH · HOLD TO FIRE · DRAG TO SLIDE</p>
@@ -130,14 +127,40 @@
       <p>The rift waits for no one.</p>
       <div class="menu-actions">
         <button id="resume-btn" type="button">RESUME</button>
+        <button id="setup-pause-btn" type="button">SETUP</button>
         <button id="menu-btn" type="button">MAIN MENU</button>
       </div>
     </div>
 
-    <div id="continue-screen" class="screen hidden">
+    <div id="setup-screen" class="screen hidden pause-dim">
+      <p class="kicker">CALIBRATION</p>
+      <h2>SETUP</h2>
+      <p class="tagline">Mix and picture. Stored on this hull.</p>
+      <div class="setup-board">
+        <section class="setup-col">
+          <p class="setup-head">MIX</p>
+          <label class="setup-row">MUSIC <input type="range" name="music" min="0" max="100" value="72" /><b data-read="music">72</b></label>
+          <label class="setup-row">GUNS <input type="range" name="sfx" min="0" max="100" value="100" /><b data-read="sfx">100</b></label>
+        </section>
+        <section class="setup-col">
+          <p class="setup-head">PICTURE</p>
+          <label class="setup-row">BLOOM <input type="range" name="bloom" min="0" max="100" value="100" /><b data-read="bloom">100</b></label>
+          <label class="setup-row">FLARE <input type="range" name="flare" min="0" max="100" value="100" /><b data-read="flare">100</b></label>
+          <label class="setup-row">FILM <input type="range" name="film" min="0" max="100" value="100" /><b data-read="film">100</b></label>
+          <label class="setup-row">SHAKE <input type="range" name="shake" min="0" max="100" value="100" /><b data-read="shake">100</b></label>
+        </section>
+      </div>
+      <div class="menu-actions">
+        <button id="setup-reset" type="button">RESET</button>
+        <button id="setup-back" type="button">BACK</button>
+      </div>
+    </div>
+
+    <div id="continue-screen" class="screen hidden pause-dim">
       <p class="kicker">SIGNAL FADING</p>
       <h2>CONTINUE?</h2>
       <p id="continue-left" class="tagline">2 CREDITS REMAIN</p>
+      <div class="continue-fade"><div id="continue-fade"></div></div>
       <div class="menu-actions">
         <button id="continue-yes" type="button">CONTINUE</button>
         <button id="continue-no" type="button">GIVE UP</button>
@@ -159,7 +182,6 @@
       <div class="hangar-stage">
         <p class="kicker" id="hangar-kicker">DRYDOCK</p>
         <h2 id="hangar-title">SHIPYARD</h2>
-        <div id="hangar-next" class="hangar-next" hidden></div>
         <p class="hangar-hint" id="hangar-hint">Preview a system on the hull. Install it. Powerups in the rift only charge what you bought.</p>
         <div id="hangar-payout" class="hangar-payout"></div>
       </div>

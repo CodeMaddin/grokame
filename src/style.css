@@ -359,9 +359,23 @@ canvas {
   100% { filter: none; }
 }
 
-.threat-panel .value {
-  color: var(--magenta);
-  text-shadow: 0 0 18px rgba(255, 59, 212, 0.9);
+#health-fill.hull-hit {
+  animation: hull-hit 0.22s ease-out;
+}
+
+.hud-vitals.hull-hit .bar-wrap:first-child {
+  animation: hull-shake 0.22s ease-out;
+}
+
+@keyframes hull-hit {
+  0% { filter: brightness(2.6) saturate(1.4); }
+  100% { filter: none; }
+}
+
+@keyframes hull-shake {
+  0%, 100% { transform: none; }
+  35% { transform: translateX(2px); }
+  70% { transform: translateX(-2px); }
 }
 
 .bar-wrap {
@@ -483,6 +497,15 @@ canvas {
   background: linear-gradient(180deg, #ff9be0, #ff3bd4);
   box-shadow: 0 0 12px rgba(255, 59, 212, 0.85);
   border-color: #ff3bd4;
+}
+
+.life-pip.life-lost {
+  animation: life-lost 0.38s ease-out both;
+}
+
+@keyframes life-lost {
+  0% { transform: scale(1.35); filter: brightness(2.2); opacity: 1; }
+  100% { transform: scale(0.55); filter: none; opacity: 0.35; }
 }
 
 #toast {
@@ -704,6 +727,87 @@ canvas {
 .pause-dim {
   background: radial-gradient(ellipse at center, rgba(8, 0, 22, 0.62), rgba(0, 0, 0, 0.78));
   backdrop-filter: blur(2px);
+}
+
+#setup-screen {
+  justify-content: flex-start;
+  padding: 8vh 20px 28px;
+  overflow: auto;
+  touch-action: pan-y;
+}
+
+#setup-screen .tagline {
+  margin: 10px 0 22px;
+}
+
+.setup-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px 36px;
+  width: min(640px, 92vw);
+  margin: 0 auto 28px;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.setup-head {
+  margin: 0 0 10px;
+  letter-spacing: 0.42em;
+  font-size: 11px;
+  color: var(--cyan);
+}
+
+.setup-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 36px;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  letter-spacing: 0.22em;
+  font-size: 13px;
+  color: rgba(232, 246, 255, 0.82);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.setup-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--magenta);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.setup-row b {
+  font-weight: 600;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+#continue-left {
+  animation: continue-pulse 0.9s ease-in-out infinite;
+}
+
+.continue-fade {
+  width: min(280px, 70vw);
+  height: 4px;
+  margin: 16px auto 0;
+  background: rgba(255, 59, 212, 0.16);
+  border: 1px solid rgba(255, 59, 212, 0.35);
+  overflow: hidden;
+}
+
+#continue-fade {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #ff3bd4, #ffd166);
+  box-shadow: 0 0 10px rgba(255, 59, 212, 0.7);
+}
+
+@keyframes continue-pulse {
+  0%, 100% { opacity: 0.72; letter-spacing: 0.18em; }
+  50% { opacity: 1; letter-spacing: 0.28em; }
 }
 
 .fly-in {
@@ -1028,29 +1132,6 @@ button:hover {
   padding-top: 1vh;
 }
 
-.hangar-next {
-  position: absolute;
-  left: 50%;
-  top: 58%;
-  transform: translate(-50%, -130%);
-  padding: 8px 16px;
-  border: 1px solid rgba(255, 209, 102, 0.78);
-  background: rgba(12, 4, 22, 0.74);
-  color: var(--gold);
-  letter-spacing: 0.28em;
-  font-size: 12px;
-  font-weight: 700;
-  text-shadow: 0 0 14px rgba(255, 209, 102, 0.7);
-  box-shadow: 0 0 22px rgba(255, 209, 102, 0.28), inset 0 0 16px rgba(255, 209, 102, 0.08);
-  pointer-events: none;
-  z-index: 3;
-  white-space: nowrap;
-}
-
-.hangar-next[hidden] {
-  display: none;
-}
-
 #hangar-screen .hangar-stage h2 {
   font-size: clamp(36px, 6vw, 64px);
   margin: 0 0 8px;
@@ -1312,7 +1393,7 @@ kbd {
     grid-template-columns: auto auto 1fr;
     grid-template-areas:
       "score combo stock"
-      "depth hunters gold";
+      "depth gold gold";
     column-gap: 14px;
     row-gap: 2px;
     align-items: end;
@@ -1326,7 +1407,6 @@ kbd {
   .hud-score { grid-area: score; }
   .combo-panel { grid-area: combo; }
   .hud-depth { grid-area: depth; }
-  .threat-panel { grid-area: hunters; }
   .hud-gold { grid-area: gold; justify-self: end; }
 
   .hud-stock {
@@ -1427,11 +1507,6 @@ kbd {
     font-weight: 700;
     color: rgba(157, 247, 255, 0.82);
     text-shadow: 0 0 18px rgba(92, 225, 255, 0.35);
-  }
-
-  .hangar-next {
-    font-size: 10px;
-    padding: 6px 12px;
   }
 
   #hangar-screen {
@@ -1658,5 +1733,19 @@ kbd {
   #map-tag {
     margin: 8px 0 12px;
     font-size: 12px;
+  }
+
+  #setup-screen h2 {
+    font-size: 36px;
+  }
+
+  .setup-board {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .setup-row {
+    grid-template-columns: 64px 1fr 32px;
+    letter-spacing: 0.14em;
   }
 }

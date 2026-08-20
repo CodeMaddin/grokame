@@ -114,8 +114,11 @@ if (game.includes('_maybeTeach') || game.includes('RAM THE GATES')) {
 if (!game.includes('SHOOT THE LOCK') || !game.includes('HOLD FIRE ON THE BRICK') || !game.includes('MOTES CHARGE OWNED BAYS') || !game.includes('GOLD BUYS BAYS IN DRYDOCK')) {
   fail('first-run teach copy is missing');
 }
-if (!html.includes('id="hangar-next"') || !game.includes('hangarNext') || !game.includes('NEXT ·') || !game.includes('projectKit') || !game.includes('_pinHangarNext')) {
-  fail('hangar does not pin the next buy on the hull bay');
+if (html.includes('id="hangar-next"') || css.includes('hangar-next') || game.includes('_pinHangarNext') || game.includes('hangarNext')) {
+  fail('hangar still pins a NEXT plaque over the hull');
+}
+if (!game.includes('_hangarRecommend') || !game.includes("' recommend'")) {
+  fail('hangar list no longer marks the next buy');
 }
 if (game.includes('NEXT BUY —')) fail('hangar still captions NEXT BUY on the blurb');
 if (!hangar.includes('export function recommend')) fail('hangar has no recommend()');
@@ -182,7 +185,7 @@ if (!entities.includes('midScale') || !entities.includes('en.mid && heat > 1.001
 if (!entities.includes('_syncHullMeter') || !entities.includes('hullMeter')) {
   fail('minis have no hull meter');
 }
-if (!game.includes('_bossSlow = superBoss ? 2.7 : 2.35') || !game.includes('_collectLooseGold')) {
+if (!game.includes('_bossSlow = superBoss ? 5.4 : 4.7') || !game.includes('_collectLooseGold')) {
   fail('boss kill still dumps the board before the gold');
 }
 if (!html.includes('id="rift-bloom"') || !css.includes('@keyframes rift-bloom') || !game.includes('_showRiftBloom') || !game.includes('_riftBloom')) {
@@ -294,6 +297,72 @@ if (!css.includes('rift-glow') || !game.includes('goldFrom') || !game.includes("
 }
 if (!game.includes('lv.banner === \'finale\'') || game.includes("lv.boss === 'finale' ? '✦'")) {
   fail('1-1 still wears the finale star');
+}
+
+if (!html.includes('id="continue-screen"') || !html.includes('continue-fade') || !html.includes('id="continue-fade"')) {
+  fail('continue has no dying fade bar');
+}
+if (!/id="continue-screen"[^>]*pause-dim/.test(html) || !css.includes('continue-pulse') || !css.includes('#continue-fade')) {
+  fail('continue is not a dying signal');
+}
+if (!game.includes('_tickContinue') || !game.includes('this._continueT = 9') || !game.includes('_tickContinue(dt)')) {
+  fail('continue never times out');
+}
+if (!game.includes('_acceptContinue') || !html.includes('CONTINUE')) {
+  fail('arcade continue was deleted');
+}
+
+if (!css.includes('hull-hit') || !css.includes('life-lost') || !game.includes("classList.add('hull-hit')")) {
+  fail('hull bar does not flinch');
+}
+if (!game.includes('_syncLives({ lost') || !game.includes('_syncLives({ force: true })') || !game.includes('if (!force && !lost && this._livesPainted')) {
+  fail('life pips rebuild every frame and kill the flinch');
+}
+
+if (!audio.includes('enemyWindup()') || !audio.includes('enemyShot(fat)') || !entities.includes('this.onWindup') || !entities.includes('this.onShot')) {
+  fail('enemy guns have no voice');
+}
+if (!game.includes('this.audio.enemyWindup()') || !game.includes('this.audio.enemyShot(fat)') || !entities.includes('this.onWindup?.()') || !entities.includes('this.onShot?.(')) {
+  fail('enemy windup/shot callbacks are not wired');
+}
+
+const endRun = game.slice(game.indexOf('_endRun(victory)'), game.indexOf('toast(text)'));
+if (!endRun || endRun.includes('explosion(true)')) {
+  fail('death still bangs twice on the rank card');
+}
+
+if (game.includes('toast(`${slot.lv.id')) {
+  fail('deploy still toasts id — NAME');
+}
+
+if (html.includes('HUNTERS') || html.includes('id="threat"') || css.includes('threat-panel')) {
+  fail('HUNTERS chrome is still on the HUD');
+}
+if (!css.includes('"depth gold gold"')) {
+  fail('mobile grid still reserves a hunters column');
+}
+if (!game.includes('hunterCount()')) fail('hunterCount was deleted instead of the chrome');
+
+const clearFn = game.slice(game.indexOf('_clearLevel()'), game.indexOf('\n  win()'));
+if (!clearFn || clearFn.includes("sting('chapter')")) {
+  fail('hangar door still stings chapter');
+}
+if (!game.includes("sting('chapter')")) fail('boss-phase chapter sting was deleted');
+
+if (!html.includes('id="setup-screen"') || !html.includes('id="setup-reset"') || !html.includes('id="setup-back"')) {
+  fail('no setup board');
+}
+if (!game.includes('loadSetup') || !game.includes('resetSetup') || !read('src/settings.js').includes('aether-setup')) {
+  fail('setup does not persist on this hull');
+}
+if (!game.includes('setMix(') || !audio.includes('setMix(music, sfx)') || !audio.includes('1.4 * this._sfxMix')) {
+  fail('guns still share the quiet factory mix');
+}
+if (!weapons.includes('Math.max(0, sp - 1) * 0.042')) {
+  fail('blasters do not stretch throw as they mark up');
+}
+if (!game.includes('setContinue(true)') || !audio.includes('setContinue(on)')) {
+  fail('continue still mutes like pause');
 }
 
 if (fails.length) {

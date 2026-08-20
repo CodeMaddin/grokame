@@ -41,6 +41,7 @@ import {
   recommend,
 } from './hangar.js';
 import { Shipyard } from './shipyard.js';
+import { SETUP_DEFAULTS, SETUP_SLIDERS, loadSetup, saveSetup, resetSetup, clampSetup } from './settings.js';
 
 export class Game {
   constructor(canvas) {
@@ -55,6 +56,9 @@ export class Game {
     this._touch = { id: null, x: 0, y: 0, held: false, steerX: 0, steerY: 0 };
     this._mouseFromTouch = 0;
     this.audio = new AudioBus();
+    this.setup = loadSetup();
+    this._setupFrom = 'title';
+    this.audio.setMix(this.setup.music, this.setup.sfx);
     this.view = localStorage.getItem('aether-view') || 'scroll';
     if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'scroll';
     this._hasRun = false;
@@ -103,6 +107,7 @@ export class Game {
     this._bindInput();
     this._bindUI();
     this.reset(false);
+    this._applySetup(this.setup);
     this._onResize();
     window.addEventListener('resize', () => this._onResize());
     this.loop = this.loop.bind(this);
@@ -153,6 +158,8 @@ export class Game {
     this.world = new World(this.scene);
     this.world.attachRibbon(this.path.rebuildRibbon());
     this.entities = new EntityField(this.scene);
+    this.entities.onWindup = () => this.audio.enemyWindup();
+    this.entities.onShot = (fat) => this.audio.enemyShot(fat);
     const ship = createShip();
     this.shipCraft = ship;
     this.ship = ship.group;
@@ -346,7 +353,7 @@ export class Game {
       score: document.getElementById('score'),
       combo: document.getElementById('combo'),
       depth: document.getElementById('depth'),
-      threat: document.getElementById('threat'),
+      hudVitals: document.querySelector('.hud-vitals'),
       health: document.getElementById('health-fill'),
       boost: document.getElementById('boost-fill'),
       riftFill: document.getElementById('rift-fill'),
@@ -356,6 +363,7 @@ export class Game {
       teach: document.getElementById('teach'),
       title: document.getElementById('title-screen'),
       pause: document.getElementById('pause-screen'),
+      setup: document.getElementById('setup-screen'),
       dead: document.getElementById('dead-screen'),
       stats: document.getElementById('final-stats'),
       resultKicker: document.getElementById('result-kicker'),
@@ -369,6 +377,7 @@ export class Game {
       lives: document.getElementById('life-pips'),
       continue: document.getElementById('continue-screen'),
       continueLeft: document.getElementById('continue-left'),
+      continueFade: document.getElementById('continue-fade'),
       map: document.getElementById('map-screen'),
       mapGrid: document.getElementById('campaign-map'),
       mapKicker: document.getElementById('map-kicker'),
@@ -390,7 +399,6 @@ export class Game {
       hangarTitle: document.getElementById('hangar-title'),
       hangarHint: document.getElementById('hangar-hint'),
       hangarPayout: document.getElementById('hangar-payout'),
-      hangarNext: document.getElementById('hangar-next'),
       gold: document.getElementById('gold'),
       bossMeter: document.getElementById('boss-meter'),
       bossFill: document.getElementById('boss-fill'),
@@ -398,6 +406,10 @@ export class Game {
       bossTitle: document.getElementById('boss-title'),
       startBtn: document.getElementById('start-btn'),
       resumeTitleBtn: document.getElementById('resume-title-btn'),
+      titleSetupBtn: document.getElementById('title-setup-btn'),
+      pauseSetupBtn: document.getElementById('setup-pause-btn'),
+      setupReset: document.getElementById('setup-reset'),
+      setupBack: document.getElementById('setup-back'),
       viewBtns: [...document.querySelectorAll('[data-view]')],
       pauseBtn: document.getElementById('pause-btn'),
       bombBtn: document.getElementById('bomb-btn'),
@@ -412,6 +424,11 @@ export class Game {
     });
     this.ui.startBtn.addEventListener('click', () => this.startPlay());
     this.ui.resumeTitleBtn.addEventListener('click', () => this.resumeFromMenu());
+    this.ui.titleSetupBtn?.addEventListener('click', () => this._openSetup('title'));
+    this.ui.pauseSetupBtn?.addEventListener('click', () => this._openSetup('paused'));
+    this.ui.setupReset?.addEventListener('click', () => this._resetSetup());
+    this.ui.setupBack?.addEventListener('click', () => this._closeSetup());
+    this.ui.setup?.addEventListener('input', (e) => this._onSetupInput(e));
     document.getElementById('resume-btn').addEventListener('click', () => this.resume());
     document.getElementById('menu-btn').addEventListener('click', () => this.goToMenu({ resumeable: true }));
     document.getElementById('retry-btn').addEventListener('click', () => this.startPlay());
@@ -448,6 +465,10 @@ export class Game {
     const menuButtons = [
       this.ui.startBtn,
       this.ui.resumeTitleBtn,
+      this.ui.titleSetupBtn,
+      this.ui.pauseSetupBtn,
+      this.ui.setupReset,
+      this.ui.setupBack,
       document.getElementById('resume-btn'),
       document.getElementById('menu-btn'),
       document.getElementById('retry-btn'),
@@ -530,6 +551,10 @@ export class Game {
       this.goToMenu({ resumeable: this._runLive });
       return;
     }
+    if (this.state === 'setup') {
+      this._closeSetup();
+      return;
+    }
     if (this.state === 'playing' || this.state === 'paused') {
       this.goToMenu({ resumeable: true });
       return;
@@ -553,6 +578,7 @@ export class Game {
     this.ui.continue?.classList.add('hidden');
     this.ui.map?.classList.add('hidden');
     this.ui.hangar?.classList.add('hidden');
+    this.ui.setup?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.title.classList.remove('hidden');
     this._syncTitleActions();
@@ -577,6 +603,7 @@ export class Game {
     this.ui.continue?.classList.add('hidden');
     this.ui.map?.classList.add('hidden');
     this.ui.hangar?.classList.add('hidden');
+    this.ui.setup?.classList.add('hidden');
     this.ui.hud.classList.add('visible');
     this.audio.setPaused(false);
     this.clock.getDelta();
@@ -664,7 +691,7 @@ export class Game {
     const posK = snap ? 16 : view === 'scroll' ? 12 : view === 'chase' ? lerp(9.5, 22, pull) : 5;
     const lookK = snap ? 14 : view === 'scroll' ? 11 : view === 'chase' ? lerp(8.2, 20, pull) : 5.5;
     this.camera.position.lerp(camPos, 1 - Math.exp(-dt * posK));
-    this.camera.position.addScaledVector(this.kick, this.kickAmt);
+    this.camera.position.addScaledVector(this.kick, this.kickAmt * (this.setup?.shake ?? 1));
     this._camLook.lerp(camLook, 1 - Math.exp(-dt * lookK));
     this._camUp.lerp(camUp, 1 - Math.exp(-dt * lookK));
     this.camera.up.copy(this._camUp);
@@ -817,7 +844,7 @@ export class Game {
     this.world.setChapter(this._chapterId);
     this.audio.setChapter(this._audioChapter(this._chapterId));
     this._syncBombs();
-    this._syncLives();
+    this._syncLives({ force: true });
   }
 
   _localRibbon() {
@@ -848,8 +875,82 @@ export class Game {
     this.state = 'playing';
     this.audio.setPaused(false);
     this.ui.pause.classList.add('hidden');
+    this.ui.setup?.classList.add('hidden');
     this.clock.getDelta();
     this._releaseUiFocus();
+  }
+
+  async _openSetup(from) {
+    await this.audio.resume();
+    if (this.state === 'playing') this._setupFrom = 'paused';
+    else this._setupFrom = from || (this.state === 'paused' ? 'paused' : 'title');
+    this.state = 'setup';
+    this.audio.setPaused(false);
+    this.ui.title.classList.add('hidden');
+    this.ui.pause.classList.add('hidden');
+    this.ui.dead.classList.add('hidden');
+    this.ui.continue?.classList.add('hidden');
+    this.ui.map?.classList.add('hidden');
+    this.ui.hangar?.classList.add('hidden');
+    this.ui.setup?.classList.remove('hidden');
+    this._paintSetup();
+    this._releaseUiFocus();
+  }
+
+  _closeSetup() {
+    this.ui.setup?.classList.add('hidden');
+    if (this._setupFrom === 'paused') {
+      this.state = 'paused';
+      this.ui.pause.classList.remove('hidden');
+      this.audio.setPaused(true);
+      return;
+    }
+    this.state = 'title';
+    this.ui.title.classList.remove('hidden');
+    this.audio.setPaused(true);
+  }
+
+  _onSetupInput(e) {
+    const key = e.target?.name;
+    if (!key || !(key in SETUP_DEFAULTS)) return;
+    const v = Number(e.target.value) / 100;
+    this.setup = saveSetup({ ...this.setup, [key]: v });
+    this._applySetup(this.setup);
+    this._paintSetup();
+    if (key === 'sfx') {
+      const now = performance.now();
+      if (!this._setupShotAt || now - this._setupShotAt > 90) {
+        this._setupShotAt = now;
+        this.audio.shotFor('spark');
+      }
+    } else {
+      this.audio.ui('move');
+    }
+  }
+
+  _resetSetup() {
+    this.setup = resetSetup();
+    this._applySetup(this.setup);
+    this._paintSetup();
+    this.audio.ui('ok');
+  }
+
+  _applySetup(setup) {
+    this.setup = clampSetup(setup);
+    this.audio.setMix(this.setup.music, this.setup.sfx);
+    const scan = document.getElementById('scanlines');
+    if (scan) scan.style.opacity = String(0.35 * this.setup.film);
+    const vig = document.getElementById('vignette-frame');
+    if (vig) vig.style.opacity = String(0.55 + 0.45 * this.setup.film);
+  }
+
+  _paintSetup() {
+    for (const { key } of SETUP_SLIDERS) {
+      const input = this.ui.setup?.querySelector(`input[name="${key}"]`);
+      if (input) input.value = String(Math.round(this.setup[key] * 100));
+      const read = this.ui.setup?.querySelector(`[data-read="${key}"]`);
+      if (read) read.textContent = String(Math.round(this.setup[key] * 100));
+    }
   }
 
   die() {
@@ -857,7 +958,7 @@ export class Game {
     this.audio.sting('death');
     this.entities.explode(this.ship.position.clone(), 0xff3bd4);
     this.lives -= 1;
-    this._syncLives();
+    this._syncLives({ lost: true });
     if (this.lives > 0) {
       this._respawn();
       return;
@@ -879,17 +980,27 @@ export class Game {
     this.slide.set(0, 0);
     this.muzzleFlash = 0;
     this.audio.sting('life');
-    this._syncLives();
+    clearTimeout(this._lifePipTimer);
+    this._lifePipTimer = setTimeout(() => this._syncLives({ force: true }), 420);
   }
 
   _showContinue() {
     this.state = 'continue';
-    this.audio.setPaused(true);
+    this._continueT = 9;
+    this.audio.setContinue(true);
     this.audio.sting('continue');
     if (this.ui.continueLeft) {
       this.ui.continueLeft.textContent = `${this.continues} CREDIT${this.continues === 1 ? '' : 'S'} REMAIN`;
     }
+    if (this.ui.continueFade) this.ui.continueFade.style.transform = 'scaleX(1)';
     this.ui.continue?.classList.remove('hidden');
+  }
+
+  _tickContinue(dt) {
+    if (this.state !== 'continue') return;
+    this._continueT = Math.max(0, (this._continueT ?? 9) - dt);
+    if (this.ui.continueFade) this.ui.continueFade.style.transform = `scaleX(${this._continueT / 9})`;
+    if (this._continueT <= 0) this._declineContinue();
   }
 
   _acceptContinue() {
@@ -898,6 +1009,7 @@ export class Game {
     this.lives = 3;
     this.ui.continue?.classList.add('hidden');
     this.state = 'playing';
+    this.audio.setContinue(false);
     this.audio.setPaused(false);
     this._respawn();
     this.clock.getDelta();
@@ -926,8 +1038,8 @@ export class Game {
     this._hasRun = false;
     this._runLive = false;
     this._syncTitleActions();
+    this.audio.setContinue(false);
     this.audio.setPaused(false);
-    this.audio.explosion(true);
     this.best = Math.max(this.best, this.score);
     localStorage.setItem('aether-best', String(this.best));
     const rank = this._gradeNow(victory);
@@ -943,6 +1055,7 @@ export class Game {
     this.ui.continue?.classList.add('hidden');
     this.ui.map?.classList.add('hidden');
     this.ui.hangar?.classList.add('hidden');
+    this.ui.setup?.classList.add('hidden');
     this.ui.dead.classList.remove('hidden');
     const slot = getLevel(this.campaignIndex, this.levelIndex);
     if (this.ui.resultKicker) {
@@ -1032,6 +1145,7 @@ export class Game {
     this.ui.pause.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
     this.ui.hangar?.classList.add('hidden');
+    this.ui.setup?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.map?.classList.remove('hidden');
     this.progress = loadProgress();
@@ -1086,6 +1200,7 @@ export class Game {
     this.ui.pause.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
     this.ui.map?.classList.add('hidden');
+    this.ui.setup?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.hangar?.classList.remove('hidden');
     this.audio.setChapter('hangar');
@@ -1198,16 +1313,6 @@ export class Game {
       this.ui.hangarCost.classList.toggle('poor', poor);
       this.ui.hangarCost.textContent = cost <= 0 ? 'SYSTEM MAXED' : poor ? `₡${cost}  —  NOT ENOUGH` : `₡${cost}`;
     }
-    if (this.ui.hangarNext) {
-      const recId = this._hangarRecommend;
-      if (recId && CATALOG[recId]) {
-        this.ui.hangarNext.hidden = false;
-        this.ui.hangarNext.textContent = `NEXT · ${CATALOG[recId].title}`;
-      } else {
-        this.ui.hangarNext.hidden = true;
-        this.ui.hangarNext.textContent = '';
-      }
-    }
     if (this.ui.hangarBuy) {
       const base = buyLabel(levels, id);
       this.ui.hangarBuy.textContent = cost <= 0
@@ -1305,13 +1410,12 @@ export class Game {
     this.ui.pause.classList.add('hidden');
     this.ui.continue?.classList.add('hidden');
     this.ui.hangar?.classList.add('hidden');
+    this.ui.setup?.classList.add('hidden');
     this.ui.hud.classList.add('visible');
     this._viewSnap = 1;
     this.audio.setPaused(false);
     this.clock.getDelta();
     this._releaseUiFocus();
-    const slot = this._currentLevel();
-    if (slot) this.toast(`${slot.lv.id} — ${slot.lv.name}`);
   }
 
   _clearLevel() {
@@ -1327,7 +1431,6 @@ export class Game {
       this.levelIndex = nxt.li;
       this._mapCursor = { c: nxt.ci, l: nxt.li };
     }
-    this.audio.sting('chapter');
     const goldFrom = this.hangar.gold;
     this._collectLooseGold();
     const payout = clearPayout(ci, li, {
@@ -1353,14 +1456,14 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this._pollPad();
     this.audio.tick();
-    if (this.state === 'paused' || this.state === 'dead' || this.state === 'continue' || this.state === 'map' || this.state === 'hangar' || (this.state === 'title' && this._hasRun)) {
+    if (this.state === 'paused' || this.state === 'dead' || this.state === 'continue' || this.state === 'map' || this.state === 'hangar' || this.state === 'setup' || (this.state === 'title' && this._hasRun)) {
       if (this.state === 'hangar') {
         this._syncShipyardView();
         this.shipyard.update(dt);
         this.shipyard.render();
-        this._pinHangarNext();
         return;
       }
+      if (this.state === 'continue') this._tickContinue(dt);
       this._render();
       return;
     }
@@ -1739,12 +1842,12 @@ export class Game {
     const sunInView = sunNdc.z < 1
       && sunNdc.x > -1.2 && sunNdc.x < 1.2
       && sunNdc.y > -1.2 && sunNdc.y < 1.2;
-    const flare = sunInView ? 0.85 : 0;
+    const flare = (sunInView ? 0.85 : 0) * (this.setup?.flare ?? 1);
     this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
     this.fx.uniforms.uCockpit.value = 0;
-    this.fx.uniforms.uKick.value = this.kickAmt;
+    this.fx.uniforms.uKick.value = this.kickAmt * (this.setup?.shake ?? 1);
     this._riftBloom = Math.max(0, this._riftBloom - dt);
-    const bloomStr = 0.48 + this.gateFx * 0.28 + this._riftBloom * 0.5;
+    const bloomStr = (0.48 + this.gateFx * 0.28 + this._riftBloom * 0.5) * (this.setup?.bloom ?? 1);
     const bloomThr = 0.42;
     const bloomRad = 0.5 + this.gateFx * 0.12;
     this.bloom.strength = lerp(this.bloom.strength, bloomStr, 1 - Math.exp(-dt * 6));
@@ -1935,6 +2038,18 @@ export class Game {
     this.combo = 1;
     this.audio.hit();
     this._punch(0.04, 1.15);
+    const hull = this.ui.health;
+    const vitals = this.ui.hudVitals;
+    if (hull) {
+      hull.classList.remove('hull-hit');
+      void hull.offsetWidth;
+      hull.classList.add('hull-hit');
+    }
+    if (vitals) {
+      vitals.classList.remove('hull-hit');
+      void vitals.offsetWidth;
+      vitals.classList.add('hull-hit');
+    }
     this._shedResonance();
     if (this.health <= 0) {
       this.die();
@@ -1954,7 +2069,6 @@ export class Game {
     this._lastCombo = this.combo;
     const slotCode = this._currentLevel()?.lv.id || '1-1';
     this.ui.depth.textContent = `${slotCode} · ${(this.traveled / 10).toFixed(0)} km`;
-    if (this.ui.threat) this.ui.threat.textContent = String(this.entities.hunterCount());
     this.ui.health.style.transform = `scaleX(${clamp(this.health, 0, 1)})`;
     this.ui.boost.style.transform = `scaleX(${clamp(this.boost, 0, 1)})`;
     if (this.ui.gold) this.ui.gold.textContent = String(this.hangar?.gold || 0);
@@ -2064,16 +2178,6 @@ export class Game {
     this.fx.uniforms.uResolution.value.set(w, h);
     this.shipyard?.resize(w, h);
     this._syncShipyardView();
-  }
-
-  _pinHangarNext() {
-    const el = this.ui.hangarNext;
-    const id = this._hangarRecommend;
-    if (!el || el.hidden || !id || !this.shipyard) return;
-    const pt = this.shipyard.projectKit(id);
-    if (!pt) return;
-    el.style.left = `${Math.round(pt.x)}px`;
-    el.style.top = `${Math.round(pt.y)}px`;
   }
 
   _syncShipyardView() {
@@ -2193,13 +2297,16 @@ export class Game {
     if (sting) this.audio.sting(sting);
   }
 
-  _syncLives() {
+  _syncLives({ lost = false, force = false } = {}) {
     const el = this.ui?.lives;
     if (!el) return;
+    if (!force && !lost && this._livesPainted === this.lives && el.childElementCount === 3) return;
+    this._livesPainted = this.lives;
     el.innerHTML = '';
     for (let i = 0; i < 3; i++) {
       const pip = document.createElement('div');
-      pip.className = 'life-pip' + (i < this.lives ? ' lit' : '');
+      const lit = i < this.lives;
+      pip.className = 'life-pip' + (lit ? ' lit' : '') + (lost && i === this.lives ? ' life-lost' : '');
       el.appendChild(pip);
     }
   }
@@ -2231,7 +2338,7 @@ export class Game {
 
   _beginBossClear(role, pos = null) {
     const superBoss = this._currentLevel()?.lv.banner === 'super' || role === 'finale';
-    this._bossSlow = superBoss ? 2.7 : 2.35;
+    this._bossSlow = superBoss ? 5.4 : 4.7;
     this._pendingClear = true;
     this.entities.pullLoot(true);
     this._riftBloom = 1.15;
@@ -2453,6 +2560,7 @@ export class Game {
     if (pad.start && !prev.start) {
       if (this.state === 'playing') this.pause();
       else if (this.state === 'paused') this.resume();
+      else if (this.state === 'setup') this._closeSetup();
       else if (this.state === 'hangar') this._hangarDone();
       else if (this.state === 'title') {
         if (this._hasRun) this.resumeFromMenu();

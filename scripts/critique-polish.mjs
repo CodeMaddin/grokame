@@ -91,6 +91,7 @@ if (crafts.includes('if (i >= 3) parts.push(segment)')) {
 const html = read('index.html');
 const hangar = read('src/hangar.js');
 const weapons = read('src/weapons.js');
+const css = read('src/style.css');
 if (!html.includes('id="title-controls"') || !html.includes('A/D SLIDE') || !html.includes('B BOMB')) {
   fail('title does not teach slide/climb/fire/bomb in one line');
 }
@@ -144,10 +145,21 @@ if (!html.includes('id="boss-title"') || !game.includes('_announceBoss') || !gam
   fail('level bosses have no nameplate or kill beat');
 }
 if (!game.includes('_bossHold') || !game.includes('_bossSlow')) fail('boss hold/slow is not wired');
-if (!game.includes('PHASE TWO') || !game.includes('FINAL FORM') || !game.includes('PHASE THREE')) {
-  fail('level-boss phases are not readable');
+if (!game.includes('_watchBossPhase') || !css.includes('phase-3') || !game.includes("classList.toggle('phase-3'")) {
+  fail('level-boss phases are not on the meter');
 }
-if (!game.includes('_watchBossPhase')) fail('phase sting is not watched');
+if (game.includes("toast('PHASE TWO')") || game.includes('FINAL FORM')) {
+  fail('phase still dumps gold toast copy');
+}
+if (!game.includes('bossCard') || !game.includes('LEVEL BOSS|SUPER BOSS|FINALE')) {
+  fail('boss clocks still stack a chapter toast on the nameplate');
+}
+if (!audio.includes("kind === 'fall'") || !game.includes("sting('fall')")) {
+  fail('arrive and kill share one sting');
+}
+if (!game.includes('boss.levelBoss || boss.superBoss || boss.role === \'finale\'')) {
+  fail('minis still wear the level meter');
+}
 if (!game.includes("shotFor('spark'") || !audio.includes('endFreq')) {
   fail('spark trickle or lance/door sweeps are missing');
 }

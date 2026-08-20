@@ -364,8 +364,10 @@ canvas {
   transform: translateY(0) scale(1);
 }
 
-#boss-title.fall {
-  letter-spacing: 0.46em;
+#boss-title.show.fall {
+  opacity: 0.15;
+  transform: translateY(36px) scale(0.86);
+  transition: opacity 0.7s ease, transform 0.7s ease;
 }
 
 .boss-meter {
@@ -390,7 +392,16 @@ canvas {
 }
 
 .boss-meter.phase-sting {
-  filter: brightness(1.35);
+  filter: brightness(1.45);
+}
+
+.boss-meter.phase-2 #boss-fill {
+  box-shadow: 0 0 16px rgba(255, 90, 122, 0.7);
+}
+
+.boss-meter.phase-3 #boss-fill {
+  background: linear-gradient(90deg, #ff3bd4, #ffd166);
+  box-shadow: 0 0 20px rgba(255, 59, 212, 0.75);
 }
 
 .boss-meter .label {

@@ -1813,11 +1813,14 @@ export class Game {
     const el = this.ui?.bossMeter;
     if (!el) return;
     const boss = this.state === 'playing' ? this.entities.activeBoss() : null;
-    if (!boss) {
-      el.classList.remove('show');
+    const level = boss && (boss.levelBoss || boss.superBoss || boss.role === 'finale');
+    if (!level) {
+      el.classList.remove('show', 'phase-2', 'phase-3', 'phase-sting', 'arrive');
       return;
     }
     el.classList.add('show');
+    el.classList.toggle('phase-2', boss.visPhase === 2);
+    el.classList.toggle('phase-3', (boss.visPhase || 1) >= 3);
     if (this.ui.bossName) this.ui.bossName.textContent = this._bossName(boss.role);
     const ratio = clamp(boss.hp / Math.max(1, boss.maxHp || boss.hp), 0, 1);
     if (this.ui.bossFill) this.ui.bossFill.style.transform = `scaleX(${Math.max(0.02, ratio)})`;
@@ -1928,7 +1931,8 @@ export class Game {
         this._chapterAt = ch.at;
         const nameToast = slot ? `${slot.lv.id} — ${slot.lv.name}` : '';
         const openerDup = ch.at <= 90 && (ch.toast === nameToast || /^WAVE 0?1\b/.test(ch.toast || ''));
-        if (!openerDup) this.toast(ch.toast);
+        const bossCard = /^(LEVEL BOSS|SUPER BOSS|FINALE|BOSS)\b/.test(ch.toast || '');
+        if (!openerDup && !bossCard) this.toast(ch.toast);
         this._setChapter(ch.world || slot?.lv.world, ch.sting);
       }
     }
@@ -2052,13 +2056,13 @@ export class Game {
 
   _beginBossClear(role) {
     const superBoss = this._currentLevel()?.lv.banner === 'super' || role === 'finale';
-    this._bossSlow = superBoss ? 0.8 : 0.55;
+    this._bossSlow = superBoss ? 0.95 : 0.75;
     this._pendingClear = true;
     if (this.ui.bossTitle) {
       this.ui.bossTitle.textContent = this._bossToast(role);
       this.ui.bossTitle.classList.add('show', 'fall');
     }
-    this.audio.sting('boss');
+    this.audio.sting('fall');
   }
 
   _watchBossPhase() {
@@ -2070,10 +2074,8 @@ export class Game {
     }
     if (boss.visPhase === this._bossPhaseSeen) return;
     this._bossPhaseSeen = boss.visPhase;
-    if (boss.visPhase === 2) this.toast('PHASE TWO');
-    else if (boss.visPhase === 3) this.toast(boss.superBoss || boss.role === 'finale' ? 'FINAL FORM' : 'PHASE THREE');
-    this.audio.sting('chapter');
     this.ui.bossMeter?.classList.add('phase-sting');
+    this.audio.sting('chapter');
     clearTimeout(this._phaseStingTimer);
     this._phaseStingTimer = setTimeout(() => this.ui.bossMeter?.classList.remove('phase-sting'), 420);
   }

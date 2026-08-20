@@ -252,6 +252,14 @@ export class AudioBus {
       this._duck(0.45, 0.4);
       return;
     }
+    if (kind === 'fall') {
+      this._osc('sine', 196, t, 0.28, 0.1, null, 82);
+      this._osc('triangle', 147, t + 0.06, 0.4, 0.08, null, 55);
+      this._osc('sawtooth', 73, t + 0.12, 0.55, 0.09, null, 36);
+      this._noiseBurst(t + 0.08, 0.32, 140, 0.9, 0.1);
+      this._duck(0.62, 0.55);
+      return;
+    }
     if (kind === 'death') {
       this._osc('sine', 220, t, 0.35, 0.1);
       this._osc('triangle', 164.81, t + 0.08, 0.4, 0.08);

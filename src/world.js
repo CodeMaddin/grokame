@@ -104,6 +104,18 @@ export class World {
         sun: new THREE.Color('#ffd0ea'),
         ambient: new THREE.Color('#3a0a30'),
       },
+      heart: {
+        skyA: new THREE.Color('#18040c'),
+        skyB: new THREE.Color('#0a0614'),
+        skyC: new THREE.Color('#ff5a7a'),
+        ribbonA: new THREE.Color('#ff3bd4'),
+        ribbonB: new THREE.Color('#5ce1ff'),
+        fog: new THREE.Color('#100308'),
+        crystal: new THREE.Color('#ff5a7a'),
+        glow: new THREE.Color('#ff8ab0'),
+        sun: new THREE.Color('#ffd0d8'),
+        ambient: new THREE.Color('#2a0814'),
+      },
       finale: {
         skyA: new THREE.Color('#081828'),
         skyB: new THREE.Color('#2a0548'),

@@ -175,6 +175,98 @@ canvas {
   100% { transform: none; filter: none; }
 }
 
+.combo-panel .value.combo-hot {
+  color: #ffe29a;
+  text-shadow: 0 0 22px rgba(255, 209, 102, 0.95);
+}
+
+.combo-panel .value.combo-max {
+  color: #fff;
+  text-shadow: 0 0 28px #fff, 0 0 40px var(--gold);
+  animation: combo-max 1.1s ease-in-out infinite;
+}
+
+@keyframes combo-max {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.35); }
+}
+
+.combo-panel .value.combo-stab {
+  animation: combo-stab 0.34s ease-out;
+  color: #fff;
+}
+
+@keyframes combo-stab {
+  0% { transform: scale(1.9); text-shadow: 0 0 28px #fff, 0 0 40px var(--gold); }
+  100% { transform: none; }
+}
+
+.combo-panel .value.combo-drop {
+  animation: combo-drop 0.4s ease-in;
+  color: rgba(255, 90, 122, 0.85);
+}
+
+@keyframes combo-drop {
+  0% { transform: scale(1.2) translateY(0); filter: brightness(1.4); }
+  100% { transform: scale(0.86) translateY(6px); filter: grayscale(0.4); }
+}
+
+.gold-pip {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 14px rgba(255, 209, 102, 0.95);
+  pointer-events: none;
+  z-index: 12;
+  transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.55s ease;
+}
+
+.hud-gold .value.gold-catch {
+  animation: gold-catch 0.28s ease-out;
+}
+
+@keyframes gold-catch {
+  0% { transform: scale(1.35); filter: brightness(1.8); }
+  100% { transform: none; filter: none; }
+}
+
+#bomb-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: var(--bx, 50%) var(--by, 62%);
+  background: radial-gradient(
+    circle at var(--bx, 50%) var(--by, 62%),
+    rgba(255, 252, 244, 0.7) 0%,
+    rgba(92, 225, 255, 0.28) 18%,
+    rgba(255, 209, 102, 0.08) 36%,
+    transparent 58%
+  );
+}
+
+#bomb-flash.show {
+  animation: bomb-iris 0.48s ease-out;
+}
+
+@keyframes bomb-iris {
+  0% { opacity: 1; transform: scale(0.72); filter: brightness(1.35); }
+  100% { opacity: 0; transform: scale(1.18); filter: none; }
+}
+
+.bomb-wrap.bomb-slam {
+  animation: bomb-slam 0.4s ease-out;
+}
+
+@keyframes bomb-slam {
+  0% { filter: brightness(2.2); box-shadow: 0 0 22px rgba(92, 225, 255, 0.8); }
+  100% { filter: none; }
+}
+
 .threat-panel .value {
   color: var(--magenta);
   text-shadow: 0 0 18px rgba(255, 59, 212, 0.9);
@@ -630,6 +722,23 @@ h2 {
   font-size: 14px;
 }
 
+#dead-screen .tagline {
+  margin-bottom: 10px;
+}
+
+.result-rec,
+.result-next {
+  margin: 4px 0 0;
+  letter-spacing: 0.28em;
+  font-size: 14px;
+  color: var(--cyan);
+}
+
+.result-next {
+  color: #ff5a7a;
+  margin-bottom: 18px;
+}
+
 button {
   pointer-events: auto;
   cursor: pointer;
@@ -746,11 +855,26 @@ button:hover {
   color: var(--gold);
 }
 
-.map-node.cleared {
-  color: var(--cyan);
-  border-color: var(--cyan);
-  background: linear-gradient(180deg, rgba(92, 225, 255, 0.28), rgba(92, 225, 255, 0.06));
-  box-shadow: 0 0 14px rgba(92, 225, 255, 0.25);
+.map-node.cleared,
+.map-node.spent {
+  color: rgba(232, 246, 255, 0.35);
+  border-color: rgba(232, 246, 255, 0.2);
+  background: rgba(8, 4, 16, 0.55);
+  box-shadow: none;
+  opacity: 0.55;
+}
+
+.map-node.next {
+  color: #ff5a7a;
+  border-color: rgba(255, 90, 122, 0.85);
+  background: linear-gradient(180deg, rgba(255, 90, 122, 0.28), rgba(255, 90, 122, 0.06));
+  box-shadow: 0 0 18px rgba(255, 90, 122, 0.35);
+  animation: next-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes next-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
 
 .map-node.current {
@@ -759,6 +883,15 @@ button:hover {
   background: linear-gradient(180deg, rgba(255, 209, 102, 0.32), rgba(255, 59, 212, 0.12));
   box-shadow: 0 0 18px rgba(255, 209, 102, 0.35);
   transform: scale(1.06);
+}
+
+.map-node.next,
+.map-node.next.current {
+  color: #ff5a7a;
+  border-color: rgba(255, 90, 122, 0.85);
+  background: linear-gradient(180deg, rgba(255, 90, 122, 0.28), rgba(255, 90, 122, 0.06));
+  box-shadow: 0 0 18px rgba(255, 90, 122, 0.35);
+  animation: next-pulse 1.2s ease-in-out infinite;
 }
 
 .map-node.locked {

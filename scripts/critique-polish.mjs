@@ -183,6 +183,36 @@ for (const job of jobs) {
   if (!hangar.toLowerCase().includes(job)) fail(`hangar blurb is not a job: ${job}`);
 }
 
+if (!html.includes('id="bomb-flash"') || !css.includes('bomb-iris') || !game.includes('bombBoom') || !audio.includes('bombBoom()')) {
+  fail('bomb has no iris or boom voice');
+}
+if (!audio.includes('bomb()')) fail('legacy bomb() voice was removed');
+if (!game.includes('_comboCross') || !game.includes('_comboBreak') || !css.includes('combo-stab') || !audio.includes('comboStab')) {
+  fail('combo marks do not stab or break');
+}
+if (!game.includes('_spawnGoldPip') || !game.includes('_hudPoint') || !css.includes('gold-pip') || !css.includes('gold-catch')) {
+  fail('gold does not fly from the ribbon to the counter');
+}
+if (game.includes('toast(`+₡') || game.includes("toast('+₡")) {
+  fail('gold still dumps a toast instead of a pip');
+}
+if (game.includes("toast('NEAR MISS')")) fail('near-miss toast came back');
+if (!html.includes('id="result-rec"') || !html.includes('id="result-next"') || !game.includes('CLEARED ·') || !game.includes('NEXT BUY ·') || !game.includes('CAMPAIGN CLEAR')) {
+  fail('results are not a record of clear / next buy / next deploy');
+}
+if (!css.includes('.map-node.spent') || !css.includes('.map-node.next') || !game.includes("next ? 'next'")) {
+  fail('map does not mark spent clears and the next deploy');
+}
+if (!audio.includes("id === 'default' ? 'enter'") || !audio.includes('enter: 98') || !audio.includes('heart: 73') || !audio.includes('hangar: 92')) {
+  fail('stems do not change key per chapter');
+}
+if (!audio.includes('yardTick()') || !game.includes("setChapter('hangar')") || !game.includes('yardTick()')) {
+  fail('hangar has no yard tick');
+}
+if (!campaigns.includes("themedLevel('5-1', 'LAST LIGHT', 'heart'") || !read('src/world.js').includes('heart:')) {
+  fail('campaign 5 never enters a heart chapter');
+}
+
 if (fails.length) {
   console.error('POLISH CRITIQUE FAIL\n' + notes.map((n) => `  · ${n}`).join('\n') + '\n' + fails.map((f) => `  ✖ ${f}`).join('\n'));
   process.exit(1);

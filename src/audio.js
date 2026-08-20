@@ -76,7 +76,7 @@ export class AudioBus {
   }
 
   setChapter(id) {
-    this._chapter = id || 'default';
+    this._chapter = id === 'default' ? 'enter' : (id || 'enter');
   }
 
   _makeNoise(seconds) {
@@ -194,12 +194,13 @@ export class AudioBus {
 
   _mixStems(now) {
     const id = this._chapter;
-    const choir = id === 'finale' ? 0.055 : id === 'empress' ? 0.048 : id === 'queen' ? 0.042 : id === 'coil' ? 0.036 : id === 'warden' ? 0.03 : 0.01;
-    const arp = id === 'finale' ? 0.038 : id === 'empress' ? 0.034 : id === 'coil' ? 0.033 : id === 'warden' ? 0.032 : id === 'queen' ? 0.024 : 0.008;
+    const choir = id === 'finale' ? 0.055 : id === 'heart' ? 0.05 : id === 'empress' ? 0.048 : id === 'queen' ? 0.042 : id === 'coil' ? 0.036 : id === 'warden' ? 0.03 : id === 'enter' ? 0.018 : id === 'hangar' ? 0.012 : 0.01;
+    const arp = id === 'finale' ? 0.038 : id === 'heart' ? 0.03 : id === 'empress' ? 0.034 : id === 'coil' ? 0.033 : id === 'warden' ? 0.032 : id === 'queen' ? 0.024 : id === 'enter' ? 0.014 : id === 'hangar' ? 0.006 : 0.008;
     if (this._choirGain) this._choirGain.gain.setTargetAtTime(choir + this.intensity * 0.02, now, 0.35);
     if (this._arpGain) this._arpGain.gain.setTargetAtTime(arp + this.intensity * 0.015, now, 0.35);
     if (this._choirOsc) {
-      const base = id === 'warden' || id === 'coil' ? 98 : id === 'finale' ? 82.5 : id === 'empress' ? 138 : id === 'queen' ? 130.81 : 110;
+      const f0 = { enter: 98, default: 110, hangar: 92, queen: 130.81, warden: 98, coil: 87, empress: 138, heart: 73, finale: 82.5 };
+      const base = f0[id] ?? 110;
       this._choirOsc[0].frequency.setTargetAtTime(base, now, 0.4);
       this._choirOsc[1].frequency.setTargetAtTime(base * 1.5, now, 0.4);
     }
@@ -529,6 +530,53 @@ export class AudioBus {
     this._noiseBurst(t, 0.45, 140, 0.7, 0.16);
     this._duck(0.8, 0.45);
     this.rumble(220, 1);
+  }
+
+  bombBoom() {
+    this.bomb();
+    this._duck(0.92, 0.7);
+  }
+
+  comboStab(mult = 2) {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    if (mult >= 8) {
+      this._osc('sawtooth', 196, t, 0.16, 0.06);
+      this._osc('triangle', 784, t, 0.18, 0.07);
+      this._osc('sine', 1176, t + 0.04, 0.2, 0.05);
+      return;
+    }
+    if (mult >= 4) {
+      this._osc('triangle', 523, t, 0.14, 0.07);
+      this._osc('sine', 784, t + 0.03, 0.16, 0.05);
+      return;
+    }
+    this._osc('triangle', 330, t, 0.12, 0.06);
+    this._osc('sine', 495, t + 0.02, 0.12, 0.04);
+  }
+
+  comboDrop() {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    this._osc('sine', 220, t, 0.18, 0.06, null, 90);
+    this._osc('triangle', 140, t + 0.04, 0.2, 0.04, null, 70);
+  }
+
+  yardTick() {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    this._osc('square', 880, t, 0.03, 0.025);
+  }
+
+  ui(kind = 'move') {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    if (kind === 'ok') {
+      this._osc('sine', 520, t, 0.07, 0.04);
+      this._osc('triangle', 780, t + 0.03, 0.08, 0.03);
+      return;
+    }
+    this._osc('triangle', 640, t, 0.035, 0.03);
   }
 
   boom() {

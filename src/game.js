@@ -360,6 +360,8 @@ export class Game {
       resultKicker: document.getElementById('result-kicker'),
       resultTitle: document.getElementById('result-title'),
       resultRank: document.getElementById('result-rank'),
+      resultRec: document.getElementById('result-rec'),
+      resultNext: document.getElementById('result-next'),
       resultBoard: document.getElementById('result-board'),
       titleScores: document.getElementById('title-scores'),
       bombs: document.getElementById('bomb-pips'),
@@ -398,6 +400,7 @@ export class Game {
       viewBtns: [...document.querySelectorAll('[data-view]')],
       pauseBtn: document.getElementById('pause-btn'),
       bombBtn: document.getElementById('bomb-btn'),
+      bombFlash: document.getElementById('bomb-flash'),
     };
     this.ui.startBtn.addEventListener('click', () => this.startPlay());
     this.ui.resumeTitleBtn.addEventListener('click', () => this.resumeFromMenu());
@@ -415,7 +418,17 @@ export class Game {
       if (!row) return;
       this._hangarCursor = MODULE_ORDER.indexOf(row.dataset.mod);
       if (this._hangarCursor < 0) this._hangarCursor = 0;
+      this.audio.yardTick();
       this._renderHangar();
+    });
+    this.ui.hangarList?.addEventListener('mouseover', (e) => {
+      const row = e.target.closest('[data-mod]');
+      if (!row || row === this._hangarHover) return;
+      this._hangarHover = row;
+      const now = performance.now();
+      if (this._yardHoverAt && now - this._yardHoverAt < 90) return;
+      this._yardHoverAt = now;
+      this.audio.yardTick();
     });
     document.getElementById('continue-yes')?.addEventListener('click', () => this._acceptContinue());
     document.getElementById('continue-no')?.addEventListener('click', () => this._declineContinue());
@@ -924,7 +937,19 @@ export class Game {
         : 'HULL BREACH';
     }
     if (this.ui.resultRank) this.ui.resultRank.textContent = rank;
-    this.ui.stats.textContent = `SCORE ${this.score}   BEST ${this.best}   KILLS ${this.kills}   GOLD ${this.hangar?.gold || 0}   BOMBS ${this.bombsUsed}`;
+    const rec = recommend(this.hangar?.levels || {}, this.hangar?.gold || 0, slot?.lv.id || '');
+    const nxt = victory ? nextSlot(this.campaignIndex, this.levelIndex) : null;
+    if (this.ui.stats) {
+      this.ui.stats.textContent = victory
+        ? `CLEARED · ${slot?.lv.id || ''}`
+        : `GOLD ${this.hangar?.gold || 0}`;
+    }
+    if (this.ui.resultRec) this.ui.resultRec.textContent = rec ? `NEXT BUY · ${CATALOG[rec].title}` : '';
+    if (this.ui.resultNext) {
+      this.ui.resultNext.textContent = victory
+        ? (nxt ? `NEXT · ${nxt.lv.id} ${nxt.lv.name}` : 'CAMPAIGN CLEAR')
+        : '';
+    }
     this._renderScoreboard(this.ui.resultBoard, board, this.score);
   }
 
@@ -1018,10 +1043,11 @@ export class Game {
         const cleared = this.progress.cleared.includes(id);
         const current = ci === cursor.c && li === cursor.l;
         const locked = this._nodeLocked(ci, li);
+        const next = !cleared && !locked && ci === (this.progress.nextC || 0) && li === (this.progress.nextL || 0);
         const last = li === camp.levels.length - 1;
         const kind = lv.boss === 'finale' ? 'finale boss' : last ? 'boss' : '';
         const label = lv.boss === 'finale' ? '✦' : last ? '★' : String(li + 1);
-        return `<button type="button" class="map-node ${kind} ${cleared ? 'cleared' : ''} ${current ? 'current' : ''} ${locked ? 'locked' : ''}" data-c="${ci}" data-l="${li}" ${locked ? 'disabled' : ''} aria-label="${lv.id} ${lv.name}">${label}</button>`;
+        return `<button type="button" class="map-node ${kind} ${cleared ? 'cleared spent' : ''} ${next ? 'next' : ''} ${current ? 'current' : ''} ${locked ? 'locked' : ''}" data-c="${ci}" data-l="${li}" ${locked ? 'disabled' : ''} aria-label="${lv.id} ${lv.name}">${label}</button>`;
       }).join('<div class="map-rail"></div>');
       return `<div class="map-campaign${currentCamp ? ' current' : ''}"><div class="map-camp-meta"><span class="kicker">${camp.kicker}</span><span class="name">${camp.name}</span></div><div class="map-nodes">${nodes}</div></div>`;
     }).join('');
@@ -1045,6 +1071,8 @@ export class Game {
     this.ui.map?.classList.add('hidden');
     this.ui.hud.classList.remove('visible');
     this.ui.hangar?.classList.remove('hidden');
+    this.audio.setChapter('hangar');
+    this.audio.yardTick();
     this._setHangarShopMin(false);
     if (this.ui.hangarKicker) {
       this.ui.hangarKicker.textContent = from === 'win' ? 'CAMPAIGN COMPLETE' : from === 'clear' ? 'SECTOR CLEAR' : 'DRYDOCK';
@@ -1169,6 +1197,7 @@ export class Game {
   _hangarMove(dir) {
     const n = MODULE_ORDER.length;
     this._hangarCursor = (this._hangarCursor + dir + n) % n;
+    this.audio.yardTick();
     this._renderHangar();
   }
 
@@ -1476,7 +1505,10 @@ export class Game {
     }
     this.gateFx = gatePulse;
     this.comboTimer -= dt;
-    if (this.comboTimer <= 0) this.combo = 1;
+    if (this.comboTimer <= 0) {
+      if (this.combo >= 2) this._comboBreak();
+      this.combo = 1;
+    }
     for (const k of Object.keys(this.gunCd)) this.gunCd[k] = Math.max(0, this.gunCd[k] - dt);
 
     if (this.state === 'playing') {
@@ -1511,7 +1543,10 @@ export class Game {
       const motes = pickups.filter((p) => p.kind !== 'coin');
       const coins = pickups.filter((p) => p.kind === 'coin');
       if (motes.length) this._gainMotes(motes.length);
-      if (coins.length) this._gainGold(coins.reduce((n, p) => n + (p.value || this.entities.coinValue || 5), 0), coins.length);
+      if (coins.length) {
+        this._gainGold(coins.reduce((n, p) => n + (p.value || this.entities.coinValue || 5), 0), coins.length);
+        for (const coin of coins) this._spawnGoldPip(coin.mesh?.position);
+      }
 
       const gateHits = this.entities.collectGates(this.ship.position);
       for (const hit of gateHits) {
@@ -1689,7 +1724,6 @@ export class Game {
     this.hangar = addGold(this.hangar, amount);
     this.audio.coin();
     this._teach('gold', 'GOLD BUYS BAYS IN DRYDOCK');
-    if (count > 2) this.toast(`+₡${amount}`);
   }
 
   _gainMotes(n) {
@@ -1757,10 +1791,66 @@ export class Game {
   }
 
   _combatScore(n) {
+    const prev = this.combo;
     this.score += Math.floor(n * this.combo);
     this.combo = Math.min(8, this.combo + 0.35);
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.comboTimer = 3.2;
+    this._comboCross(prev, this.combo);
+  }
+
+  _comboCross(prev, next) {
+    for (const mark of [2, 4, 8]) {
+      if (prev < mark && next >= mark) {
+        this.ui.combo?.classList.remove('combo-stab');
+        void this.ui.combo?.offsetWidth;
+        this.ui.combo?.classList.add('combo-stab');
+        this.audio.comboStab(mark);
+      }
+    }
+  }
+
+  _comboBreak() {
+    const el = this.ui.combo;
+    if (el) {
+      el.classList.remove('combo-stab', 'combo-hot', 'combo-max', 'combo-drop');
+      void el.offsetWidth;
+      el.classList.add('combo-drop');
+    }
+    this.audio.comboDrop();
+  }
+
+  _hudPoint(worldPos) {
+    this.camera.updateMatrixWorld();
+    this._proj.copy(worldPos).project(this.camera);
+    return {
+      x: (this._proj.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-this._proj.y * 0.5 + 0.5) * window.innerHeight,
+    };
+  }
+
+  _spawnGoldPip(worldPos) {
+    const dest = this.ui.gold;
+    if (!dest) return;
+    const from = worldPos
+      ? this._hudPoint(worldPos)
+      : { x: window.innerWidth * 0.5, y: window.innerHeight * 0.55 };
+    const to = dest.getBoundingClientRect();
+    const pip = document.createElement('div');
+    pip.className = 'gold-pip';
+    pip.style.left = `${from.x}px`;
+    pip.style.top = `${from.y}px`;
+    document.body.appendChild(pip);
+    requestAnimationFrame(() => {
+      pip.style.transform = `translate(${to.left + to.width * 0.5 - from.x}px, ${to.top + to.height * 0.5 - from.y}px) scale(0.35)`;
+      pip.style.opacity = '0.15';
+    });
+    setTimeout(() => {
+      dest.classList.remove('gold-catch');
+      void dest.offsetWidth;
+      dest.classList.add('gold-catch');
+      pip.remove();
+    }, 560);
   }
 
   _score(n) {
@@ -1771,6 +1861,7 @@ export class Game {
     this.health -= amt;
     this.hurt = 1;
     this.invuln = 0.7;
+    if (this.combo >= 2) this._comboBreak();
     this.combo = 1;
     this.audio.hit();
     this._punch(0.04, 1.15);
@@ -1788,7 +1879,9 @@ export class Game {
     this.ui.score.textContent = this.score.toLocaleString();
     this.ui.combo.textContent = `×${this.combo.toFixed(1)}`;
     this.ui.combo.classList.toggle('combo-quiet', this.combo <= 1.05);
-    if (this.combo > (this._lastCombo || 1) + 0.02) {
+    this.ui.combo.classList.toggle('combo-hot', this.combo >= 4);
+    this.ui.combo.classList.toggle('combo-max', this.combo >= 8);
+    if (this.combo > (this._lastCombo || 1) + 0.02 && !this.ui.combo.classList.contains('combo-stab')) {
       this.ui.combo.classList.remove('combo-pop');
       void this.ui.combo.offsetWidth;
       this.ui.combo.classList.add('combo-pop');
@@ -2155,9 +2248,24 @@ export class Game {
     this.bombsUsed += 1;
     this.bombCd = 0.85;
     this.invuln = Math.max(this.invuln, 0.55);
-    this.audio.bomb();
-    this._punch(0.08, 1.6);
+    this.audio.bombBoom();
     const result = this.entities.bombSweep(this.traveled, this.holdY, 16);
+    const flash = this.ui.bombFlash;
+    if (flash && this.ship) {
+      const pt = this._hudPoint(this.ship.position);
+      const hud = this.ui.hud?.getBoundingClientRect();
+      const bx = hud ? `${((pt.x - hud.left) / Math.max(1, hud.width)) * 100}%` : '50%';
+      const by = hud ? `${((pt.y - hud.top) / Math.max(1, hud.height)) * 100}%` : '62%';
+      flash.style.setProperty('--bx', bx);
+      flash.style.setProperty('--by', by);
+      flash.classList.remove('show');
+      void flash.offsetWidth;
+      flash.classList.add('show');
+    }
+    this.ui.bombBtn?.classList.remove('bomb-slam');
+    void this.ui.bombBtn?.offsetWidth;
+    this.ui.bombBtn?.classList.add('bomb-slam');
+    this._punch(0.08, 1.6);
     for (const k of result.killed) {
       this.kills += 1;
       this._combatScore(k.type === 'boss' ? 3200 : k.type === 'midboss' ? 1400 : 180);

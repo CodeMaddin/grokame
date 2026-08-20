@@ -1464,7 +1464,7 @@ export class Game {
       if (firing) {
         const arms = arsenal(this.loadout, this.clock.elapsedTime);
         const muzzle = this.traveled + this.holdY + 6.2;
-        let titanOwns = false;
+        let frameOwns = false;
         for (const group of ['titan', 'nova', 'mine', 'missile', 'primary']) {
           const bank = arms[group];
           if (!bank.shots.length || this.gunCd[group] > 0) continue;
@@ -1474,8 +1474,8 @@ export class Game {
           }
           if (any) {
             this.gunCd[group] = bank.cd;
-            this._voiceGun(bank.shots, group, { ownHands: !titanOwns, quiet: titanOwns });
-            if (group === 'titan') titanOwns = true;
+            this._voiceGun(bank.shots, group, { ownHands: !frameOwns, quiet: frameOwns });
+            frameOwns = true;
           }
         }
       }
@@ -2042,7 +2042,17 @@ export class Game {
     if (!ownHands) return;
     const kick = shots.find((s) => s.kind === kind)?.kick ?? 0.2;
     this.kickAmt = Math.max(this.kickAmt, kick);
-    this.kick.set(kind === 'wing' || kind === 'shear' ? 0.55 : 0.08, kind === 'titan' ? 0.45 : 0.12, kind === 'titan' ? 1.35 : 0.4);
+    const vec = {
+      titan: [0.08, 0.45, 1.35],
+      needle: [0.04, 0.06, 0.9],
+      mine: [0.05, -0.62, 0.18],
+      nova: [0.72, 0.22, 0.28],
+      seeker: [0.22, 0.16, 0.52],
+      spark: [0.05, 0.08, 0.26],
+      wing: [0.58, 0.1, 0.32],
+      shear: [0.62, 0.12, 0.3],
+    }[kind] || [0.1, 0.1, 0.35];
+    this.kick.set(vec[0], vec[1], vec[2]);
     const flash = {
       titan: [0xffd166, 1.45, 1.8, 0.7, 1.1],
       needle: [0x9be7ff, 0.72, 0.45, 0.55, 2.4],

@@ -771,6 +771,7 @@ export class Game {
     this._bossSlow = 0;
     this._pendingClear = false;
     this._bossPhaseSeen = 1;
+    this.ui.bossTitle?.classList.remove('show', 'fall', 'settled');
     this.muzzleFlash = 0;
     this._midsThisLevel = 0;
     this.hangar = loadHangar();
@@ -1321,7 +1322,10 @@ export class Game {
       : 26 + wantBoost * 22 + Math.min(this.traveled / 2800, 8);
     this.speed = lerp(this.speed, cruise, 1 - Math.exp(-dt * 2.4));
     if (this.state === 'playing' && this._railHold > 0) this._railHold -= dt;
-    if (this.state === 'playing' && this._bossHold > 0) this._bossHold -= dt;
+    if (this.state === 'playing' && this._bossHold > 0) {
+      this._bossHold -= dt;
+      if (this._bossHold <= 0) this.ui.bossTitle?.classList.add('settled');
+    }
     if (this.state === 'playing' && this._bossSlow > 0) {
       this._bossSlow -= dt;
       if (this._bossSlow <= 0 && this._pendingClear) {
@@ -1816,12 +1820,15 @@ export class Game {
     const level = boss && (boss.levelBoss || boss.superBoss || boss.role === 'finale');
     if (!level) {
       el.classList.remove('show', 'phase-2', 'phase-3', 'phase-sting', 'arrive');
+      this.ui.bossTitle?.classList.remove('show', 'fall', 'settled');
       return;
     }
     el.classList.add('show');
     el.classList.toggle('phase-2', boss.visPhase === 2);
     el.classList.toggle('phase-3', (boss.visPhase || 1) >= 3);
-    if (this.ui.bossName) this.ui.bossName.textContent = this._bossName(boss.role);
+    if (this.ui.bossName) {
+      this.ui.bossName.textContent = this.ui.bossTitle?.classList.contains('show') ? '' : this._bossName(boss.role);
+    }
     const ratio = clamp(boss.hp / Math.max(1, boss.maxHp || boss.hp), 0, 1);
     if (this.ui.bossFill) this.ui.bossFill.style.transform = `scaleX(${Math.max(0.02, ratio)})`;
   }

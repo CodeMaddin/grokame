@@ -164,6 +164,12 @@ if (!html.includes('boss-crack') || !css.includes('.boss-crack')) {
   fail('phase does not crack the bar');
 }
 if (game.includes('_bossTitleTimer')) fail('arrival name still hides before the fall');
+if (!css.includes('#boss-title.show.settled') || !game.includes("classList.add('settled')")) {
+  fail('hanging name never settles after the enter hold');
+}
+if (!game.includes("classList.remove('show', 'fall', 'settled')")) {
+  fail('boss title is not cleared on reset');
+}
 if (!game.includes('boss.levelBoss || boss.superBoss || boss.role === \'finale\'')) {
   fail('minis still wear the level meter');
 }

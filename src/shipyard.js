@@ -24,7 +24,6 @@ export class Shipyard {
     this._fitBox = new THREE.Box3();
     this._fitTmp = new THREE.Box3();
     this._fitSize = new THREE.Vector3();
-    this._pin = new THREE.Vector3();
 
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
@@ -137,21 +136,6 @@ export class Shipyard {
   setLoadout(loadout, previewId = null) {
     dressShip(this.craft, loadout, previewId);
     this._fitDirty = true;
-  }
-
-  projectKit(id) {
-    const kit = this.craft?.kits?.[id];
-    const target = kit?.glows?.[0] || kit?.auras?.[0] || kit?.group;
-    const stage = this._stage;
-    if (!target || !stage) return null;
-    target.updateWorldMatrix(true, true);
-    target.getWorldPosition(this._pin);
-    this._pin.project(this.camera);
-    if (!Number.isFinite(this._pin.x) || !Number.isFinite(this._pin.y)) return null;
-    return {
-      x: (this._pin.x * 0.5 + 0.5) * stage.width,
-      y: (-this._pin.y * 0.5 + 0.5) * stage.height,
-    };
   }
 
   resize(w, h, stage = null, panel = null) {

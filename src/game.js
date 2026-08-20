@@ -399,7 +399,6 @@ export class Game {
       hangarTitle: document.getElementById('hangar-title'),
       hangarHint: document.getElementById('hangar-hint'),
       hangarPayout: document.getElementById('hangar-payout'),
-      hangarNext: document.getElementById('hangar-next'),
       gold: document.getElementById('gold'),
       bossMeter: document.getElementById('boss-meter'),
       bossFill: document.getElementById('boss-fill'),
@@ -1314,16 +1313,6 @@ export class Game {
       this.ui.hangarCost.classList.toggle('poor', poor);
       this.ui.hangarCost.textContent = cost <= 0 ? 'SYSTEM MAXED' : poor ? `₡${cost}  —  NOT ENOUGH` : `₡${cost}`;
     }
-    if (this.ui.hangarNext) {
-      const recId = this._hangarRecommend;
-      if (recId && CATALOG[recId]) {
-        this.ui.hangarNext.hidden = false;
-        this.ui.hangarNext.textContent = `NEXT · ${CATALOG[recId].title}`;
-      } else {
-        this.ui.hangarNext.hidden = true;
-        this.ui.hangarNext.textContent = '';
-      }
-    }
     if (this.ui.hangarBuy) {
       const base = buyLabel(levels, id);
       this.ui.hangarBuy.textContent = cost <= 0
@@ -1472,7 +1461,6 @@ export class Game {
         this._syncShipyardView();
         this.shipyard.update(dt);
         this.shipyard.render();
-        this._pinHangarNext();
         return;
       }
       if (this.state === 'continue') this._tickContinue(dt);
@@ -2190,16 +2178,6 @@ export class Game {
     this.fx.uniforms.uResolution.value.set(w, h);
     this.shipyard?.resize(w, h);
     this._syncShipyardView();
-  }
-
-  _pinHangarNext() {
-    const el = this.ui.hangarNext;
-    const id = this._hangarRecommend;
-    if (!el || el.hidden || !id || !this.shipyard) return;
-    const pt = this.shipyard.projectKit(id);
-    if (!pt) return;
-    el.style.left = `${Math.round(pt.x)}px`;
-    el.style.top = `${Math.round(pt.y)}px`;
   }
 
   _syncShipyardView() {

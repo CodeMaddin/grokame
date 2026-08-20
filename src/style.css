@@ -1132,29 +1132,6 @@ button:hover {
   padding-top: 1vh;
 }
 
-.hangar-next {
-  position: absolute;
-  left: 50%;
-  top: 58%;
-  transform: translate(-50%, -130%);
-  padding: 8px 16px;
-  border: 1px solid rgba(255, 209, 102, 0.78);
-  background: rgba(12, 4, 22, 0.74);
-  color: var(--gold);
-  letter-spacing: 0.28em;
-  font-size: 12px;
-  font-weight: 700;
-  text-shadow: 0 0 14px rgba(255, 209, 102, 0.7);
-  box-shadow: 0 0 22px rgba(255, 209, 102, 0.28), inset 0 0 16px rgba(255, 209, 102, 0.08);
-  pointer-events: none;
-  z-index: 3;
-  white-space: nowrap;
-}
-
-.hangar-next[hidden] {
-  display: none;
-}
-
 #hangar-screen .hangar-stage h2 {
   font-size: clamp(36px, 6vw, 64px);
   margin: 0 0 8px;
@@ -1530,11 +1507,6 @@ kbd {
     font-weight: 700;
     color: rgba(157, 247, 255, 0.82);
     text-shadow: 0 0 18px rgba(92, 225, 255, 0.35);
-  }
-
-  .hangar-next {
-    font-size: 10px;
-    padding: 6px 12px;
   }
 
   #hangar-screen {

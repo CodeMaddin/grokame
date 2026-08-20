@@ -114,8 +114,11 @@ if (game.includes('_maybeTeach') || game.includes('RAM THE GATES')) {
 if (!game.includes('SHOOT THE LOCK') || !game.includes('HOLD FIRE ON THE BRICK') || !game.includes('MOTES CHARGE OWNED BAYS') || !game.includes('GOLD BUYS BAYS IN DRYDOCK')) {
   fail('first-run teach copy is missing');
 }
-if (!html.includes('id="hangar-next"') || !game.includes('hangarNext') || !game.includes('NEXT ·') || !game.includes('projectKit') || !game.includes('_pinHangarNext')) {
-  fail('hangar does not pin the next buy on the hull bay');
+if (html.includes('id="hangar-next"') || css.includes('hangar-next') || game.includes('_pinHangarNext') || game.includes('hangarNext')) {
+  fail('hangar still pins a NEXT plaque over the hull');
+}
+if (!game.includes('_hangarRecommend') || !game.includes("' recommend'")) {
+  fail('hangar list no longer marks the next buy');
 }
 if (game.includes('NEXT BUY —')) fail('hangar still captions NEXT BUY on the blurb');
 if (!hangar.includes('export function recommend')) fail('hangar has no recommend()');

@@ -29,19 +29,23 @@ export class AudioBus {
     this._chapter = 'default';
     this._arpGain = null;
     this._choirGain = null;
+    this._musicMix = 0.72;
+    this._sfxMix = 1;
+    this._masterLive = 0.3;
+    this._continueBed = false;
   }
 
   async resume() {
     if (!this.ctx) {
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.2;
+      this.master.gain.value = this._masterLive;
       this.duck = this.ctx.createGain();
       this.duck.gain.value = 1;
       this.music = this.ctx.createGain();
-      this.music.gain.value = 0.55;
+      this.music.gain.value = 0.55 * this._musicMix;
       this.sfx = this.ctx.createGain();
-      this.sfx.gain.value = 1;
+      this.sfx.gain.value = 1.4 * this._sfxMix;
       this.music.connect(this.duck);
       this.duck.connect(this.master);
       this.sfx.connect(this.master);
@@ -57,12 +61,39 @@ export class AudioBus {
     this.setPaused(false);
   }
 
+  setMix(music, sfx) {
+    this._musicMix = Math.max(0, Math.min(1, music ?? this._musicMix));
+    this._sfxMix = Math.max(0, Math.min(1, sfx ?? this._sfxMix));
+    this._applyMix();
+  }
+
+  setContinue(on) {
+    this._continueBed = !!on;
+    if (on) this._paused = false;
+    this._applyMix();
+  }
+
   setPaused(paused) {
     this._paused = paused;
-    if (!this.master) return;
+    if (paused) this._continueBed = false;
+    this._applyMix();
+  }
+
+  _applyMix() {
+    if (!this.master || !this.ctx) return;
     const t = this.ctx.currentTime;
+    const muted = this._paused && !this._continueBed;
     this.master.gain.cancelScheduledValues(t);
-    this.master.gain.setTargetAtTime(paused ? 0.0008 : 0.2, t, 0.04);
+    this.master.gain.setTargetAtTime(muted ? 0.0008 : this._masterLive, t, 0.05);
+    if (this.music) {
+      const m = (this._continueBed ? 0.2 : 0.55) * this._musicMix;
+      this.music.gain.cancelScheduledValues(t);
+      this.music.gain.setTargetAtTime(Math.max(0.0001, m), t, 0.08);
+    }
+    if (this.sfx) {
+      this.sfx.gain.cancelScheduledValues(t);
+      this.sfx.gain.setTargetAtTime(Math.max(0.0001, 1.4 * this._sfxMix), t, 0.04);
+    }
   }
 
   setIntensity(v) {

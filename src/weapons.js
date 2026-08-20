@@ -123,7 +123,7 @@ export function arsenal(loadout, t = 0) {
         kind: 'spark',
         scale: 0.82 + sp * 0.04,
         speed: 84 + sp * 4,
-        life: 0.32 + sp * 0.018,
+        life: 0.32 + Math.max(0, sp - 1) * 0.042,
         color: 0xc8fff6,
         hitR: 1.25,
       }));
@@ -140,7 +140,7 @@ export function arsenal(loadout, t = 0) {
         kind: 'needle',
         scale: 1.05 + nd * 0.04,
         speed: 128 + nd * 3,
-        life: 0.78,
+        life: 0.78 + Math.max(0, nd - 1) * 0.04,
         color: 0x9be7ff,
         hitR: 1.55,
       }));

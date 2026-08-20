@@ -182,7 +182,7 @@ if (!entities.includes('midScale') || !entities.includes('en.mid && heat > 1.001
 if (!entities.includes('_syncHullMeter') || !entities.includes('hullMeter')) {
   fail('minis have no hull meter');
 }
-if (!game.includes('_bossSlow = superBoss ? 2.7 : 2.35') || !game.includes('_collectLooseGold')) {
+if (!game.includes('_bossSlow = superBoss ? 5.4 : 4.7') || !game.includes('_collectLooseGold')) {
   fail('boss kill still dumps the board before the gold');
 }
 if (!html.includes('id="rift-bloom"') || !css.includes('@keyframes rift-bloom') || !game.includes('_showRiftBloom') || !game.includes('_riftBloom')) {
@@ -345,6 +345,22 @@ if (!clearFn || clearFn.includes("sting('chapter')")) {
   fail('hangar door still stings chapter');
 }
 if (!game.includes("sting('chapter')")) fail('boss-phase chapter sting was deleted');
+
+if (!html.includes('id="setup-screen"') || !html.includes('id="setup-reset"') || !html.includes('id="setup-back"')) {
+  fail('no setup board');
+}
+if (!game.includes('loadSetup') || !game.includes('resetSetup') || !read('src/settings.js').includes('aether-setup')) {
+  fail('setup does not persist on this hull');
+}
+if (!game.includes('setMix(') || !audio.includes('setMix(music, sfx)') || !audio.includes('1.4 * this._sfxMix')) {
+  fail('guns still share the quiet factory mix');
+}
+if (!weapons.includes('Math.max(0, sp - 1) * 0.042')) {
+  fail('blasters do not stretch throw as they mark up');
+}
+if (!game.includes('setContinue(true)') || !audio.includes('setContinue(on)')) {
+  fail('continue still mutes like pause');
+}
 
 if (fails.length) {
   console.error('POLISH CRITIQUE FAIL\n' + notes.map((n) => `  · ${n}`).join('\n') + '\n' + fails.map((f) => `  ✖ ${f}`).join('\n'));

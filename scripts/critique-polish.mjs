@@ -157,6 +157,12 @@ if (!game.includes('bossCard') || !game.includes('LEVEL BOSS|SUPER BOSS|FINALE')
 if (!audio.includes("kind === 'fall'") || !game.includes("sting('fall')")) {
   fail('arrive and kill share one sting');
 }
+if (!game.includes('_bossName(role)') || game.includes("bossTitle.textContent = this._bossToast")) {
+  fail('kill plate still swaps in DOWN copy');
+}
+if (!html.includes('boss-crack') || !css.includes('.boss-crack')) {
+  fail('phase does not crack the bar');
+}
 if (!game.includes('boss.levelBoss || boss.superBoss || boss.role === \'finale\'')) {
   fail('minis still wear the level meter');
 }

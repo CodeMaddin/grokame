@@ -810,7 +810,7 @@ export class Game {
       this.world.attachRibbon(this._localRibbon());
     }
     this.world.setChapter(this._chapterId);
-    this.audio.setChapter(this._chapterId);
+    this.audio.setChapter(this._audioChapter(this._chapterId));
     this._syncBombs();
     this._syncLives();
   }
@@ -2130,13 +2130,24 @@ export class Game {
     this._clearLevel();
   }
 
+  _audioChapter(id) {
+    const camp = CAMPAIGNS[this.campaignIndex];
+    if (camp?.id === 'heart') {
+      const slot = this._currentLevel();
+      const finaleAt = slot?.lv.script?.find((e) => e.kind === 'finale')?.at;
+      if (slot?.lv.banner === 'finale' && finaleAt != null && this.traveled >= finaleAt) return 'finale';
+      return 'heart';
+    }
+    return id === 'default' ? 'enter' : (id || 'enter');
+  }
+
   _setChapter(id, sting) {
     if (!id) return;
     if (this._chapterId !== id) {
       this._chapterId = id;
       this.world.setChapter(id);
-      this.audio.setChapter(id);
     }
+    this.audio.setChapter(this._audioChapter(id));
     if (sting) this.audio.sting(sting);
   }
 

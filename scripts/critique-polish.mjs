@@ -237,9 +237,24 @@ if (!css.includes('.map-node.spent') || !css.includes('.map-node.next') || !game
 if (!audio.includes("id === 'default' ? 'enter'") || !audio.includes('enter: 98') || !audio.includes('heart: 73') || !audio.includes('hangar: 92')) {
   fail('stems do not change key per chapter');
 }
+if (audio.includes('warden: 98')) fail('enter and warden still share 98');
+if (!audio.includes('warden: 116')) fail('warden has no own bed key');
+if (!audio.includes('_padOsc') || !audio.includes("figure: 'drone'") || !audio.includes("figure: 'silk'") || !audio.includes("figure: 'pulse'") || !audio.includes("figure: 'choir'") || !audio.includes("figure: 'yard'")) {
+  fail('rooms are still a choir-Hz table without named figures');
+}
+if (!audio.includes('_figurePulse') || !audio.includes('_figureDrone') || !audio.includes('_figureYard') || !audio.includes('_figureChoir')) {
+  fail('named rooms have no playable figures');
+}
+if (!audio.includes("id === 'heart' || id === 'hangar') return")) {
+  fail('intensity kick still overwrites the heart and hangar beds');
+}
+if (!game.includes('_audioChapter(') || !game.includes("camp?.id === 'heart'") || !/_audioChapter[\s\S]{0,400}kind === 'finale'/.test(game)) {
+  fail('C5 audio does not hold heart until Sentinel');
+}
 if (!audio.includes('yardTick()') || !game.includes("setChapter('hangar')") || !game.includes('yardTick()')) {
   fail('hangar has no yard tick');
 }
+if (!audio.includes('[92, 138, 184, 138]')) fail('hangar is a click, not a looping yard bed');
 if (!campaigns.includes("themedLevel('5-1', 'LAST LIGHT', 'heart'") || !read('src/world.js').includes('heart:')) {
   fail('campaign 5 never enters a heart chapter');
 }

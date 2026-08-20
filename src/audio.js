@@ -1,3 +1,15 @@
+/** Named beds. A choir-Hz table is not a room. */
+const ROOMS = {
+  enter: { figure: 'drone', pad: ['triangle', 'sine'], padHz: [49, 98], filt: 190, filtSpan: 180, gain: 0.04, gainSpan: 0.022, choir: 0.018, arp: 0 },
+  queen: { figure: 'silk', pad: ['sine', 'triangle'], padHz: [65.41, 130.81], filt: 300, filtSpan: 260, gain: 0.038, gainSpan: 0.03, choir: 0.042, arp: 0.024 },
+  warden: { figure: 'aisle', pad: ['triangle', 'square'], padHz: [58, 116], filt: 240, filtSpan: 160, gain: 0.04, gainSpan: 0.02, choir: 0.03, arp: 0.02 },
+  coil: { figure: 'ember', pad: ['sawtooth', 'triangle'], padHz: [43.65, 87], filt: 360, filtSpan: 320, gain: 0.036, gainSpan: 0.032, choir: 0.036, arp: 0.022 },
+  empress: { figure: 'bloom', pad: ['sine', 'triangle'], padHz: [69, 138], filt: 340, filtSpan: 280, gain: 0.038, gainSpan: 0.028, choir: 0.048, arp: 0.028 },
+  heart: { figure: 'pulse', pad: ['sine', 'sine'], padHz: [36.5, 73], filt: 120, filtSpan: 70, gain: 0.05, gainSpan: 0.018, choir: 0.05, arp: 0 },
+  finale: { figure: 'choir', pad: ['triangle', 'sine'], padHz: [41.25, 82.5], filt: 380, filtSpan: 360, gain: 0.042, gainSpan: 0.034, choir: 0.055, arp: 0.038 },
+  hangar: { figure: 'yard', pad: ['sine', 'triangle'], padHz: [46, 92], filt: 150, filtSpan: 40, gain: 0.032, gainSpan: 0.01, choir: 0.012, arp: 0 },
+};
+
 export class AudioBus {
   constructor() {
     this.ctx = null;
@@ -68,11 +80,15 @@ export class AudioBus {
       this._step = (this._step + 1) % 16;
     }
     if (this._padFilt) {
-      const t = now;
-      this._padFilt.frequency.setTargetAtTime(220 + this.intensity * 920, t, 0.2);
-      this._padGain.gain.setTargetAtTime(0.045 + this.intensity * 0.05, t, 0.25);
+      const room = this._room();
+      this._padFilt.frequency.setTargetAtTime(room.filt + this.intensity * room.filtSpan, now, 0.2);
+      this._padGain.gain.setTargetAtTime(room.gain + this.intensity * room.gainSpan, now, 0.25);
     }
     this._mixStems(now);
+  }
+
+  _room() {
+    return ROOMS[this._chapter] || ROOMS.enter;
   }
 
   setChapter(id) {
@@ -144,25 +160,27 @@ export class AudioBus {
 
   _startPad() {
     const ctx = this.ctx;
+    const room = ROOMS.enter;
     const o1 = ctx.createOscillator();
     const o2 = ctx.createOscillator();
-    o1.type = 'sawtooth';
-    o2.type = 'sawtooth';
-    o1.frequency.value = 55;
-    o2.frequency.value = 82.5;
+    o1.type = room.pad[0];
+    o2.type = room.pad[1];
+    o1.frequency.value = room.padHz[0];
+    o2.frequency.value = room.padHz[1];
     o2.detune.value = 7;
     const filt = ctx.createBiquadFilter();
     filt.type = 'lowpass';
-    filt.frequency.value = 280;
+    filt.frequency.value = room.filt;
     filt.Q.value = 0.7;
     const g = ctx.createGain();
-    g.gain.value = 0.05;
+    g.gain.value = room.gain;
     o1.connect(filt);
     o2.connect(filt);
     filt.connect(g);
     g.connect(this.music);
     o1.start();
     o2.start();
+    this._padOsc = [o1, o2];
     this._padFilt = filt;
     this._padGain = g;
   }
@@ -194,51 +212,108 @@ export class AudioBus {
 
   _mixStems(now) {
     const id = this._chapter;
-    const choir = id === 'finale' ? 0.055 : id === 'heart' ? 0.05 : id === 'empress' ? 0.048 : id === 'queen' ? 0.042 : id === 'coil' ? 0.036 : id === 'warden' ? 0.03 : id === 'enter' ? 0.018 : id === 'hangar' ? 0.012 : 0.01;
-    const arp = id === 'finale' ? 0.038 : id === 'heart' ? 0.03 : id === 'empress' ? 0.034 : id === 'coil' ? 0.033 : id === 'warden' ? 0.032 : id === 'queen' ? 0.024 : id === 'enter' ? 0.014 : id === 'hangar' ? 0.006 : 0.008;
-    if (this._choirGain) this._choirGain.gain.setTargetAtTime(choir + this.intensity * 0.02, now, 0.35);
-    if (this._arpGain) this._arpGain.gain.setTargetAtTime(arp + this.intensity * 0.015, now, 0.35);
+    const room = this._room();
+    if (this._choirGain) this._choirGain.gain.setTargetAtTime(room.choir + this.intensity * 0.02, now, 0.35);
+    if (this._arpGain) this._arpGain.gain.setTargetAtTime(room.arp + this.intensity * (room.arp > 0 ? 0.015 : 0), now, 0.35);
     if (this._choirOsc) {
-      const f0 = { enter: 98, default: 110, hangar: 92, queen: 130.81, warden: 98, coil: 87, empress: 138, heart: 73, finale: 82.5 };
+      const f0 = { enter: 98, default: 110, hangar: 92, queen: 130.81, warden: 116, coil: 87, empress: 138, heart: 73, finale: 82.5 };
       const base = f0[id] ?? 110;
       this._choirOsc[0].frequency.setTargetAtTime(base, now, 0.4);
       this._choirOsc[1].frequency.setTargetAtTime(base * 1.5, now, 0.4);
     }
+    if (this._padOsc) {
+      this._padOsc[0].type = room.pad[0];
+      this._padOsc[1].type = room.pad[1];
+      this._padOsc[0].frequency.setTargetAtTime(room.padHz[0], now, 0.45);
+      this._padOsc[1].frequency.setTargetAtTime(room.padHz[1], now, 0.45);
+    }
   }
 
   _scheduleBeat(t, step) {
+    const id = this._chapter;
     const i = this.intensity;
-    const scale = [110, 130.81, 146.83, 164.81, 196, 220, 246.94, 261.63];
-    if (step % 8 === 0 && i > 0.12) {
+    const figure = this._room().figure;
+    if (figure === 'drone') this._figureDrone(t, step, i);
+    else if (figure === 'silk') this._figureSilk(t, step, i);
+    else if (figure === 'aisle') this._figureAisle(t, step, i);
+    else if (figure === 'ember') this._figureEmber(t, step, i);
+    else if (figure === 'bloom') this._figureBloom(t, step, i);
+    else if (figure === 'pulse') this._figurePulse(t, step, i);
+    else if (figure === 'choir') this._figureChoir(t, step, i);
+    else if (figure === 'yard') this._figureYard(t, step, i);
+    if (id === 'heart' || id === 'hangar') return;
+    this._intensityLayer(t, step, i);
+  }
+
+  _figureDrone(t, step, i) {
+    if (step % 16 !== 0) return;
+    this._osc('triangle', 98, t, 0.88, 0.046 + i * 0.018, this.music);
+    this._osc('sine', 147, t, 0.92, 0.028 + i * 0.012, this.music);
+  }
+
+  _figureSilk(t, step, i) {
+    if (step % 2 !== 0 || !this._arpGain) return;
+    const fall = [261.63, 220, 196, 164.81, 146.83, 130.81];
+    this._osc('triangle', fall[(step / 2) % fall.length], t, 0.11, 0.022 + i * 0.012, this._arpGain);
+  }
+
+  _figureAisle(t, step, i) {
+    if (step % 4 !== 0) return;
+    const bells = [116, 174, 232, 174];
+    this._osc('triangle', bells[(step / 4) % 4], t, 0.18, 0.028 + i * 0.01, this.music);
+  }
+
+  _figureEmber(t, step, i) {
+    if (step % 4 !== 0) return;
+    this._osc('sawtooth', 87, t, 0.15, 0.03 + i * 0.014, this.music, 52);
+  }
+
+  _figureBloom(t, step, i) {
+    if (step % 2 !== 0 || !this._arpGain) return;
+    this._osc('sine', 138, t, 0.1, 0.02 + i * 0.01, this._arpGain);
+    this._osc('sine', 174.61, t, 0.1, 0.016 + i * 0.008, this._arpGain);
+  }
+
+  _figurePulse(t, step, i) {
+    if (step % 8 !== 0) return;
+    this._osc('sine', 73, t, 0.3, 0.12 + i * 0.04, this.music, 32);
+    this._osc('triangle', 36.5, t + 0.02, 0.24, 0.06, this.music, 24);
+  }
+
+  _figureChoir(t, step, i) {
+    if (step % 2 !== 0 || !this._arpGain) return;
+    const lift = [165, 220, 247, 330, 247, 220];
+    this._osc('square', lift[(step / 2) % lift.length], t, 0.07, 0.02 + i * 0.014, this._arpGain);
+  }
+
+  _figureYard(t, step) {
+    if (step % 4 !== 0) return;
+    const yard = [92, 138, 184, 138];
+    this._osc('sine', yard[(step / 4) % 4], t, 0.14, 0.018, this.music);
+  }
+
+  _intensityLayer(t, step, i) {
+    if (step % 8 === 0 && i > 0.32) {
       const kick = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       kick.type = 'sine';
       kick.frequency.setValueAtTime(150, t);
       kick.frequency.exponentialRampToValueAtTime(42, t + 0.14);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.16 + i * 0.1, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.12 + i * 0.08, t + 0.008);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
       kick.connect(g);
       g.connect(this.music);
       kick.start(t);
       kick.stop(t + 0.2);
     }
-    if (step % 2 === 0 && i > 0.38) {
-      this._noiseBurst(t, 0.05, 6000, 0.6, 0.03 + i * 0.025);
+    if (step % 2 === 0 && i > 0.48) {
+      this._noiseBurst(t, 0.05, 6000, 0.6, 0.024 + i * 0.02);
     }
-    if (i > 0.22) {
+    if (i > 0.4 && step % 2 === 0) {
+      const scale = [110, 130.81, 146.83, 164.81, 196, 220, 246.94, 261.63];
       const note = scale[(step * 3 + Math.floor(i * 4)) % scale.length];
-      const oct = i > 0.62 && step % 4 === 0 ? 2 : 1;
-      this._osc('square', note * oct, t, 0.09, 0.03 + i * 0.025, this.music);
-    }
-    if (i > 0.7 && step % 16 === 12) {
-      this._osc('triangle', 55, t, 0.28, 0.05, this.music);
-    }
-    if (this._arpGain && (this._chapter === 'queen' || this._chapter === 'warden' || this._chapter === 'finale' || this._chapter === 'coil' || this._chapter === 'empress')) {
-      if (step % 2 === 0) {
-        const arpNote = scale[(step + 4) % scale.length] * (this._chapter === 'finale' ? 2 : 1);
-        this._osc('square', arpNote * 2, t, 0.06, 0.018 + i * 0.012, this._arpGain);
-      }
+      this._osc('square', note, t, 0.08, 0.018 + i * 0.016, this.music);
     }
   }
 

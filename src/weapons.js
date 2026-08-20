@@ -298,7 +298,7 @@ export function arsenal(loadout, t = 0) {
 
 export const GUN_KICK = {
   spark: 0.22,
-  needle: 0.14,
+  needle: 0.3,
   wing: 0.16,
   helix: 0.2,
   shear: 0.3,

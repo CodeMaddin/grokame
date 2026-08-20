@@ -37,7 +37,7 @@ export const CATALOG = {
   },
   titan: {
     title: 'TITAN CANNON',
-    blurb: 'The boss tooth. A belly slab that eats a phase. You feel the kick. The Queen does too.',
+    blurb: 'The boss tooth. A door slam in the belly. You feel the kick. The Queen does too.',
     unlock: 580,
   },
   wing: {
@@ -57,7 +57,7 @@ export const CATALOG = {
   },
   mine: {
     title: 'AETHER MINES',
-    blurb: 'Lane gifts. Leave them for the next wave, not the one in your face.',
+    blurb: 'Drops on hold. Slow crawlers in the lane. Same trigger — not gifts you place.',
     unlock: 360,
   },
   shear: {

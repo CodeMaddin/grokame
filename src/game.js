@@ -1464,7 +1464,8 @@ export class Game {
       if (firing) {
         const arms = arsenal(this.loadout, this.clock.elapsedTime);
         const muzzle = this.traveled + this.holdY + 6.2;
-        for (const group of ['primary', 'missile', 'titan', 'mine', 'nova']) {
+        let titanOwns = false;
+        for (const group of ['titan', 'nova', 'mine', 'missile', 'primary']) {
           const bank = arms[group];
           if (!bank.shots.length || this.gunCd[group] > 0) continue;
           let any = false;
@@ -1473,7 +1474,8 @@ export class Game {
           }
           if (any) {
             this.gunCd[group] = bank.cd;
-            this._voiceGun(bank.shots, group);
+            this._voiceGun(bank.shots, group, { ownHands: !titanOwns, quiet: titanOwns });
+            if (group === 'titan') titanOwns = true;
           }
         }
       }
@@ -2031,11 +2033,14 @@ export class Game {
     return 'QUEEN DOWN';
   }
 
-  _voiceGun(shots, group) {
+  _voiceGun(shots, group, { ownHands = true, quiet = false } = {}) {
     const kinds = [...new Set(shots.map((s) => s.kind).filter(Boolean))];
     const kind = kinds.find((k) => k !== 'spark') || kinds[0] || group;
-    this.audio.shotFor(kind);
-    const kick = Math.max(0.12, ...shots.map((s) => s.kick || 0.2));
+    const gain = quiet ? 0.38 : 1;
+    this.audio.shotFor(kind, { gain });
+    if (kinds.includes('spark') && kind !== 'spark') this.audio.shotFor('spark', { gain: quiet ? 0.2 : 0.35 });
+    if (!ownHands) return;
+    const kick = shots.find((s) => s.kind === kind)?.kick ?? 0.2;
     this.kickAmt = Math.max(this.kickAmt, kick);
     this.kick.set(kind === 'wing' || kind === 'shear' ? 0.55 : 0.08, kind === 'titan' ? 0.45 : 0.12, kind === 'titan' ? 1.35 : 0.4);
     const flash = {

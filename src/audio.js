@@ -87,13 +87,14 @@ export class AudioBus {
     return buf;
   }
 
-  _osc(type, freq, t, dur, gain, dest) {
+  _osc(type, freq, t, dur, gain, dest, endFreq) {
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
     o.type = type;
     o.frequency.setValueAtTime(freq, t);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g);
     g.connect(dest || this.sfx);
@@ -330,41 +331,43 @@ export class AudioBus {
     this.shotFor(kind);
   }
 
-  shotFor(kind = 'spark') {
+  shotFor(kind = 'spark', opts = {}) {
     if (!this.enabled) return;
     const t = this.ctx.currentTime;
+    const m = opts.gain == null ? 1 : Math.max(0.12, opts.gain);
     if (kind === 'titan') {
-      this._osc('sawtooth', 58, t, 0.32, 0.16);
-      this._osc('square', 116, t, 0.2, 0.08);
-      this._noiseBurst(t, 0.22, 160, 1.2, 0.12);
-      this._duck(0.32, 0.2);
-      this.rumble(90, 0.55);
+      this._noiseBurst(t, 0.035, 4200, 2.2, 0.08 * m);
+      this._osc('sine', 46, t, 0.48, 0.2 * m, null, 28);
+      this._osc('sawtooth', 78, t, 0.3, 0.11 * m, null, 38);
+      this._osc('square', 110, t, 0.08, 0.05 * m);
+      this._duck(0.4, 0.3);
+      this.rumble(110, 0.62);
       return;
     }
     if (kind === 'seeker') {
-      this._osc('sawtooth', 128, t, 0.2, 0.07);
-      this._osc('triangle', 210, t + 0.02, 0.16, 0.045);
-      this._noiseBurst(t, 0.14, 720, 0.9, 0.055);
+      this._osc('sawtooth', 128, t, 0.2, 0.07 * m);
+      this._osc('triangle', 210, t + 0.02, 0.16, 0.045 * m);
+      this._noiseBurst(t, 0.14, 720, 0.9, 0.055 * m);
       return;
     }
     if (kind === 'mine') {
-      this._osc('sine', 90, t, 0.18, 0.07);
-      this._osc('triangle', 160, t + 0.03, 0.22, 0.05);
-      this._noiseBurst(t, 0.1, 280, 1.4, 0.04);
+      this._osc('sine', 90, t, 0.18, 0.07 * m);
+      this._osc('triangle', 160, t + 0.03, 0.22, 0.05 * m);
+      this._noiseBurst(t, 0.1, 280, 1.4, 0.04 * m);
       return;
     }
     if (kind === 'nova') {
-      this._osc('sine', 220, t, 0.2, 0.07);
-      this._osc('triangle', 330, t, 0.24, 0.06);
-      this._osc('sine', 495, t + 0.04, 0.28, 0.05);
-      this._noiseBurst(t, 0.18, 1400, 0.6, 0.05);
-      this._duck(0.18, 0.16);
+      this._osc('sine', 220, t, 0.2, 0.07 * m);
+      this._osc('triangle', 330, t, 0.24, 0.06 * m);
+      this._osc('sine', 495, t + 0.04, 0.28, 0.05 * m);
+      this._noiseBurst(t, 0.18, 1400, 0.6, 0.05 * m);
+      if (m > 0.7) this._duck(0.18, 0.16);
       return;
     }
     if (kind === 'needle') {
-      this._osc('square', 1480, t, 0.035, 0.055);
-      this._osc('sine', 2960, t, 0.028, 0.03);
-      this._osc('sawtooth', 740, t, 0.05, 0.02);
+      this._osc('square', 1680, t, 0.14, 0.05 * m, null, 1240);
+      this._osc('sine', 2520, t, 0.12, 0.028 * m, null, 1880);
+      this._osc('sawtooth', 820, t, 0.09, 0.016 * m, null, 620);
       return;
     }
     if (kind === 'wing') {
@@ -402,8 +405,8 @@ export class AudioBus {
       this._osc('sine', 1760, t, 0.035, 0.025);
       return;
     }
-    this._osc('square', 480, t, 0.04, 0.04);
-    this._noiseBurst(t, 0.05, 2400, 0.7, 0.03);
+    this._osc('square', 480, t, 0.045, 0.038 * m);
+    this._noiseBurst(t, 0.05, 2400, 0.7, 0.028 * m);
   }
 
   mote(chord = false) {

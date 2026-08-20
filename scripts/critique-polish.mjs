@@ -132,7 +132,13 @@ if (!audio.includes('shotFor(kind') || !game.includes('_voiceGun') || !game.incl
 if (!weapons.includes('GUN_KICK') || !weapons.includes('titan: 0.92')) {
   fail('guns have no per-kind kick');
 }
-const jobs = ['kills the brick', 'boss tooth', 'lane gifts', 'clears the flanks', 'owns the flanks'];
+const jobs = ['kills the brick', 'boss tooth', 'drops on hold', 'clears the flanks', 'owns the flanks'];
+if (!game.includes("['titan', 'nova', 'mine', 'missile', 'primary']") || !game.includes('titanOwns')) {
+  fail('titan does not own the fire frame');
+}
+if (!game.includes("shotFor('spark'") || !audio.includes('endFreq')) {
+  fail('spark trickle or lance/door sweeps are missing');
+}
 for (const job of jobs) {
   if (!hangar.toLowerCase().includes(job)) fail(`hangar blurb is not a job: ${job}`);
 }

@@ -2043,10 +2043,8 @@ export class Game {
     if (this.ui.bossName) this.ui.bossName.textContent = name;
     if (this.ui.bossTitle) {
       this.ui.bossTitle.textContent = name;
-      this.ui.bossTitle.classList.add('show');
       this.ui.bossTitle.classList.remove('fall');
-      clearTimeout(this._bossTitleTimer);
-      this._bossTitleTimer = setTimeout(() => this.ui.bossTitle?.classList.remove('show'), superBoss ? 1400 : 1100);
+      this.ui.bossTitle.classList.add('show');
     }
     this.ui.bossMeter?.classList.add('show', 'arrive');
     this._bossHold = superBoss ? 1.15 : 0.85;
@@ -2058,14 +2056,10 @@ export class Game {
     const superBoss = this._currentLevel()?.lv.banner === 'super' || role === 'finale';
     this._bossSlow = superBoss ? 0.95 : 0.75;
     this._pendingClear = true;
-    clearTimeout(this._bossTitleTimer);
     if (this.ui.bossTitle) {
       this.ui.bossTitle.textContent = this._bossName(role);
-      this.ui.bossTitle.classList.remove('fall');
       this.ui.bossTitle.classList.add('show');
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => this.ui.bossTitle?.classList.add('fall'));
-      });
+      requestAnimationFrame(() => this.ui.bossTitle?.classList.add('fall'));
     }
     this.audio.sting('fall');
   }

@@ -163,6 +163,7 @@ if (!game.includes('_bossName(role)') || game.includes("bossTitle.textContent = 
 if (!html.includes('boss-crack') || !css.includes('.boss-crack')) {
   fail('phase does not crack the bar');
 }
+if (game.includes('_bossTitleTimer')) fail('arrival name still hides before the fall');
 if (!game.includes('boss.levelBoss || boss.superBoss || boss.role === \'finale\'')) {
   fail('minis still wear the level meter');
 }

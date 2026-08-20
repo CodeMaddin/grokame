@@ -88,6 +88,18 @@ if (crafts.includes('if (i >= 3) parts.push(segment)')) {
   fail('Queen inner wings still survive phase 3');
 }
 
+const html = read('index.html');
+const hangar = read('src/hangar.js');
+if (!html.includes('id="title-controls"') || !html.includes('A/D SLIDE')) {
+  fail('title does not teach slide/climb/fire/bomb in one line');
+}
+if (!game.includes('_maybeTeach') || !game.includes('RAM THE GATES') || !game.includes('HEAVIES DROP THE GOOD LOOT') || !game.includes('MOTES CHARGE OWNED BAYS')) {
+  fail('first-run teach toasts are missing');
+}
+if (!hangar.includes('export function recommend') || !game.includes('NEXT BUY')) {
+  fail('hangar does not point at the next buy after a clear');
+}
+
 if (fails.length) {
   console.error('POLISH CRITIQUE FAIL\n' + notes.map((n) => `  · ${n}`).join('\n') + '\n' + fails.map((f) => `  ✖ ${f}`).join('\n'));
   process.exit(1);

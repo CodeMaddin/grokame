@@ -38,6 +38,7 @@ import {
   clearPayout,
   buyLabel,
   tractorSpec,
+  recommend,
 } from './hangar.js';
 import { Shipyard } from './shipyard.js';
 
@@ -76,6 +77,7 @@ export class Game {
     this.campaignIndex = this.progress.nextC || 0;
     this.levelIndex = this.progress.nextL || 0;
     this._runLive = false;
+    this._hinted = new Set();
     this._resumeTo = 'play';
     this._mapCursor = { c: this.campaignIndex, l: this.levelIndex };
     this.hitStop = 0;
@@ -725,6 +727,7 @@ export class Game {
     this.best = Number(localStorage.getItem('aether-best') || 0);
     this.campaignIndex = this.progress?.nextC || 0;
     this.levelIndex = this.progress?.nextL || 0;
+    this._hinted = new Set();
   }
 
   _resetLevel(layout = true) {
@@ -917,6 +920,12 @@ export class Game {
     this._toastTimer = setTimeout(() => this.ui.toast.classList.remove('show'), 1200);
   }
 
+  _maybeTeach(key, text) {
+    if (this._hinted.has(key)) return;
+    this._hinted.add(key);
+    this.toast(text);
+  }
+
   _currentLevel() {
     return getLevel(this.campaignIndex, this.levelIndex);
   }
@@ -1012,7 +1021,15 @@ export class Game {
     if (this.ui.hangarDone) {
       this.ui.hangarDone.textContent = from === 'win' ? 'RESULTS' : from === 'clear' ? 'CAMPAIGN MAP' : 'RETURN';
     }
-    this._hangarCursor = Math.max(0, Math.min(MODULE_ORDER.length - 1, this._hangarCursor || 0));
+    this._hangarRecommend = (from === 'clear' || from === 'win')
+      ? recommend(this.hangar.levels, this.hangar.gold, slot?.lv.id || '')
+      : null;
+    if (this._hangarRecommend) {
+      const idx = MODULE_ORDER.indexOf(this._hangarRecommend);
+      if (idx >= 0) this._hangarCursor = idx;
+    } else {
+      this._hangarCursor = Math.max(0, Math.min(MODULE_ORDER.length - 1, this._hangarCursor || 0));
+    }
     this._renderHangar();
     this.clock.getDelta();
     this._syncShipyardView();
@@ -1042,7 +1059,8 @@ export class Game {
           return `<span class="pip${on ? ' on' : ''}${ghost ? ' ghost' : ''}"></span>`;
         }).join('');
         const meta = maxed ? 'MAX' : locked ? `₡${cost}` : `${lv}/${max}  ₡${cost}`;
-        return `<button type="button" class="hangar-row${selected ? ' selected' : ''}${locked ? ' locked' : ''}${maxed ? ' maxed' : ''}" data-mod="${mod}" role="option" aria-selected="${selected}"><span><strong>${CATALOG[mod].title}</strong><div class="pips">${pips}</div></span><span class="meta">${meta}</span></button>`;
+        const rec = this._hangarRecommend === mod;
+        return `<button type="button" class="hangar-row${selected ? ' selected' : ''}${locked ? ' locked' : ''}${maxed ? ' maxed' : ''}${rec ? ' recommend' : ''}" data-mod="${mod}" role="option" aria-selected="${selected}"><span><strong>${CATALOG[mod].title}</strong><div class="pips">${pips}</div></span><span class="meta">${meta}</span></button>`;
       }).join('');
       const sel = this.ui.hangarList.querySelector('.selected');
       sel?.scrollIntoView({ block: 'nearest' });
@@ -1053,11 +1071,12 @@ export class Game {
     const poor = cost > 0 && this.hangar.gold < cost;
     if (this.ui.hangarName) this.ui.hangarName.textContent = spec.title;
     if (this.ui.hangarBlurb) {
-      this.ui.hangarBlurb.textContent = lv <= 0
+      const rec = this._hangarRecommend === id ? 'NEXT BUY — ' : '';
+      this.ui.hangarBlurb.textContent = rec + (lv <= 0
         ? `Not fitted. ${spec.blurb}`
         : lv >= MODULES[id].max
           ? `Mark ${lv}. The bay is glowing. ${spec.blurb}`
-          : `Mark ${lv}. ${spec.blurb}`;
+          : `Mark ${lv}. ${spec.blurb}`);
     }
     if (this.ui.hangarCost) {
       this.ui.hangarCost.classList.toggle('poor', poor);
@@ -1166,6 +1185,7 @@ export class Game {
     this._releaseUiFocus();
     const slot = this._currentLevel();
     if (slot) this.toast(`${slot.lv.id} — ${slot.lv.name}`);
+    this._maybeTeach('boot', 'A/D SLIDE · W/S CLIMB · HOLD TO FIRE');
   }
 
   _clearLevel() {
@@ -1614,6 +1634,7 @@ export class Game {
 
   _gainMotes(n) {
     if (n <= 0) return;
+    this._maybeTeach('mote', 'MOTES CHARGE OWNED BAYS');
     this.audio.mote(n > 1);
     const fill = runFill(this.hangar.levels, this.runBonus);
     if (fill.cap <= 0 || fill.used >= fill.cap) {
@@ -1853,8 +1874,11 @@ export class Game {
       const ev = this.stage.consume();
       if (ev.kind === 'squad') {
         this.entities.spawnSquad(this.path, this.traveled, ev.form, ev.role, ev.n, ev.ahead, this._stageHeat());
+        const brick = ev.role === 'heavy' || ev.role === 'slag' || ev.role === 'chime' || ev.role === 'prism' || ev.role === 'wisp';
+        if (brick) this._maybeTeach('heavy', 'HEAVIES DROP THE GOOD LOOT');
       } else if (ev.kind === 'gate') {
         this.entities.spawnGateAt(this.path, this.traveled, 72, this._stageHeat());
+        this._maybeTeach('gate', 'RAM THE GATES — OR SLIDE THE GAP');
       } else if (ev.kind === 'orbs') {
         this.entities.spawnOrbsAt(this.path, this.traveled, 3);
         this.entities.spawnCoins(this.path, this.traveled + 48, 0, 2);

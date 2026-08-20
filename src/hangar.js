@@ -242,6 +242,19 @@ export function tractorPull(dist, spec) {
   return force * (Math.log(range / Math.max(dist, TRACTOR_NEAR)) / span);
 }
 
+export function recommend(levels, gold = 0, afterId = '') {
+  if (afterId === '1-1') {
+    if ((levels.tractor | 0) <= 0) return 'tractor';
+    if ((levels.needle | 0) <= 0) return 'needle';
+  }
+  const order = afterId === '1-1' ? ['tractor', 'needle', ...MODULE_ORDER] : MODULE_ORDER;
+  for (const id of order) {
+    const cost = nextCost(levels, id);
+    if (cost > 0 && gold >= cost) return id;
+  }
+  return null;
+}
+
 export function buyLabel(levels, id) {
   const lv = levels[id] | 0;
   const max = MODULES[id].max;

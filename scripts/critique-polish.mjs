@@ -176,6 +176,21 @@ if (!game.includes('_pendingClear || this._bossSlow > 0) return')) {
 if (!game.includes('boss.levelBoss || boss.superBoss || boss.role === \'finale\'')) {
   fail('minis still wear the level meter');
 }
+if (!entities.includes('midScale') || !entities.includes('en.mid && heat > 1.001')) {
+  fail('later minis still wear full boss HP');
+}
+if (!entities.includes('_syncHullMeter') || !entities.includes('hullMeter')) {
+  fail('minis have no hull meter');
+}
+if (!game.includes('_bossSlow = superBoss ? 2.7 : 2.35') || !game.includes('_collectLooseGold')) {
+  fail('boss kill still dumps the board before the gold');
+}
+if (!html.includes('id="rift-bloom"') || !css.includes('@keyframes rift-bloom') || !game.includes('_showRiftBloom') || !game.includes('_riftBloom')) {
+  fail('level boss has no fall bloom');
+}
+if (!game.includes('hangar || this.hangar || loadHangar()')) {
+  fail('clear hangar still reloads a stale wallet');
+}
 if (!game.includes("shotFor('spark'") || !audio.includes('endFreq')) {
   fail('spark trickle or lance/door sweeps are missing');
 }

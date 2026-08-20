@@ -576,10 +576,13 @@ export class EntityField {
     const bump = (base) => (heat <= 1.001 ? 0 : Math.max(0, Math.round(base * (heat - 1) * 0.75)));
     const namedHull = role === 'queen' || role === 'warden' || role === 'finale';
     const eliteScale = namedHull ? 1 : 1 + Math.max(0, heat - 1) * 0.18;
+    en.heat = heat;
+    en.mid = !flags.levelBoss && !flags.superBoss && (role === 'queen' || role === 'warden' || role === 'coil' || role === 'empress');
+    const midScale = en.mid && heat > 1.001 ? 0.48 : 1;
     en.mesh.scale.setScalar(1);
     if (en.craft) setCraftPhase(en.craft, 1);
     if (role === 'queen') {
-      en.hp = Math.round(eliteHp('queen', step, loadout) * eliteScale);
+      en.hp = Math.round(eliteHp('queen', step, loadout) * eliteScale * midScale);
       en.maxHp = en.hp;
       en.radius = 7.4;
       en.descent = 0.52;
@@ -588,7 +591,7 @@ export class EntityField {
       en.drop = 3;
       en.bombDrop = 1;
     } else if (role === 'warden') {
-      en.hp = Math.round(eliteHp('warden', step, loadout) * eliteScale);
+      en.hp = Math.round(eliteHp('warden', step, loadout) * eliteScale * midScale);
       en.maxHp = en.hp;
       en.radius = 7.6;
       en.descent = 0.38;
@@ -597,7 +600,7 @@ export class EntityField {
       en.drop = 3;
       en.bombDrop = 1;
     } else if (role === 'coil') {
-      en.hp = Math.round(eliteHp('coil', step, loadout) * eliteScale);
+      en.hp = Math.round(eliteHp('coil', step, loadout) * eliteScale * midScale);
       en.maxHp = en.hp;
       en.radius = 6.4;
       en.descent = 0.44;
@@ -606,7 +609,7 @@ export class EntityField {
       en.drop = 3;
       en.bombDrop = 1;
     } else if (role === 'empress') {
-      en.hp = Math.round(eliteHp('empress', step, loadout) * eliteScale);
+      en.hp = Math.round(eliteHp('empress', step, loadout) * eliteScale * midScale);
       en.maxHp = en.hp;
       en.radius = 7.4;
       en.descent = 0.48;
@@ -660,6 +663,56 @@ export class EntityField {
       en.drop = 0;
       en.bombDrop = 0;
     }
+    this._syncHullMeter(en);
+  }
+
+  _hullMeterMats() {
+    if (this._meterGeo) return;
+    this._meterGeo = new THREE.PlaneGeometry(2.4, 0.22);
+    this._meterTrack = new THREE.MeshBasicMaterial({
+      color: 0x140818,
+      transparent: true,
+      opacity: 0.82,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this._meterFill = new THREE.MeshBasicMaterial({
+      color: 0xffd166,
+      transparent: true,
+      opacity: 0.96,
+      depthTest: false,
+      depthWrite: false,
+    });
+  }
+
+  _ensureHullMeter(en) {
+    if (en.hullMeter) return en.hullMeter;
+    this._hullMeterMats();
+    const track = new THREE.Mesh(this._meterGeo, this._meterTrack);
+    const fill = new THREE.Mesh(this._meterGeo, this._meterFill);
+    const group = new THREE.Group();
+    track.renderOrder = 8;
+    fill.renderOrder = 9;
+    fill.position.z = 0.02;
+    group.add(track);
+    group.add(fill);
+    group.position.set(0, 2.55, 0.35);
+    en.mesh.add(group);
+    en.hullMeter = { group, fill, track };
+    return en.hullMeter;
+  }
+
+  _syncHullMeter(en) {
+    const mid = !!(en?.alive && en.mid && !en.levelBoss && !en.superBoss);
+    if (!mid) {
+      if (en?.hullMeter) en.hullMeter.group.visible = false;
+      return;
+    }
+    const bar = this._ensureHullMeter(en);
+    bar.group.visible = true;
+    const r = Math.max(0, Math.min(1, en.hp / Math.max(1, en.maxHp || en.hp)));
+    bar.fill.scale.x = Math.max(0.05, r);
+    bar.fill.position.x = (r - 1) * 1.2;
   }
 
   _bindCraft(en, role) {
@@ -951,6 +1004,10 @@ export class EntityField {
     p.mesh.position.copy(rail.pos);
   }
 
+  pullLoot(on) {
+    this._lootPull = !!on;
+  }
+
   recycleBehind(traveled, holdY = 8) {
     const cut = traveled + Math.min(holdY, 0) - 40;
     for (const list of [this.orbs, this.gates, this.enemies, this.blockers, this.pickups]) {
@@ -960,8 +1017,10 @@ export class EntityField {
         if (dist < cut) {
           if (item.burst > 0) continue;
           if (item.elite) continue;
+          if (this._lootPull && item.kind === 'coin') continue;
           item.alive = false;
           item.mesh.visible = false;
+          if (item.hullMeter) item.hullMeter.group.visible = false;
         }
       }
     }
@@ -1032,14 +1091,18 @@ export class EntityField {
   _reloadFor(en, difficulty) {
     if (en.role === 'finale') return en.phase === 3 ? 1.15 : en.phase === 2 ? 1.45 : 1.85;
     const climax = (en.levelBoss || en.superBoss) && (en.phase || 1) >= 3;
-    if (en.role === 'queen') return climax ? 1.28 : 1.55;
-    if (en.role === 'empress') return climax ? 1.22 : 1.48;
-    if (en.role === 'warden') return climax ? 1.4 : 1.7;
-    if (en.role === 'coil') return climax ? 1.34 : 1.62;
-    if (en.role === 'heavy' || en.role === 'slag' || en.role === 'chime' || en.role === 'prism' || en.role === 'wisp') {
-      return Math.max(1.7, 2.4 - difficulty * 0.07);
+    let wait = 2.2;
+    if (en.role === 'queen') wait = climax ? 1.28 : 1.55;
+    else if (en.role === 'empress') wait = climax ? 1.22 : 1.48;
+    else if (en.role === 'warden') wait = climax ? 1.4 : 1.7;
+    else if (en.role === 'coil') wait = climax ? 1.34 : 1.62;
+    else if (en.role === 'heavy' || en.role === 'slag' || en.role === 'chime' || en.role === 'prism' || en.role === 'wisp') {
+      wait = Math.max(1.7, 2.4 - difficulty * 0.07);
+    } else {
+      wait = Math.max(2.1, 2.8 - difficulty * 0.08);
     }
-    return Math.max(2.1, 2.8 - difficulty * 0.08);
+    if (en.mid && (en.heat || 1) > 1.001) wait *= 1.2;
+    return wait;
   }
 
   _enemyVolley(en, path, difficulty) {
@@ -1168,6 +1231,7 @@ export class EntityField {
       en.flash = Math.max(0, (en.flash || 0) - dt);
       const inRange = en.pathDist > traveled + 6 && en.pathDist < traveled + 78;
       this._telegraphAndFire(en, dt, path, difficulty, inRange);
+      this._syncHullMeter(en);
     }
     if (this.boss?.alive) {
       if (this.boss.ring) this.boss.ring.rotation.z -= dt * 0.9;
@@ -1304,6 +1368,12 @@ export class EntityField {
           p.laneX += (dx / dist) * sucked;
           p.pathDist += (dy / dist) * sucked;
         }
+      }
+      if (p.grace <= 0 && this._lootPull && p.kind === 'coin' && dist > 1e-4) {
+        const pull = 42 * dt;
+        p.laneX += (dx / dist) * pull;
+        p.pathDist += (dy / dist) * pull;
+        sucked = Math.max(sucked, pull);
       }
       const pulse = 0.85 + 0.18 * Math.sin(this.time * 8 + p.pathDist);
       p.mesh.scale.setScalar(pulse * (sucked > 0 ? 1.08 : 1));

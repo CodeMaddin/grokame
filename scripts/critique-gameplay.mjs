@@ -203,6 +203,9 @@ if (/role === 'queen'[\s\S]{0,80}eliteScale/.test(entities) && !entities.include
   fail('Queen still takes eliteScale heat HP');
 }
 if (!entities.includes('namedHull ? 1')) fail('Queen/Warden/Sentinel are not exempt from eliteScale');
+if (!entities.includes('midScale') || !entities.includes('en.mid && heat > 1.001')) {
+  fail('later minis still share the level-boss HP budget');
+}
 if (!game.includes("ev.kind === 'breath'") || !game.includes("ev.kind === 'hold'")) {
   fail('breath/hold events are still ignored in _runStage');
 }

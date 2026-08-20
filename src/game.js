@@ -65,6 +65,7 @@ export class Game {
     this._pendingClear = false;
     this._bossPhaseSeen = 1;
     this.gateFx = 0;
+    this._riftBloom = 0;
     this._viewSnap = 1;
     this._camLook = new THREE.Vector3();
     this._camUp = new THREE.Vector3(0, 1, 0);
@@ -401,6 +402,7 @@ export class Game {
       pauseBtn: document.getElementById('pause-btn'),
       bombBtn: document.getElementById('bomb-btn'),
       bombFlash: document.getElementById('bomb-flash'),
+      riftBloom: document.getElementById('rift-bloom'),
     };
     this.ui.combo?.addEventListener('animationend', (e) => {
       if (String(e.animationName).startsWith('combo-stab')) {
@@ -769,6 +771,9 @@ export class Game {
     this.hurt = 0;
     this.invuln = 2.2;
     this.gateFx = 0;
+    this._riftBloom = 0;
+    this.entities?.pullLoot?.(false);
+    this.ui.riftBloom?.classList.remove('show');
     this.fireCd = 0;
     this._blockWarn = false;
     this.offset = new THREE.Vector2(0, 0);
@@ -1067,11 +1072,11 @@ export class Game {
     }
   }
 
-  _openHangar({ from = 'map', payout = null, slot = null, nxt = null } = {}) {
+  _openHangar({ from = 'map', payout = null, slot = null, nxt = null, hangar = null } = {}) {
     this._clearInput();
     this._hangarFrom = from;
     this.state = 'hangar';
-    this.hangar = loadHangar();
+    this.hangar = hangar || this.hangar || loadHangar();
     this.audio.setPaused(false);
     this.audio.setIntensity(0.16);
     this.ui.title.classList.add('hidden');
@@ -1128,6 +1133,9 @@ export class Game {
       this._hangarCursor = Math.max(0, Math.min(MODULE_ORDER.length - 1, this._hangarCursor || 0));
     }
     this._renderHangar();
+    requestAnimationFrame(() => {
+      if (this.state === 'hangar') this._renderHangar();
+    });
     this.clock.getDelta();
     this._syncShipyardView();
   }
@@ -1308,13 +1316,15 @@ export class Game {
       this._mapCursor = { c: nxt.ci, l: nxt.li };
     }
     this.audio.sting('chapter');
+    this._collectLooseGold();
     const payout = clearPayout(ci, li, {
       superBoss: slot?.lv.chapters?.some((ch) => /SUPER/.test(ch.toast || '')),
       finale: slot?.lv.boss === 'finale',
       mids: this._midsThisLevel || 2,
     });
     this.hangar = addGold(this.hangar, payout.total);
-    this._openHangar({ from: nxt ? 'clear' : 'win', payout, slot, nxt });
+    this.entities.pullLoot(false);
+    this._openHangar({ from: nxt ? 'clear' : 'win', payout, slot, nxt, hangar: this.hangar });
   }
 
   win() {
@@ -1606,7 +1616,7 @@ export class Game {
           if (k.type === 'midboss') {
             this._midsThisLevel = (this._midsThisLevel || 0) + 1;
             if (this._isLevelBossKill(k)) {
-              this._beginBossClear(k.role);
+              this._beginBossClear(k.role, k.pos);
               return;
             }
             this.toast(this._bossToast(k.role));
@@ -1623,7 +1633,7 @@ export class Game {
           this.kills += 1;
           this._combatScore(3200);
           this._dropLoot(k);
-          this._beginBossClear('finale');
+          this._beginBossClear('finale', k.pos);
           return;
         }
       }
@@ -1669,7 +1679,7 @@ export class Game {
                   type: en.role === 'finale' ? 'boss' : 'midboss',
                   role: en.role,
                 })) {
-                  this._beginBossClear(en.role);
+                  this._beginBossClear(en.role, en.mesh.position);
                   return;
                 }
               }
@@ -1709,7 +1719,8 @@ export class Game {
     this.fx.uniforms.uFlare.value = lerp(this.fx.uniforms.uFlare.value, flare, 1 - Math.exp(-dt * 8));
     this.fx.uniforms.uCockpit.value = 0;
     this.fx.uniforms.uKick.value = this.kickAmt;
-    const bloomStr = 0.48 + this.gateFx * 0.28;
+    this._riftBloom = Math.max(0, this._riftBloom - dt);
+    const bloomStr = 0.48 + this.gateFx * 0.28 + this._riftBloom * 0.5;
     const bloomThr = 0.42;
     const bloomRad = 0.5 + this.gateFx * 0.12;
     this.bloom.strength = lerp(this.bloom.strength, bloomStr, 1 - Math.exp(-dt * 6));
@@ -2187,16 +2198,46 @@ export class Game {
     this.audio.sting('boss');
   }
 
-  _beginBossClear(role) {
+  _beginBossClear(role, pos = null) {
     const superBoss = this._currentLevel()?.lv.banner === 'super' || role === 'finale';
-    this._bossSlow = superBoss ? 0.95 : 0.75;
+    this._bossSlow = superBoss ? 2.7 : 2.35;
     this._pendingClear = true;
+    this.entities.pullLoot(true);
+    this._riftBloom = 1.15;
+    this._showRiftBloom(pos);
     if (this.ui.bossTitle) {
       this.ui.bossTitle.textContent = this._bossName(role);
       this.ui.bossTitle.classList.add('show');
       requestAnimationFrame(() => this.ui.bossTitle?.classList.add('fall'));
     }
     this.audio.sting('fall');
+  }
+
+  _showRiftBloom(worldPos) {
+    const flash = this.ui.riftBloom;
+    if (!flash) return;
+    const src = worldPos || this.entities.activeBoss()?.mesh?.position || this.ship?.position;
+    const pt = src ? this._hudPoint(src) : { x: window.innerWidth * 0.5, y: window.innerHeight * 0.42 };
+    const hud = this.ui.hud?.getBoundingClientRect();
+    const bx = hud ? `${((pt.x - hud.left) / Math.max(1, hud.width)) * 100}%` : '50%';
+    const by = hud ? `${((pt.y - hud.top) / Math.max(1, hud.height)) * 100}%` : '55%';
+    flash.style.setProperty('--bx', bx);
+    flash.style.setProperty('--by', by);
+    flash.classList.remove('show');
+    void flash.offsetWidth;
+    flash.classList.add('show');
+  }
+
+  _collectLooseGold() {
+    let gold = 0;
+    for (const p of this.entities.pickups) {
+      if (!p.alive || p.kind !== 'coin') continue;
+      gold += p.value || this.entities.coinValue || 5;
+      p.alive = false;
+      p.mesh.visible = false;
+      if (p.mesh.position) this._spawnGoldPip(p.mesh.position);
+    }
+    if (gold) this.hangar = addGold(this.hangar, gold);
   }
 
   _watchBossPhase() {
@@ -2305,11 +2346,11 @@ export class Game {
       this._combatScore(k.type === 'boss' ? 3200 : k.type === 'midboss' ? 1400 : 180);
       this._dropLoot(k);
       if (k.type === 'boss') {
-        this._beginBossClear('finale');
+        this._beginBossClear('finale', k.pos);
         return;
       }
       if (k.type === 'midboss' && this._isLevelBossKill(k)) {
-        this._beginBossClear(k.role);
+        this._beginBossClear(k.role, k.pos);
         return;
       }
     }

@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
-    <script type="module" crossorigin src="./assets/index-_FThPbK4.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CV7BkJpN.css">
+    <script type="module" crossorigin src="./assets/index-BqQcfe93.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Bup76PEE.css">
   </head>
   <body>
     <canvas id="c"></canvas>
@@ -31,10 +31,6 @@
           <div class="hud-panel hud-gold">
             <div class="label">GOLD</div>
             <div id="gold" class="value">0</div>
-          </div>
-          <div class="hud-panel threat-panel">
-            <div class="label">HUNTERS</div>
-            <div id="threat" class="value">0</div>
           </div>
           <div class="hud-panel hud-depth">
             <div class="label">DEPTH</div>
@@ -136,10 +132,11 @@
       </div>
     </div>
 
-    <div id="continue-screen" class="screen hidden">
+    <div id="continue-screen" class="screen hidden pause-dim">
       <p class="kicker">SIGNAL FADING</p>
       <h2>CONTINUE?</h2>
       <p id="continue-left" class="tagline">2 CREDITS REMAIN</p>
+      <div class="continue-fade"><div id="continue-fade"></div></div>
       <div class="menu-actions">
         <button id="continue-yes" type="button">CONTINUE</button>
         <button id="continue-no" type="button">GIVE UP</button>

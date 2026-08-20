@@ -170,6 +170,9 @@ if (!css.includes('#boss-title.show.settled') || !game.includes("classList.add('
 if (!game.includes("classList.remove('show', 'fall', 'settled')")) {
   fail('boss title is not cleared on reset');
 }
+if (!game.includes('_pendingClear || this._bossSlow > 0) return')) {
+  fail('kill plate is stripped when the hull dies');
+}
 if (!game.includes('boss.levelBoss || boss.superBoss || boss.role === \'finale\'')) {
   fail('minis still wear the level meter');
 }

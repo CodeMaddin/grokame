@@ -1819,6 +1819,7 @@ export class Game {
     const boss = this.state === 'playing' ? this.entities.activeBoss() : null;
     const level = boss && (boss.levelBoss || boss.superBoss || boss.role === 'finale');
     if (!level) {
+      if (this._pendingClear || this._bossSlow > 0) return;
       el.classList.remove('show', 'phase-2', 'phase-3', 'phase-sting', 'arrive');
       this.ui.bossTitle?.classList.remove('show', 'fall', 'settled');
       return;

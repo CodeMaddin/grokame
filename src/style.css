@@ -342,6 +342,32 @@ canvas {
   transform: translateY(0);
 }
 
+#boss-title {
+  position: absolute;
+  top: 20vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: "Orbitron", "Rajdhani", sans-serif;
+  font-size: clamp(22px, 4.2vw, 42px);
+  letter-spacing: 0.38em;
+  color: var(--gold);
+  text-shadow: 0 0 28px rgba(255, 209, 102, 0.95), 0 0 60px rgba(255, 59, 212, 0.45);
+  opacity: 0;
+  transform: translateY(10px) scale(0.92);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  pointer-events: none;
+}
+
+#boss-title.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#boss-title.fall {
+  letter-spacing: 0.46em;
+}
+
 .boss-meter {
   position: absolute;
   top: max(12vh, env(safe-area-inset-top, 0px) + 5.6rem);
@@ -349,13 +375,22 @@ canvas {
   right: 18vw;
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   pointer-events: none;
 }
 
 .boss-meter.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+.boss-meter.arrive .label,
+.boss-meter.phase-sting .label {
+  text-shadow: 0 0 22px rgba(255, 209, 102, 1), 0 0 40px rgba(255, 59, 212, 0.55);
+}
+
+.boss-meter.phase-sting {
+  filter: brightness(1.35);
 }
 
 .boss-meter .label {

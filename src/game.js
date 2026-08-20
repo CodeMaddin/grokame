@@ -60,6 +60,10 @@ export class Game {
     this._hasRun = false;
     this._levelBossSpawned = false;
     this._railHold = 0;
+    this._bossHold = 0;
+    this._bossSlow = 0;
+    this._pendingClear = false;
+    this._bossPhaseSeen = 1;
     this.gateFx = 0;
     this._viewSnap = 1;
     this._camLook = new THREE.Vector3();
@@ -388,6 +392,7 @@ export class Game {
       bossMeter: document.getElementById('boss-meter'),
       bossFill: document.getElementById('boss-fill'),
       bossName: document.getElementById('boss-name'),
+      bossTitle: document.getElementById('boss-title'),
       startBtn: document.getElementById('start-btn'),
       resumeTitleBtn: document.getElementById('resume-title-btn'),
       viewBtns: [...document.querySelectorAll('[data-view]')],
@@ -762,6 +767,10 @@ export class Game {
     this._chapterAt = -1;
     this._levelBossSpawned = false;
     this._railHold = 0;
+    this._bossHold = 0;
+    this._bossSlow = 0;
+    this._pendingClear = false;
+    this._bossPhaseSeen = 1;
     this.muzzleFlash = 0;
     this._midsThisLevel = 0;
     this.hangar = loadHangar();
@@ -1311,12 +1320,18 @@ export class Game {
       ? 16
       : 26 + wantBoost * 22 + Math.min(this.traveled / 2800, 8);
     this.speed = lerp(this.speed, cruise, 1 - Math.exp(-dt * 2.4));
-    if (this.state === 'playing' && this._railHold > 0) {
-      this._railHold -= dt;
-      this.traveled += this.speed * dt * 0.32;
-    } else {
-      this.traveled += this.speed * dt;
+    if (this.state === 'playing' && this._railHold > 0) this._railHold -= dt;
+    if (this.state === 'playing' && this._bossHold > 0) this._bossHold -= dt;
+    if (this.state === 'playing' && this._bossSlow > 0) {
+      this._bossSlow -= dt;
+      if (this._bossSlow <= 0 && this._pendingClear) {
+        this._pendingClear = false;
+        this._clearLevel();
+        return;
+      }
     }
+    const hold = this.state === 'playing' && (this._railHold > 0 || this._bossHold > 0 || this._bossSlow > 0);
+    this.traveled += this.speed * dt * (hold ? 0.32 : 1);
     this.path.ensure(this.traveled + 400);
 
     if (Math.floor(this.traveled / 90) !== this._ribbonAt) {
@@ -1421,6 +1436,7 @@ export class Game {
     this.entities.spawnAhead(this.path, this.traveled);
     if (this.state === 'playing') this._runStage();
     if (this.state === 'playing') this._maybeBoardTeach();
+    if (this.state === 'playing') this._watchBossPhase();
     this.entities.recycleBehind(this.traveled, this.holdY);
     this.entities.update(
       dt,
@@ -1527,11 +1543,11 @@ export class Game {
           this._dropLoot(k);
           if (k.type === 'midboss') {
             this._midsThisLevel = (this._midsThisLevel || 0) + 1;
-            this.toast(this._bossToast(k.role));
             if (this._isLevelBossKill(k)) {
-              this._clearLevel();
+              this._beginBossClear(k.role);
               return;
             }
+            this.toast(this._bossToast(k.role));
           }
         } else if (k.type === 'blocker') {
           this._combatScore(160);
@@ -1545,8 +1561,7 @@ export class Game {
           this.kills += 1;
           this._combatScore(3200);
           this._dropLoot(k);
-          this.toast('SENTINEL DOWN');
-          this._clearLevel();
+          this._beginBossClear('finale');
           return;
         }
       }
@@ -1592,8 +1607,7 @@ export class Game {
                   type: en.role === 'finale' ? 'boss' : 'midboss',
                   role: en.role,
                 })) {
-                  this.toast(this._bossToast(en.role));
-                  this._clearLevel();
+                  this._beginBossClear(en.role);
                   return;
                 }
               }
@@ -1804,14 +1818,7 @@ export class Game {
       return;
     }
     el.classList.add('show');
-    const names = {
-      queen: 'WEAVER QUEEN',
-      coil: 'TITAN COIL',
-      warden: 'WARDEN',
-      empress: 'WEAVER EMPRESS',
-      finale: 'SENTINEL',
-    };
-    if (this.ui.bossName) this.ui.bossName.textContent = names[boss.role] || 'HUNTER';
+    if (this.ui.bossName) this.ui.bossName.textContent = this._bossName(boss.role);
     const ratio = clamp(boss.hp / Math.max(1, boss.maxHp || boss.hp), 0, 1);
     if (this.ui.bossFill) this.ui.bossFill.style.transform = `scaleX(${Math.max(0.02, ratio)})`;
   }
@@ -1954,6 +1961,7 @@ export class Game {
         }
         this.stage.finaleAlive = true;
         this._levelBossSpawned = true;
+        this._announceBoss(id === 'sentinel' ? 'finale' : id, flags.superBoss || ev.kind === 'finale');
       }
     }
     this._ensureLevelBoss();
@@ -1977,9 +1985,11 @@ export class Game {
       this.entities.spawnNamed(this.path, this.traveled, boss, 96, this.step, this.loadout, this._stageHeat(), this._bossFlags());
     }
     this.stage.finaleAlive = true;
+    this._announceBoss(boss, slot.lv.banner === 'super' || boss === 'finale');
   }
 
   _maybeClearLevel() {
+    if (this._pendingClear || this._bossSlow > 0) return;
     const slot = this._currentLevel();
     if (!slot) return;
     if (this.stage.peek()) return;
@@ -2011,6 +2021,61 @@ export class Game {
       pip.className = 'life-pip' + (i < this.lives ? ' lit' : '');
       el.appendChild(pip);
     }
+  }
+
+  _bossName(role) {
+    return {
+      queen: 'WEAVER QUEEN',
+      coil: 'TITAN COIL',
+      warden: 'WARDEN',
+      empress: 'WEAVER EMPRESS',
+      finale: 'SENTINEL',
+      sentinel: 'SENTINEL',
+    }[role] || 'HUNTER';
+  }
+
+  _announceBoss(role, superBoss = false) {
+    const name = this._bossName(role);
+    if (this.ui.bossName) this.ui.bossName.textContent = name;
+    if (this.ui.bossTitle) {
+      this.ui.bossTitle.textContent = name;
+      this.ui.bossTitle.classList.add('show');
+      this.ui.bossTitle.classList.remove('fall');
+      clearTimeout(this._bossTitleTimer);
+      this._bossTitleTimer = setTimeout(() => this.ui.bossTitle?.classList.remove('show'), superBoss ? 1400 : 1100);
+    }
+    this.ui.bossMeter?.classList.add('show', 'arrive');
+    this._bossHold = superBoss ? 1.15 : 0.85;
+    this._bossPhaseSeen = 1;
+    this.audio.sting('boss');
+  }
+
+  _beginBossClear(role) {
+    const superBoss = this._currentLevel()?.lv.banner === 'super' || role === 'finale';
+    this._bossSlow = superBoss ? 0.8 : 0.55;
+    this._pendingClear = true;
+    if (this.ui.bossTitle) {
+      this.ui.bossTitle.textContent = this._bossToast(role);
+      this.ui.bossTitle.classList.add('show', 'fall');
+    }
+    this.audio.sting('boss');
+  }
+
+  _watchBossPhase() {
+    const boss = this.entities.activeBoss();
+    if (!boss || !(boss.levelBoss || boss.superBoss || boss.role === 'finale')) {
+      this._bossPhaseSeen = 1;
+      this.ui.bossMeter?.classList.remove('phase-sting', 'arrive');
+      return;
+    }
+    if (boss.visPhase === this._bossPhaseSeen) return;
+    this._bossPhaseSeen = boss.visPhase;
+    if (boss.visPhase === 2) this.toast('PHASE TWO');
+    else if (boss.visPhase === 3) this.toast(boss.superBoss || boss.role === 'finale' ? 'FINAL FORM' : 'PHASE THREE');
+    this.audio.sting('chapter');
+    this.ui.bossMeter?.classList.add('phase-sting');
+    clearTimeout(this._phaseStingTimer);
+    this._phaseStingTimer = setTimeout(() => this.ui.bossMeter?.classList.remove('phase-sting'), 420);
   }
 
   _bossFlags() {
@@ -2089,13 +2154,11 @@ export class Game {
       this._combatScore(k.type === 'boss' ? 3200 : k.type === 'midboss' ? 1400 : 180);
       this._dropLoot(k);
       if (k.type === 'boss') {
-        this.toast('SENTINEL DOWN');
-        this._clearLevel();
+        this._beginBossClear('finale');
         return;
       }
       if (k.type === 'midboss' && this._isLevelBossKill(k)) {
-        this.toast(this._bossToast(k.role));
-        this._clearLevel();
+        this._beginBossClear(k.role);
         return;
       }
     }

@@ -139,6 +139,15 @@ if (!game.includes("['titan', 'nova', 'mine', 'missile', 'primary']") || !game.i
 if (!game.includes('mine: [0.05, -0.62') || !game.includes('needle: [0.04, 0.06, 0.9]')) {
   fail('kick vectors do not follow the voiced kind');
 }
+
+if (!html.includes('id="boss-title"') || !game.includes('_announceBoss') || !game.includes('_beginBossClear')) {
+  fail('level bosses have no nameplate or kill beat');
+}
+if (!game.includes('_bossHold') || !game.includes('_bossSlow')) fail('boss hold/slow is not wired');
+if (!game.includes('PHASE TWO') || !game.includes('FINAL FORM') || !game.includes('PHASE THREE')) {
+  fail('level-boss phases are not readable');
+}
+if (!game.includes('_watchBossPhase')) fail('phase sting is not watched');
 if (!game.includes("shotFor('spark'") || !audio.includes('endFreq')) {
   fail('spark trickle or lance/door sweeps are missing');
 }

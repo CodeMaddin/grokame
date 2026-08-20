@@ -402,6 +402,12 @@ export class Game {
       bombBtn: document.getElementById('bomb-btn'),
       bombFlash: document.getElementById('bomb-flash'),
     };
+    this.ui.combo?.addEventListener('animationend', (e) => {
+      if (String(e.animationName).startsWith('combo-stab')) {
+        this.ui.combo.classList.remove('combo-stab', 'combo-mark-2', 'combo-mark-4', 'combo-mark-8');
+      }
+      if (e.animationName === 'combo-drop') this.ui.combo.classList.remove('combo-drop');
+    });
     this.ui.startBtn.addEventListener('click', () => this.startPlay());
     this.ui.resumeTitleBtn.addEventListener('click', () => this.resumeFromMenu());
     document.getElementById('resume-btn').addEventListener('click', () => this.resume());
@@ -1800,11 +1806,14 @@ export class Game {
   }
 
   _comboCross(prev, next) {
+    const el = this.ui.combo;
     for (const mark of [2, 4, 8]) {
       if (prev < mark && next >= mark) {
-        this.ui.combo?.classList.remove('combo-stab');
-        void this.ui.combo?.offsetWidth;
-        this.ui.combo?.classList.add('combo-stab');
+        if (el) {
+          el.classList.remove('combo-stab', 'combo-drop', 'combo-mark-2', 'combo-mark-4', 'combo-mark-8');
+          void el.offsetWidth;
+          el.classList.add('combo-stab', `combo-mark-${mark}`);
+        }
         this.audio.comboStab(mark);
       }
     }
@@ -1813,7 +1822,7 @@ export class Game {
   _comboBreak() {
     const el = this.ui.combo;
     if (el) {
-      el.classList.remove('combo-stab', 'combo-hot', 'combo-max', 'combo-drop');
+      el.classList.remove('combo-stab', 'combo-hot', 'combo-max', 'combo-drop', 'combo-mark-2', 'combo-mark-4', 'combo-mark-8');
       void el.offsetWidth;
       el.classList.add('combo-drop');
     }
@@ -1842,8 +1851,10 @@ export class Game {
     pip.style.top = `${from.y}px`;
     document.body.appendChild(pip);
     requestAnimationFrame(() => {
-      pip.style.transform = `translate(${to.left + to.width * 0.5 - from.x}px, ${to.top + to.height * 0.5 - from.y}px) scale(0.35)`;
-      pip.style.opacity = '0.15';
+      requestAnimationFrame(() => {
+        pip.style.transform = `translate(${to.left + to.width * 0.5 - from.x}px, ${to.top + to.height * 0.5 - from.y}px) scale(0.35)`;
+        pip.style.opacity = '0.15';
+      });
     });
     setTimeout(() => {
       dest.classList.remove('gold-catch');
@@ -1879,13 +1890,8 @@ export class Game {
     this.ui.score.textContent = this.score.toLocaleString();
     this.ui.combo.textContent = `×${this.combo.toFixed(1)}`;
     this.ui.combo.classList.toggle('combo-quiet', this.combo <= 1.05);
-    this.ui.combo.classList.toggle('combo-hot', this.combo >= 4);
+    this.ui.combo.classList.toggle('combo-hot', this.combo >= 2);
     this.ui.combo.classList.toggle('combo-max', this.combo >= 8);
-    if (this.combo > (this._lastCombo || 1) + 0.02 && !this.ui.combo.classList.contains('combo-stab')) {
-      this.ui.combo.classList.remove('combo-pop');
-      void this.ui.combo.offsetWidth;
-      this.ui.combo.classList.add('combo-pop');
-    }
     this._lastCombo = this.combo;
     const slotCode = this._currentLevel()?.lv.id || '1-1';
     this.ui.depth.textContent = `${slotCode} · ${(this.traveled / 10).toFixed(0)} km`;

@@ -183,15 +183,31 @@ for (const job of jobs) {
   if (!hangar.toLowerCase().includes(job)) fail(`hangar blurb is not a job: ${job}`);
 }
 
-if (!html.includes('id="bomb-flash"') || !css.includes('bomb-iris') || !game.includes('bombBoom') || !audio.includes('bombBoom()')) {
+if (!html.includes('id="bomb-flash"') || !html.includes('iris-ring') || !css.includes('bomb-iris') || !css.includes('scale(0.08)') || !game.includes('bombBoom') || !audio.includes('bombBoom()')) {
   fail('bomb has no iris or boom voice');
 }
+if (css.includes('transform: scale(0.72)') && css.includes('bomb-iris')) {
+  fail('bomb iris is still a scaled radial sheet');
+}
 if (!audio.includes('bomb()')) fail('legacy bomb() voice was removed');
-if (!game.includes('_comboCross') || !game.includes('_comboBreak') || !css.includes('combo-stab') || !audio.includes('comboStab')) {
+if (!game.includes('_comboCross') || !game.includes('_comboBreak') || !css.includes('combo-mark-2') || !css.includes('combo-mark-8') || !audio.includes('comboStab')) {
   fail('combo marks do not stab or break');
+}
+if (!game.includes("animationName).startsWith('combo-stab')") || !css.includes('translateY(18px)')) {
+  fail('combo classes stick or the drop does not travel');
+}
+if (game.includes("classList.add('combo-pop')")) fail('per-crumb combo-pop is still the juice');
+if (!game.includes("toggle('combo-hot', this.combo >= 2)")) {
+  fail('combo heat does not hang from ×2');
 }
 if (!game.includes('_spawnGoldPip') || !game.includes('_hudPoint') || !css.includes('gold-pip') || !css.includes('gold-catch')) {
   fail('gold does not fly from the ribbon to the counter');
+}
+if (!/_spawnGoldPip[\s\S]{0,500}requestAnimationFrame\(\(\) => \{\s*requestAnimationFrame/.test(game)) {
+  fail('gold pip does not paint on the coin for a frame');
+}
+if (!css.includes('#boss-title') || !/\#boss-title \{[\s\S]{0,80}z-index: 8/.test(css) || !/\#bomb-flash \{[\s\S]{0,80}z-index: 3/.test(css)) {
+  fail('boss title is not above the bomb iris');
 }
 if (game.includes('toast(`+₡') || game.includes("toast('+₡")) {
   fail('gold still dumps a toast instead of a pip');

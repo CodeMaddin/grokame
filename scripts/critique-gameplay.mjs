@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SCRIPT, CHAPTERS } from '../src/stage.js';
-import { CAMPAIGNS } from '../src/campaigns.js';
+import { CAMPAIGNS, MVP_SCRIPT, SIG, SCRIPT_OVERLAYS, allLevels } from '../src/campaigns.js';
 import { estimateDps, estimateBossDps, eliteHp, loadoutFromStep, arsenal } from '../src/weapons.js';
 
 const root = resolve(import.meta.dirname, '..');
@@ -133,6 +133,42 @@ if (!mvp.some((e) => e.kind === 'midboss' && e.id === 'warden' && e.at === 820))
 if (!mvp.some((e) => e.kind === 'finale' && e.at === 1320)) fail('1-1 is not the original MVP run');
 if (!mvp.some((e) => e.kind === 'squad' && e.role === 'sine')) fail('1-1 lost the original sine weavers');
 if (!mvp.some((e) => e.kind === 'squad' && e.role === 'heavy')) fail('1-1 lost the original heavy bricks');
+if (mvp.length !== MVP_SCRIPT.length) fail('1-1 appointment count drifted from the frozen MVP script');
+for (let i = 0; i < MVP_SCRIPT.length; i++) {
+  if (mvp[i].at !== MVP_SCRIPT[i].at || mvp[i].kind !== MVP_SCRIPT[i].kind || mvp[i].form !== MVP_SCRIPT[i].form || mvp[i].role !== MVP_SCRIPT[i].role || mvp[i].id !== MVP_SCRIPT[i].id) {
+    fail(`1-1 thawed at index ${i} (${mvp[i].kind}@${mvp[i].at})`);
+    break;
+  }
+}
+const mvpClock = MVP_SCRIPT.map((e) => `${e.kind}@${e.at}`).join('|');
+const seenClock = new Map();
+for (const slot of allLevels()) {
+  if (slot.lv.id === '1-1') continue;
+  if (!SCRIPT_OVERLAYS[slot.lv.id]) fail(`${slot.lv.id} has no authored overlay — later levels cannot reuse the 1-1 clock`);
+  const clock = slot.lv.script.map((e) => `${e.kind}@${e.at}`).join('|');
+  if (clock === mvpClock) fail(`${slot.lv.id} still runs the 1-1 clock`);
+  if (seenClock.has(clock)) fail(`${slot.lv.id} shares a clock with ${seenClock.get(clock)}`);
+  seenClock.set(clock, slot.lv.id);
+  const long = slot.lv.banner === 'super' || slot.lv.banner === 'finale';
+  if (long && slot.lv.exitAt < 1450) fail(`${slot.lv.id} super/finale is still MVP length (${slot.lv.exitAt})`);
+  if (long && !slot.lv.script.some((e) => e.form === 'judgment' || (e.at >= 1240 && e.at < (SCRIPT_OVERLAYS[slot.lv.id].clock?.boss || 1400) && e.kind === 'squad'))) {
+    fail(`${slot.lv.id} super/finale has no last-aisle pressure before the climax`);
+  }
+}
+for (const camp of CAMPAIGNS) {
+  const forms = new Set();
+  for (const lv of camp.levels) {
+    for (const e of lv.script) if (e.form) forms.add(e.form);
+  }
+  const sig = SIG[camp.id];
+  if (sig && !forms.has(sig.form)) fail(`${camp.id} is missing signature formation ${sig.form}`);
+}
+if (!patternsHasClimax()) fail('level bosses have no third-phase volley — super bosses are still a toast');
+
+function patternsHasClimax() {
+  const src = readFileSync(resolve(root, 'src/patterns.js'), 'utf8');
+  return src.includes('function climax(') && src.includes('en.levelBoss || en.superBoss');
+}
 const UNIQUE = {
   stinger: ['sine', 'heavy'],
   crimson: ['cinder', 'slag'],

@@ -1858,10 +1858,11 @@ export class Game {
         this.stage.finaleAlive = false;
       } else if (ev.kind === 'boss' || ev.kind === 'finale') {
         const id = ev.id || 'finale';
+        const flags = this._bossFlags();
         if (ev.kind === 'finale' || id === 'finale' || id === 'sentinel') {
           this.entities.spawnFinale(this.path, this.traveled, 96, this.step, this.loadout, this._stageHeat());
         } else {
-          this.entities.spawnNamed(this.path, this.traveled, id, 96, this.step, this.loadout, this._stageHeat());
+          this.entities.spawnNamed(this.path, this.traveled, id, 96, this.step, this.loadout, this._stageHeat(), flags);
         }
         this.stage.finaleAlive = true;
         this._levelBossSpawned = true;
@@ -1885,7 +1886,7 @@ export class Game {
     if (boss === 'finale') {
       this.entities.spawnFinale(this.path, this.traveled, 96, this.step, this.loadout, this._stageHeat());
     } else {
-      this.entities.spawnNamed(this.path, this.traveled, boss, 96, this.step, this.loadout, this._stageHeat());
+      this.entities.spawnNamed(this.path, this.traveled, boss, 96, this.step, this.loadout, this._stageHeat(), this._bossFlags());
     }
     this.stage.finaleAlive = true;
   }
@@ -1922,6 +1923,11 @@ export class Game {
       pip.className = 'life-pip' + (i < this.lives ? ' lit' : '');
       el.appendChild(pip);
     }
+  }
+
+  _bossFlags() {
+    const lv = this._currentLevel()?.lv;
+    return { levelBoss: true, superBoss: lv?.banner === 'super' };
   }
 
   _isLevelBossKill(k) {

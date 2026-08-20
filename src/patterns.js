@@ -8,10 +8,10 @@ export function nextVolley(en, span, playerLane, time, fire) {
   const i = en.patternI;
   en.patternI += 1;
 
-  if (en.role === 'queen') return queenVolley(i, s, x, aim, span, fire);
-  if (en.role === 'empress') return empressVolley(i, s, x, aim, span, fire);
-  if (en.role === 'warden') return wardenVolley(i, s, x, aim, span, fire);
-  if (en.role === 'coil') return coilVolley(i, s, x, aim, span, fire);
+  if (en.role === 'queen') return queenVolley(i, s, x, aim, span, fire, en);
+  if (en.role === 'empress') return empressVolley(i, s, x, aim, span, fire, en);
+  if (en.role === 'warden') return wardenVolley(i, s, x, aim, span, fire, en);
+  if (en.role === 'coil') return coilVolley(i, s, x, aim, span, fire, en);
   if (en.role === 'finale') return finaleVolley(en, s, span, aim, time, fire);
   if (en.role === 'cinder') {
     fire(s, x - span * 0.04, 7.8, false);
@@ -63,7 +63,19 @@ export function nextVolley(en, span, playerLane, time, fire) {
   return 0;
 }
 
-function queenVolley(i, s, x, aim, span, fire) {
+function climax(en) {
+  return !!(en && (en.levelBoss || en.superBoss) && (en.phase || 1) >= 3);
+}
+
+function queenVolley(i, s, x, aim, span, fire, en) {
+  if (climax(en)) {
+    const fan = span * 0.2;
+    for (let k = -3; k <= 3; k++) fire(s, x + k * fan, 7.0, k === 0);
+    fire(s - 4, aim, 7.6, true);
+    fire(s - 8, aim - span * 0.1, 6.8, true);
+    fire(s - 8, aim + span * 0.1, 6.8, true);
+    return 0.2;
+  }
   const step = i % 6;
   const fan = span * 0.16;
   const curtain = span * 0.12;
@@ -91,7 +103,15 @@ function queenVolley(i, s, x, aim, span, fire) {
   return 0.4;
 }
 
-function empressVolley(i, s, x, aim, span, fire) {
+function empressVolley(i, s, x, aim, span, fire, en) {
+  if (climax(en)) {
+    const fan = span * 0.2;
+    for (let k = -3; k <= 3; k++) fire(s, x + k * fan * 0.8, 7.0, k === 0);
+    fire(s - 5, aim, 7.5, true);
+    fire(s - 9, aim - fan, 6.6, true);
+    fire(s - 9, aim + fan, 6.6, true);
+    return 0.18;
+  }
   const step = i % 6;
   const fan = span * 0.18;
   const curtain = span * 0.13;
@@ -122,7 +142,17 @@ function empressVolley(i, s, x, aim, span, fire) {
   return 0.38;
 }
 
-function coilVolley(i, s, x, aim, span, fire) {
+function coilVolley(i, s, x, aim, span, fire, en) {
+  if (climax(en)) {
+    const well = span * 0.22;
+    fire(s, x - well, 6.4, true);
+    fire(s, x + well, 6.4, true);
+    fire(s, x, 7.3, true);
+    fire(s - 6, aim, 7.0, true);
+    fire(s - 10, x - well * 0.5, 6.5, false);
+    fire(s - 10, x + well * 0.5, 6.5, false);
+    return 0.22;
+  }
   const step = i % 6;
   const well = span * 0.2;
   if (step === 0) {
@@ -151,7 +181,18 @@ function coilVolley(i, s, x, aim, span, fire) {
   return 0.42;
 }
 
-function wardenVolley(i, s, x, aim, span, fire) {
+function wardenVolley(i, s, x, aim, span, fire, en) {
+  if (climax(en)) {
+    const cross = span * 0.24;
+    fire(s, x - cross, 6.2, true);
+    fire(s, x + cross, 6.2, true);
+    fire(s, x, 7.4, true);
+    fire(s - 6, aim - 4, 6.8, true);
+    fire(s - 6, aim + 4, 6.8, true);
+    fire(s - 10, x - cross * 0.6, 6.4, false);
+    fire(s - 10, x + cross * 0.6, 6.4, false);
+    return 0.24;
+  }
   const step = i % 6;
   const cross = span * 0.22;
   if (step === 0) {

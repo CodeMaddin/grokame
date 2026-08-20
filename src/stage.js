@@ -37,6 +37,42 @@ export function lanesFor(form, n, span) {
     for (let i = 1; i < n; i++) wings.push((i % 2 === 0 ? -1 : 1) * s * (0.35 + Math.floor((i - 1) / 2) * 0.28));
     return core.concat(wings).slice(0, n);
   }
+  if (form === 'silk-cut') {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push((i / Math.max(1, n - 1) - 0.5) * s * 1.68);
+    return out;
+  }
+  if (form === 'curtain') {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push((i / Math.max(1, n - 1) - 0.5) * s * 1.88);
+    return out;
+  }
+  if (form === 'aisle') {
+    const out = [];
+    const half = Math.ceil(n / 2);
+    for (let i = 0; i < n; i++) {
+      const side = i < half ? -1 : 1;
+      const k = i < half ? i : i - half;
+      out.push(side * s * (0.42 + k * 0.22));
+    }
+    return out;
+  }
+  if (form === 'split') {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push((i % 2 === 0 ? -1 : 1) * s * (0.68 + Math.floor(i / 2) * 0.12));
+    return out;
+  }
+  if (form === 'dark') {
+    const out = [0];
+    for (let i = 1; i < n; i++) out.push((i % 2 === 0 ? -1 : 1) * s * (0.55 + Math.floor((i - 1) / 2) * 0.3));
+    return out.slice(0, n);
+  }
+  if (form === 'judgment') {
+    const out = [];
+    const mid = (n - 1) / 2;
+    for (let i = 0; i < n; i++) out.push(((i - mid) / Math.max(1, mid)) * s * 0.95);
+    return out;
+  }
   return LANE_T.slice(0, n).map((t) => t * s);
 }
 
@@ -44,6 +80,12 @@ export function rowStagger(form, i) {
   if (form === 'v') return Math.abs(i - 2) * 9;
   if (form === 'cross') return (i % 2) * 14;
   if (form === 'escort') return i === 0 ? 18 : 0;
+  if (form === 'silk-cut') return i * 7;
+  if (form === 'curtain') return 0;
+  if (form === 'aisle') return (i % 2) * 10;
+  if (form === 'split') return Math.floor(i / 2) * 8;
+  if (form === 'dark') return i === 0 ? 22 : (i % 2) * 12;
+  if (form === 'judgment') return Math.abs(i - 3) * 6;
   return 0;
 }
 

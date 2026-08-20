@@ -466,11 +466,11 @@ export class EntityField {
     }
   }
 
-  spawnNamed(path, traveled, id, ahead = 96, step = 0, loadout = null, heat = 1) {
+  spawnNamed(path, traveled, id, ahead = 96, step = 0, loadout = null, heat = 1, flags = {}) {
     const idle = this.enemies.find((e) => !e.alive);
     if (!idle) return;
     this._placeOne(idle, path, traveled + ahead, 'enemy');
-    this._dressEnemy(idle, id, heat, 0, this.laneLimit || 24, step, loadout);
+    this._dressEnemy(idle, id, heat, 0, this.laneLimit || 24, step, loadout, flags);
   }
 
   spawnGateAt(path, traveled, ahead = 72, heat = 1) {
@@ -557,7 +557,7 @@ export class EntityField {
     item.mesh.lookAt(sample.pos.clone().add(sample.tangent));
   }
 
-  _dressEnemy(en, role, difficulty, lane, span, step = 0, loadout = null) {
+  _dressEnemy(en, role, difficulty, lane, span, step = 0, loadout = null, flags = {}) {
     this._bindCraft(en, role);
     en.role = role;
     en.nearMiss = false;
@@ -565,6 +565,9 @@ export class EntityField {
     en.windup = 0;
     en.patternI = 0;
     en.visPhase = 1;
+    en.phase = 1;
+    en.levelBoss = !!flags.levelBoss;
+    en.superBoss = !!flags.superBoss;
     en.elite = role === 'queen' || role === 'warden' || role === 'coil' || role === 'empress';
     en.offset.x = lane + (Math.random() - 0.5) * span * 0.03;
     en.baseX = en.offset.x;
@@ -1020,16 +1023,17 @@ export class EntityField {
     const p = r > 0.66 ? 1 : r > 0.33 ? 2 : 3;
     if (p === en.visPhase) return;
     en.visPhase = p;
-    if (en.role === 'finale') en.phase = p;
+    if (en.role === 'finale' || en.levelBoss || en.superBoss) en.phase = p;
     setCraftPhase(en.craft, p);
   }
 
   _reloadFor(en, difficulty) {
     if (en.role === 'finale') return en.phase === 3 ? 1.15 : en.phase === 2 ? 1.45 : 1.85;
-    if (en.role === 'queen') return 1.55;
-    if (en.role === 'empress') return 1.48;
-    if (en.role === 'warden') return 1.7;
-    if (en.role === 'coil') return 1.62;
+    const climax = (en.levelBoss || en.superBoss) && (en.phase || 1) >= 3;
+    if (en.role === 'queen') return climax ? 1.28 : 1.55;
+    if (en.role === 'empress') return climax ? 1.22 : 1.48;
+    if (en.role === 'warden') return climax ? 1.4 : 1.7;
+    if (en.role === 'coil') return climax ? 1.34 : 1.62;
     if (en.role === 'heavy' || en.role === 'slag' || en.role === 'chime' || en.role === 'prism' || en.role === 'wisp') {
       return Math.max(1.7, 2.4 - difficulty * 0.07);
     }

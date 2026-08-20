@@ -2,8 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>AETHER DRIFT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
   </head>
   <body>
@@ -14,73 +17,115 @@
 
     <div id="hud">
       <div class="hud-top">
-        <div class="hud-panel">
-          <div class="label">SCORE</div>
-          <div id="score" class="value">0</div>
+        <div class="hud-scoreboard">
+          <div class="hud-panel hud-score">
+            <div class="label">SCORE</div>
+            <div id="score" class="value">0</div>
+          </div>
+          <div class="hud-panel combo-panel">
+            <div class="label">COMBO</div>
+            <div id="combo" class="value">×1</div>
+          </div>
+          <div class="hud-panel hud-gold">
+            <div class="label">GOLD</div>
+            <div id="gold" class="value">0</div>
+          </div>
+          <div class="hud-panel threat-panel">
+            <div class="label">HUNTERS</div>
+            <div id="threat" class="value">0</div>
+          </div>
+          <div class="hud-panel hud-depth">
+            <div class="label">DEPTH</div>
+            <div id="depth" class="value">0 km</div>
+          </div>
         </div>
-        <div class="hud-panel combo-panel">
-          <div class="label">COMBO</div>
-          <div id="combo" class="value">×1</div>
+
+        <div class="hud-stock">
+          <div class="life-wrap">
+            <div class="label">LIVES</div>
+            <div id="life-pips" class="life-pips"></div>
+          </div>
+          <button type="button" id="bomb-btn" class="bomb-wrap" aria-label="Bomb">
+            <div class="label">BOMB</div>
+            <div id="bomb-pips" class="bomb-pips"></div>
+          </button>
         </div>
-        <div class="hud-panel threat-panel">
-          <div class="label">HUNTERS</div>
-          <div id="threat" class="value">0</div>
-        </div>
-        <div class="hud-panel">
-          <div class="label">DEPTH</div>
-          <div id="depth" class="value">0 km</div>
+
+        <div class="hud-chrome">
+          <div id="view-switcher">
+            <button type="button" data-view="chase" class="view-btn">1 <span class="view-name">CHASE</span></button>
+            <button type="button" data-view="cockpit" class="view-btn">2 <span class="view-name">COCKPIT</span></button>
+            <button type="button" data-view="scroll" class="view-btn">3 <span class="view-name">SCROLL</span></button>
+          </div>
+          <button type="button" id="pause-btn" class="hud-btn">MENU</button>
         </div>
       </div>
 
       <div class="hud-bottom">
-        <div class="bar-wrap">
-          <div class="label">HULL</div>
-          <div class="bar">
-            <div id="health-fill"></div>
-          </div>
-        </div>
-        <div class="bar-wrap rift-wrap">
-          <div class="label">RIFT · <span id="rift-name">NEEDLES</span></div>
+        <div class="hud-arsenal bar-wrap rift-wrap">
+          <div class="label">ARSENAL · <span id="rift-name">SPARK</span></div>
           <div class="bar">
             <div id="rift-fill"></div>
           </div>
         </div>
-        <div class="bar-wrap">
-          <div class="label">BOOST</div>
-          <div class="bar">
-            <div id="boost-fill"></div>
+        <div class="hud-vitals">
+          <div class="bar-wrap">
+            <div class="label">HULL</div>
+            <div class="bar">
+              <div id="health-fill"></div>
+            </div>
+          </div>
+          <div class="bar-wrap">
+            <div class="label">BOOST</div>
+            <div class="bar">
+              <div id="boost-fill"></div>
+            </div>
           </div>
         </div>
       </div>
 
+      <div id="bomb-flash"><i class="iris-core"></i><i class="iris-ring"></i></div>
+      <div id="rift-bloom"><i class="rift-glow"></i></div>
       <div id="toast"></div>
+      <div id="teach"></div>
+      <div id="boss-title"></div>
 
-      <div id="view-switcher">
-        <button type="button" data-view="chase" class="view-btn">1 CHASE</button>
-        <button type="button" data-view="cockpit" class="view-btn">2 COCKPIT</button>
-        <button type="button" data-view="scroll" class="view-btn">3 SCROLL</button>
+      <div id="boss-meter" class="boss-meter">
+        <div class="label" id="boss-name">WEAVER QUEEN</div>
+        <div class="bar boss-bar">
+          <div id="boss-fill"></div>
+          <div class="boss-crack"></div>
+        </div>
       </div>
     </div>
 
     <div id="title-screen" class="screen">
       <div class="title-glow"></div>
-      <p class="kicker">SECTOR 7 — THE AETHER RIFT</p>
-      <h1>AETHER<br /><span>DRIFT</span></h1>
-      <p class="tagline">The ribbon is a suggestion. Hunters are not.</p>
-      <div class="menu-actions">
+      <p class="kicker fly-in">SECTOR 7 — THE AETHER RIFT</p>
+      <h1 class="fly-in">AETHER<br /><span>DRIFT</span></h1>
+      <p class="tagline fly-in delay-2">The ribbon is a suggestion. Hunters are not.</p>
+      <div class="menu-actions fly-in delay-3">
         <button id="resume-title-btn" type="button" hidden>RESUME</button>
         <button id="start-btn" type="button">ENGAGE</button>
       </div>
-      <div class="controls">
-        <div><kbd>WASD</kbd> / <kbd>arrows</kbd> slide in eight directions across the whole playfield</div>
-        <div><kbd>Click</kbd> / <kbd>Space</kbd> guns always fire forward · <kbd>Shift</kbd> boost</div>
-        <div><kbd>1</kbd> chase · <kbd>2</kbd> cockpit · <kbd>3</kbd> scroll · <kbd>V</kbd> cycle</div>
-        <div>Kill hunters and scoop cyan filaments to charge the rift guns. Max wall grows wing guns, then the Aether Crown.</div>
-        <div><kbd>Esc</kbd> menu · <kbd>P</kbd> pause</div>
+      <p id="title-controls" class="title-controls fly-in delay-3">A/D SLIDE · W/S CLIMB · HOLD FIRE · B BOMB</p>
+      <p class="title-touch fly-in delay-3">TOUCH · HOLD TO FIRE · DRAG TO SLIDE</p>
+      <div id="title-scores" class="scoreboard fly-in delay-4"></div>
+    </div>
+
+    <div id="map-screen" class="screen hidden pause-dim">
+      <p class="kicker" id="map-kicker">CAMPAIGN MAP</p>
+      <h2 id="map-title">THE AETHER RIFT</h2>
+      <p class="tagline" id="map-tag">Five themed campaigns. Full-length levels. Mini-bosses, then a level boss. Super boss at the end of each campaign.</p>
+      <div id="campaign-map" class="campaign-map"></div>
+      <div class="menu-actions">
+        <button id="deploy-btn" type="button">DEPLOY</button>
+        <button id="hangar-map-btn" type="button">SHIPYARD</button>
+        <button id="map-menu-btn" type="button">MAIN MENU</button>
       </div>
     </div>
 
-    <div id="pause-screen" class="screen hidden">
+    <div id="pause-screen" class="screen hidden pause-dim">
       <h2>PAUSED</h2>
       <p>The rift waits for no one.</p>
       <div class="menu-actions">
@@ -89,11 +134,53 @@
       </div>
     </div>
 
+    <div id="continue-screen" class="screen hidden">
+      <p class="kicker">SIGNAL FADING</p>
+      <h2>CONTINUE?</h2>
+      <p id="continue-left" class="tagline">2 CREDITS REMAIN</p>
+      <div class="menu-actions">
+        <button id="continue-yes" type="button">CONTINUE</button>
+        <button id="continue-no" type="button">GIVE UP</button>
+      </div>
+    </div>
+
     <div id="dead-screen" class="screen hidden">
-      <p class="kicker">SIGNAL LOST</p>
-      <h2>HULL BREACH</h2>
+      <p class="kicker" id="result-kicker">SIGNAL LOST</p>
+      <h2 id="result-title">HULL BREACH</h2>
+      <p id="result-rank" class="rank-mark">D</p>
       <p id="final-stats" class="tagline"></p>
+      <p id="result-rec" class="result-rec"></p>
+      <p id="result-next" class="result-next"></p>
+      <div id="result-board" class="scoreboard"></div>
       <button id="retry-btn" type="button">RE-ENTER THE RIFT</button>
+    </div>
+
+    <div id="hangar-screen" class="screen hidden">
+      <div class="hangar-stage">
+        <p class="kicker" id="hangar-kicker">DRYDOCK</p>
+        <h2 id="hangar-title">SHIPYARD</h2>
+        <div id="hangar-next" class="hangar-next" hidden></div>
+        <p class="hangar-hint" id="hangar-hint">Preview a system on the hull. Install it. Powerups in the rift only charge what you bought.</p>
+        <div id="hangar-payout" class="hangar-payout"></div>
+      </div>
+      <aside class="hangar-panel">
+        <div class="hangar-gold-row">
+          <span class="label">GOLD</span>
+          <span id="hangar-gold" class="hangar-gold">0</span>
+        </div>
+        <div id="hangar-list" class="hangar-list" role="listbox" aria-label="Ship systems"></div>
+        <div class="hangar-detail">
+          <div id="hangar-item-name" class="hangar-item-name">PARTICLE BLASTERS</div>
+          <div id="hangar-item-blurb" class="hangar-item-blurb"></div>
+          <div id="hangar-item-cost" class="hangar-item-cost"></div>
+        </div>
+        <div class="menu-actions hangar-actions">
+          <button id="hangar-buy" type="button">INSTALL</button>
+          <button id="hangar-done" type="button">CONTINUE</button>
+          <button id="hangar-hull-btn" type="button" aria-pressed="false">VIEW HULL</button>
+        </div>
+        <p class="hangar-controls">↑↓ select · Enter buy · Esc continue</p>
+      </aside>
     </div>
 
     <script type="module" src="/src/main.js"></script>

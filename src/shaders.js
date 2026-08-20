@@ -385,6 +385,7 @@ export const cinematicShader = {
     uFlare: { value: 1 },
     uCockpit: { value: 0 },
     uGate: { value: 0 },
+    uKick: { value: 0 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -403,6 +404,7 @@ export const cinematicShader = {
     uniform float uFlare;
     uniform float uCockpit;
     uniform float uGate;
+    uniform float uKick;
     varying vec2 vUv;
 
     void main() {
@@ -410,7 +412,7 @@ export const cinematicShader = {
       vec2 center = uv - 0.5;
       float dist = length(center);
 
-      float aberr = 0.0018 + uBoost * 0.0045 + dist * 0.004 + uGate * 0.004;
+      float aberr = 0.0018 + uBoost * 0.0045 + dist * 0.004 + uGate * 0.004 + uKick * 0.006;
       vec3 col;
       col.r = texture2D(tDiffuse, uv + center * aberr).r;
       col.g = texture2D(tDiffuse, uv).g;
@@ -440,9 +442,10 @@ export const cinematicShader = {
       float grain = fract(sin(dot(uv * uResolution + uTime * 40.0, vec2(12.9898, 78.233))) * 43758.5453);
       col += (grain - 0.5) * 0.035;
 
-      col *= 1.0 + uBoost * 0.12 + uGate * 0.22;
+      col *= 1.0 + uBoost * 0.12 + uGate * 0.22 + uKick * 0.08;
       col = mix(col, vec3(0.75, 1.12, 1.28), uGate * 0.16);
       col = mix(col, vec3(0.7, 0.05, 0.12), uHurt * 0.45);
+      col = mix(col, vec3(1.0, 0.96, 0.88), uKick * 0.18);
 
       float scan = 0.96 + 0.04 * sin(uv.y * uResolution.y * 1.6 + uTime * 8.0);
       col *= scan;

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 5173"
+    "preview": "vite preview --host 0.0.0.0 --port 5173",
+    "validate": "node scripts/validate-aaa.mjs && node scripts/critique-gameplay.mjs && node scripts/critique-graphics.mjs && node scripts/critique-hangar.mjs && node scripts/critique-balance.mjs && node scripts/critique-polish.mjs"
   },
   "dependencies": {
     "three": "^0.170.0"

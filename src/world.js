@@ -30,12 +30,156 @@ export class World {
     this.lightInt = new Float32Array(6);
     this.crystalMat = this._crystalMaterial();
 
+    this._chapterId = 'default';
+    this._chapterT = 1;
+    this._chapterFrom = this._palette('default');
+    this._chapterTo = this._chapterFrom;
     this._addSky();
     this._addPlanet();
     this._addSun();
     this._addDust();
     this._addSpores();
     this._buildCrystals();
+  }
+
+  _palette(id) {
+    const palettes = {
+      default: {
+        skyA: new THREE.Color('#3a0a58'),
+        skyB: new THREE.Color('#0b3d6a'),
+        skyC: new THREE.Color('#ff3bd4'),
+        ribbonA: new THREE.Color('#5ce1ff'),
+        ribbonB: new THREE.Color('#ff3bd4'),
+        fog: new THREE.Color('#12051f'),
+        crystal: new THREE.Color('#6a3cff'),
+        glow: new THREE.Color('#7cf0ff'),
+        sun: new THREE.Color('#ffe6c4'),
+        ambient: new THREE.Color('#3a1a58'),
+      },
+      queen: {
+        skyA: new THREE.Color('#4a0528'),
+        skyB: new THREE.Color('#1a0840'),
+        skyC: new THREE.Color('#ff3bd4'),
+        ribbonA: new THREE.Color('#ff64e8'),
+        ribbonB: new THREE.Color('#5ce1ff'),
+        fog: new THREE.Color('#220818'),
+        crystal: new THREE.Color('#9b2bff'),
+        glow: new THREE.Color('#ff64e8'),
+        sun: new THREE.Color('#ffb0d8'),
+        ambient: new THREE.Color('#4a1238'),
+      },
+      warden: {
+        skyA: new THREE.Color('#3a1808'),
+        skyB: new THREE.Color('#1a0a28'),
+        skyC: new THREE.Color('#ffd166'),
+        ribbonA: new THREE.Color('#ffd166'),
+        ribbonB: new THREE.Color('#ff8a1a'),
+        fog: new THREE.Color('#1a0c08'),
+        crystal: new THREE.Color('#5a1a8a'),
+        glow: new THREE.Color('#ffd166'),
+        sun: new THREE.Color('#ffd9a0'),
+        ambient: new THREE.Color('#3a2210'),
+      },
+      coil: {
+        skyA: new THREE.Color('#4a0a10'),
+        skyB: new THREE.Color('#2a0818'),
+        skyC: new THREE.Color('#ff6a3a'),
+        ribbonA: new THREE.Color('#ff8a3a'),
+        ribbonB: new THREE.Color('#ff3bd4'),
+        fog: new THREE.Color('#180608'),
+        crystal: new THREE.Color('#ff5a2a'),
+        glow: new THREE.Color('#ffb07a'),
+        sun: new THREE.Color('#ffc8a0'),
+        ambient: new THREE.Color('#3a1210'),
+      },
+      empress: {
+        skyA: new THREE.Color('#2a0428'),
+        skyB: new THREE.Color('#120830'),
+        skyC: new THREE.Color('#ffd166'),
+        ribbonA: new THREE.Color('#ff3bd4'),
+        ribbonB: new THREE.Color('#ffd166'),
+        fog: new THREE.Color('#140414'),
+        crystal: new THREE.Color('#ff64e8'),
+        glow: new THREE.Color('#ffe29a'),
+        sun: new THREE.Color('#ffd0ea'),
+        ambient: new THREE.Color('#3a0a30'),
+      },
+      heart: {
+        skyA: new THREE.Color('#18040c'),
+        skyB: new THREE.Color('#0a0614'),
+        skyC: new THREE.Color('#ff5a7a'),
+        ribbonA: new THREE.Color('#ff3bd4'),
+        ribbonB: new THREE.Color('#5ce1ff'),
+        fog: new THREE.Color('#100308'),
+        crystal: new THREE.Color('#ff5a7a'),
+        glow: new THREE.Color('#ff8ab0'),
+        sun: new THREE.Color('#ffd0d8'),
+        ambient: new THREE.Color('#2a0814'),
+      },
+      finale: {
+        skyA: new THREE.Color('#081828'),
+        skyB: new THREE.Color('#2a0548'),
+        skyC: new THREE.Color('#5ce1ff'),
+        ribbonA: new THREE.Color('#5ce1ff'),
+        ribbonB: new THREE.Color('#ffd166'),
+        fog: new THREE.Color('#081018'),
+        crystal: new THREE.Color('#1f6dff'),
+        glow: new THREE.Color('#9be7ff'),
+        sun: new THREE.Color('#c8e8ff'),
+        ambient: new THREE.Color('#1a2858'),
+      },
+    };
+    return palettes[id] || palettes.default;
+  }
+
+  setChapter(id) {
+    const next = id || 'default';
+    if (this._chapterId === next && this._chapterT >= 1) return;
+    if (this._chapterId === next) return;
+    this._chapterFrom = this._sampleChapter();
+    this._chapterTo = this._palette(next);
+    this._chapterId = next;
+    this._chapterT = 0;
+  }
+
+  _sampleChapter() {
+    const t = this._chapterT ?? 1;
+    const a = this._chapterFrom || this._palette('default');
+    const b = this._chapterTo || a;
+    const mix = (from, to) => new THREE.Color().lerpColors(from, to, t);
+    return {
+      skyA: mix(a.skyA, b.skyA),
+      skyB: mix(a.skyB, b.skyB),
+      skyC: mix(a.skyC, b.skyC),
+      ribbonA: mix(a.ribbonA, b.ribbonA),
+      ribbonB: mix(a.ribbonB, b.ribbonB),
+      fog: mix(a.fog, b.fog),
+      crystal: mix(a.crystal, b.crystal),
+      glow: mix(a.glow, b.glow),
+      sun: mix(a.sun, b.sun),
+      ambient: mix(a.ambient, b.ambient),
+    };
+  }
+
+  _applyChapter(t) {
+    const a = this._chapterFrom;
+    const b = this._chapterTo;
+    if (!a || !b) return;
+    this.skyMat.uniforms.uA.value.lerpColors(a.skyA, b.skyA, t);
+    this.skyMat.uniforms.uB.value.lerpColors(a.skyB, b.skyB, t);
+    this.skyMat.uniforms.uC.value.lerpColors(a.skyC, b.skyC, t);
+    if (this.ribbonMat) {
+      this.ribbonMat.uniforms.uColorA.value.lerpColors(a.ribbonA, b.ribbonA, t);
+      this.ribbonMat.uniforms.uColorB.value.lerpColors(a.ribbonB, b.ribbonB, t);
+    }
+    if (this.sunLight) this.sunLight.color.lerpColors(a.sun, b.sun, t);
+    if (this._ambient) this._ambient.color.lerpColors(a.ambient, b.ambient, t);
+    const fog = new THREE.Color().lerpColors(a.fog, b.fog, t);
+    const glow = new THREE.Color().lerpColors(a.glow, b.glow, t);
+    for (const mesh of this.crystals) {
+      mesh.material.uniforms.uFogColor.value.copy(fog);
+      mesh.material.uniforms.uGlow.value.copy(glow);
+    }
   }
 
   _crystalMaterial() {
@@ -121,7 +265,8 @@ export class World {
     this.scene.add(this.sun);
     this.sunLight = new THREE.DirectionalLight(0xffe6c4, 1.4);
     this.scene.add(this.sunLight);
-    this.scene.add(new THREE.AmbientLight(0x3a1a58, 0.35));
+    this._ambient = new THREE.AmbientLight(0x3a1a58, 0.35);
+    this.scene.add(this._ambient);
   }
 
   _addDust() {
@@ -300,6 +445,10 @@ export class World {
 
   update(dt, camera, traveled) {
     this.time += dt;
+    if (this._chapterT < 1) {
+      this._chapterT = Math.min(1, this._chapterT + dt * 0.42);
+      this._applyChapter(this._chapterT);
+    }
     this.skyMat.uniforms.uTime.value = this.time;
     this.planetMat.uniforms.uTime.value = this.time;
     if (this.ribbonMat) this.ribbonMat.uniforms.uTime.value = this.time;

@@ -216,6 +216,21 @@ if (game.includes("toast('NEAR MISS')")) fail('near-miss toast came back');
 if (!html.includes('id="result-rec"') || !html.includes('id="result-next"') || !game.includes('CLEARED ·') || !game.includes('NEXT BUY ·') || !game.includes('CAMPAIGN CLEAR')) {
   fail('results are not a record of clear / next buy / next deploy');
 }
+if (!/_openHangar[\s\S]{0,1800}CLEARED ·/.test(game) || !game.includes('_gradeNow(true)')) {
+  fail('sector clear hangar does not carry the record');
+}
+if (!game.includes('LOST ·') || /stats\.textContent = victory[\s\S]{0,80}GOLD /.test(game)) {
+  fail('death does not name the lost level');
+}
+if (game.includes('_renderScoreboard(this.ui.resultBoard')) {
+  fail('results card still dumps the hi-score grid');
+}
+if (!game.includes('li === cursor.l && !cleared')) {
+  fail('spent current still wears a second sun');
+}
+if (!campaigns.includes('!cleared.includes(`${c}-${l}`)')) {
+  fail('markCleared still rewinds the frontier');
+}
 if (!css.includes('.map-node.spent') || !css.includes('.map-node.next') || !game.includes("next ? 'next'")) {
   fail('map does not mark spent clears and the next deploy');
 }

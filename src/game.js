@@ -903,6 +903,18 @@ export class Game {
     this._endRun(false);
   }
 
+  _gradeNow(victory) {
+    return gradeRun({
+      score: this.score,
+      kills: this.kills,
+      step: this.maxStep || this.step,
+      maxCombo: this.maxCombo,
+      victory,
+      nearMisses: this.nearMisses,
+      bombsUsed: this.bombsUsed,
+    });
+  }
+
   _endRun(victory) {
     this.state = 'dead';
     this._hasRun = false;
@@ -912,16 +924,8 @@ export class Game {
     this.audio.explosion(true);
     this.best = Math.max(this.best, this.score);
     localStorage.setItem('aether-best', String(this.best));
-    const rank = gradeRun({
-      score: this.score,
-      kills: this.kills,
-      step: this.maxStep || this.step,
-      maxCombo: this.maxCombo,
-      victory,
-      nearMisses: this.nearMisses,
-      bombsUsed: this.bombsUsed,
-    });
-    const board = saveScore({
+    const rank = this._gradeNow(victory);
+    saveScore({
       score: this.score,
       rank,
       kills: this.kills,
@@ -935,28 +939,28 @@ export class Game {
     this.ui.hangar?.classList.add('hidden');
     this.ui.dead.classList.remove('hidden');
     const slot = getLevel(this.campaignIndex, this.levelIndex);
-    const last = slot?.lv.boss === 'finale';
-    if (this.ui.resultKicker) this.ui.resultKicker.textContent = victory ? (last ? 'RIFT CLEARED' : 'SECTOR CLEAR') : 'SIGNAL LOST';
+    if (this.ui.resultKicker) {
+      this.ui.resultKicker.textContent = '';
+      this.ui.resultKicker.hidden = true;
+    }
     if (this.ui.resultTitle) {
-      this.ui.resultTitle.textContent = victory
-        ? (last ? 'SENTINEL FALLS' : `${slot?.lv.name || 'SECTOR'} DONE`)
-        : 'HULL BREACH';
+      this.ui.resultTitle.textContent = '';
+      this.ui.resultTitle.hidden = true;
     }
     if (this.ui.resultRank) this.ui.resultRank.textContent = rank;
-    const rec = recommend(this.hangar?.levels || {}, this.hangar?.gold || 0, slot?.lv.id || '');
+    const rec = victory ? recommend(this.hangar?.levels || {}, this.hangar?.gold || 0, slot?.lv.id || '') : null;
     const nxt = victory ? nextSlot(this.campaignIndex, this.levelIndex) : null;
-    if (this.ui.stats) {
-      this.ui.stats.textContent = victory
-        ? `CLEARED · ${slot?.lv.id || ''}`
-        : `GOLD ${this.hangar?.gold || 0}`;
-    }
+    if (this.ui.stats) this.ui.stats.textContent = victory ? `CLEARED · ${slot?.lv.id || ''}` : `LOST · ${slot?.lv.id || ''}`;
     if (this.ui.resultRec) this.ui.resultRec.textContent = rec ? `NEXT BUY · ${CATALOG[rec].title}` : '';
     if (this.ui.resultNext) {
       this.ui.resultNext.textContent = victory
         ? (nxt ? `NEXT · ${nxt.lv.id} ${nxt.lv.name}` : 'CAMPAIGN CLEAR')
         : '';
     }
-    this._renderScoreboard(this.ui.resultBoard, board, this.score);
+    if (this.ui.resultBoard) {
+      this.ui.resultBoard.innerHTML = '';
+      this.ui.resultBoard.hidden = true;
+    }
   }
 
   toast(text) {
@@ -1047,9 +1051,9 @@ export class Game {
       const nodes = camp.levels.map((lv, li) => {
         const id = `${ci}-${li}`;
         const cleared = this.progress.cleared.includes(id);
-        const current = ci === cursor.c && li === cursor.l;
         const locked = this._nodeLocked(ci, li);
         const next = !cleared && !locked && ci === (this.progress.nextC || 0) && li === (this.progress.nextL || 0);
+        const current = ci === cursor.c && li === cursor.l && !cleared;
         const last = li === camp.levels.length - 1;
         const kind = lv.boss === 'finale' ? 'finale boss' : last ? 'boss' : '';
         const label = lv.boss === 'finale' ? '✦' : last ? '★' : String(li + 1);
@@ -1063,7 +1067,7 @@ export class Game {
     }
   }
 
-  _openHangar({ from = 'map', payout = null, slot = null } = {}) {
+  _openHangar({ from = 'map', payout = null, slot = null, nxt = null } = {}) {
     this._clearInput();
     this._hangarFrom = from;
     this.state = 'hangar';
@@ -1080,16 +1084,29 @@ export class Game {
     this.audio.setChapter('hangar');
     this.audio.yardTick();
     this._setHangarShopMin(false);
+    const record = from === 'clear' || from === 'win';
     if (this.ui.hangarKicker) {
-      this.ui.hangarKicker.textContent = from === 'win' ? 'CAMPAIGN COMPLETE' : from === 'clear' ? 'SECTOR CLEAR' : 'DRYDOCK';
+      this.ui.hangarKicker.hidden = record;
+      this.ui.hangarKicker.textContent = record ? '' : 'DRYDOCK';
     }
     if (this.ui.hangarTitle) {
-      this.ui.hangarTitle.textContent = from === 'win' ? 'THE RIFT HOLDS' : 'SHIPYARD';
+      this.ui.hangarTitle.textContent = record ? this._gradeNow(true) : 'SHIPYARD';
+      this.ui.hangarTitle.classList.toggle('rank-mark', record);
     }
     if (this.ui.hangarPayout) {
-      this.ui.hangarPayout.textContent = payout
-        ? `CLEAR ₡${payout.clear}   BOSS ₡${payout.boss}   MINIS ₡${payout.mid}   BANKED ₡${payout.total}`
-        : '';
+      if (record) {
+        const rec = recommend(this.hangar.levels, this.hangar.gold, slot?.lv.id || '');
+        const nextLine = from === 'win'
+          ? 'CAMPAIGN CLEAR'
+          : (nxt ? `NEXT · ${nxt.lv.id} ${nxt.lv.name}` : '');
+        this.ui.hangarPayout.textContent = [
+          `CLEARED · ${slot?.lv.id || ''}`,
+          rec ? `NEXT BUY · ${CATALOG[rec].title}` : '',
+          nextLine,
+        ].filter(Boolean).join('\n');
+      } else {
+        this.ui.hangarPayout.textContent = '';
+      }
     }
     if (this.ui.hangarHint) {
       const afterClear = from === 'clear' || from === 'win';
@@ -1297,7 +1314,7 @@ export class Game {
       mids: this._midsThisLevel || 2,
     });
     this.hangar = addGold(this.hangar, payout.total);
-    this._openHangar({ from: nxt ? 'clear' : 'win', payout, slot });
+    this._openHangar({ from: nxt ? 'clear' : 'win', payout, slot, nxt });
   }
 
   win() {

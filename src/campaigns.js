@@ -319,12 +319,22 @@ export function saveProgress(progress) {
 export function markCleared(progress, ci, li) {
   const id = `${ci}-${li}`;
   const cleared = progress.cleared.includes(id) ? progress.cleared : progress.cleared.concat(id);
-  const nxt = nextSlot(ci, li);
+  let nextC = CAMPAIGNS.length - 1;
+  let nextL = CAMPAIGNS[nextC].levels.length - 1;
+  outer: for (let c = 0; c < CAMPAIGNS.length; c++) {
+    for (let l = 0; l < CAMPAIGNS[c].levels.length; l++) {
+      if (!cleared.includes(`${c}-${l}`)) {
+        nextC = c;
+        nextL = l;
+        break outer;
+      }
+    }
+  }
   return {
     ...progress,
     cleared,
-    nextC: nxt ? nxt.ci : 0,
-    nextL: nxt ? nxt.li : 0,
+    nextC,
+    nextL,
   };
 }
 

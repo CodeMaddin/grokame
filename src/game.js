@@ -1401,11 +1401,11 @@ export class Game {
     this.muzzleFlash = Math.max(0, this.muzzleFlash - dt * 8);
     if (this.muzzle) {
       this.muzzle.material.opacity = this.muzzleFlash * 0.9;
-      this.muzzle.scale.setScalar(0.7 + this.muzzleFlash * 1.6);
+      this.muzzle.scale.setScalar((this._muzzleFat || 0.7) + this.muzzleFlash * 1.6);
     }
     if (this.muzzleSpike) {
       this.muzzleSpike.material.opacity = this.muzzleFlash * 0.7;
-      this.muzzleSpike.scale.set(1, 1, 0.6 + this.muzzleFlash * 1.8);
+      this.muzzleSpike.scale.set(this._muzzleThin || 1, 1, 0.6 + this.muzzleFlash * (this._muzzleLong || 1.8));
     }
     for (const l of this.shipLights) l.intensity = 3.2 + boostAmt * 3;
     this.trail.push(this.ship.position.clone().addScaledVector(shipSample.tangent, -1.4), boostAmt);
@@ -1464,7 +1464,6 @@ export class Game {
       if (firing) {
         const arms = arsenal(this.loadout, this.clock.elapsedTime);
         const muzzle = this.traveled + this.holdY + 6.2;
-        let voiced = false;
         for (const group of ['primary', 'missile', 'titan', 'mine', 'nova']) {
           const bank = arms[group];
           if (!bank.shots.length || this.gunCd[group] > 0) continue;
@@ -1474,13 +1473,7 @@ export class Game {
           }
           if (any) {
             this.gunCd[group] = bank.cd;
-            if (group === 'primary' || group === 'titan') this.muzzleFlash = 1;
-            if (!voiced) {
-              this.audio.guns(group, this.loadout);
-              voiced = group === 'primary';
-            } else if (group === 'titan' || group === 'missile') {
-              this.audio.guns(group, this.loadout);
-            }
+            this._voiceGun(bank.shots, group);
           }
         }
       }
@@ -2036,6 +2029,29 @@ export class Game {
     if (role === 'empress') return 'EMPRESS DOWN';
     if (role === 'finale') return 'SENTINEL DOWN';
     return 'QUEEN DOWN';
+  }
+
+  _voiceGun(shots, group) {
+    const kinds = [...new Set(shots.map((s) => s.kind).filter(Boolean))];
+    const kind = kinds.find((k) => k !== 'spark') || kinds[0] || group;
+    this.audio.shotFor(kind);
+    const kick = Math.max(0.12, ...shots.map((s) => s.kick || 0.2));
+    this.kickAmt = Math.max(this.kickAmt, kick);
+    this.kick.set(kind === 'wing' || kind === 'shear' ? 0.55 : 0.08, kind === 'titan' ? 0.45 : 0.12, kind === 'titan' ? 1.35 : 0.4);
+    const flash = {
+      titan: [0xffd166, 1.45, 1.8, 0.7, 1.1],
+      needle: [0x9be7ff, 0.72, 0.45, 0.55, 2.4],
+      nova: [0xff64e8, 1.15, 1.2, 1.1, 1.6],
+      mine: [0x5ce1ff, 0.55, 1.1, 1.4, 0.9],
+      seeker: [0xff8a4a, 0.7, 0.8, 1.1, 1.4],
+      spark: [0xc8fff6, 1, 0.7, 1, 1.8],
+    }[kind] || [0x9be7ff, 0.85, 0.75, 1, 1.7];
+    this.muzzleFlash = flash[1];
+    this._muzzleFat = flash[2];
+    this._muzzleThin = flash[3];
+    this._muzzleLong = flash[4];
+    if (this.muzzle?.material?.color) this.muzzle.material.color.setHex(flash[0]);
+    if (this.muzzleSpike?.material?.color) this.muzzleSpike.material.color.setHex(flash[0]);
   }
 
   _punch(seconds, mag) {

@@ -90,6 +90,7 @@ if (crafts.includes('if (i >= 3) parts.push(segment)')) {
 
 const html = read('index.html');
 const hangar = read('src/hangar.js');
+const weapons = read('src/weapons.js');
 if (!html.includes('id="title-controls"') || !html.includes('A/D SLIDE') || !html.includes('B BOMB')) {
   fail('title does not teach slide/climb/fire/bomb in one line');
 }
@@ -123,6 +124,17 @@ if (!game.includes('openerDup') || !game.includes('WAVE 0?1')) {
 }
 if (/_resetRun\([\s\S]{0,400}_hinted = new Set/.test(game)) {
   fail('first-run school resets every deploy');
+}
+
+if (!audio.includes('shotFor(kind') || !game.includes('_voiceGun') || !game.includes('shotFor')) {
+  fail('guns still share one voice');
+}
+if (!weapons.includes('GUN_KICK') || !weapons.includes('titan: 0.92')) {
+  fail('guns have no per-kind kick');
+}
+const jobs = ['kills the brick', 'boss tooth', 'lane gifts', 'clears the flanks', 'owns the flanks'];
+for (const job of jobs) {
+  if (!hangar.toLowerCase().includes(job)) fail(`hangar blurb is not a job: ${job}`);
 }
 
 if (fails.length) {

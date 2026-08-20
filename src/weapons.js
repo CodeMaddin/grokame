@@ -283,14 +283,34 @@ export function arsenal(loadout, t = 0) {
   }
 
   const primaryCd = sp > 0 && nd === 0 ? 0.094 : 0.078;
-  return {
+  const arms = {
     primary: { cd: primaryCd, shots: primary },
     missile: { cd: Math.max(0.28, 0.42 - sk * 0.018), shots: missile },
     titan: { cd: Math.max(0.52, 0.86 - tn * 0.048), shots: titan },
     mine: { cd: 0.52, shots: mine },
     nova: { cd: Math.max(0.72, 1.18 - nv * 0.08), shots: nova },
   };
+  for (const bank of Object.values(arms)) {
+    for (const shot of bank.shots) shot.kick = GUN_KICK[shot.kind] ?? 0.2;
+  }
+  return arms;
 }
+
+export const GUN_KICK = {
+  spark: 0.22,
+  needle: 0.14,
+  wing: 0.16,
+  helix: 0.2,
+  shear: 0.3,
+  spire: 0.24,
+  drone: 0.12,
+  prism: 0.16,
+  shard: 0.15,
+  seeker: 0.34,
+  titan: 0.92,
+  mine: 0.4,
+  nova: 0.58,
+};
 
 export function peakLiveBullets(step) {
   const arms = arsenal(loadoutFromStep(step), 0);

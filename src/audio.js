@@ -321,29 +321,85 @@ export class AudioBus {
   }
 
   guns(group = 'primary', loadout = {}) {
+    const kind = group === 'titan' ? 'titan'
+      : group === 'missile' ? 'seeker'
+      : group === 'mine' ? 'mine'
+      : group === 'nova' ? 'nova'
+      : (loadout.needle || 0) > 0 ? 'needle'
+      : 'spark';
+    this.shotFor(kind);
+  }
+
+  shotFor(kind = 'spark') {
     if (!this.enabled) return;
     const t = this.ctx.currentTime;
-    if (group === 'titan') {
-      this._osc('sawtooth', 64, t, 0.28, 0.14);
-      this._osc('square', 128, t, 0.18, 0.07);
-      this._noiseBurst(t, 0.2, 180, 1.1, 0.1);
-      this._duck(0.28, 0.18);
+    if (kind === 'titan') {
+      this._osc('sawtooth', 58, t, 0.32, 0.16);
+      this._osc('square', 116, t, 0.2, 0.08);
+      this._noiseBurst(t, 0.22, 160, 1.2, 0.12);
+      this._duck(0.32, 0.2);
+      this.rumble(90, 0.55);
       return;
     }
-    if (group === 'missile') {
-      this._osc('sawtooth', 140, t, 0.16, 0.06);
-      this._noiseBurst(t, 0.12, 900, 0.8, 0.05);
+    if (kind === 'seeker') {
+      this._osc('sawtooth', 128, t, 0.2, 0.07);
+      this._osc('triangle', 210, t + 0.02, 0.16, 0.045);
+      this._noiseBurst(t, 0.14, 720, 0.9, 0.055);
       return;
     }
-    if (group === 'mine' || group === 'nova') {
-      this._osc('triangle', 380, t, 0.11, 0.045);
-      this._osc('sine', 620, t, 0.12, 0.035);
+    if (kind === 'mine') {
+      this._osc('sine', 90, t, 0.18, 0.07);
+      this._osc('triangle', 160, t + 0.03, 0.22, 0.05);
+      this._noiseBurst(t, 0.1, 280, 1.4, 0.04);
       return;
     }
-    if ((loadout.needle || 0) > 0) {
-      const pitch = 920 + Math.min(6, loadout.needle) * 48;
-      this._osc('square', pitch, t, 0.055, 0.05);
-      this._osc('sawtooth', 380 + loadout.needle * 22, t, 0.08, 0.03);
+    if (kind === 'nova') {
+      this._osc('sine', 220, t, 0.2, 0.07);
+      this._osc('triangle', 330, t, 0.24, 0.06);
+      this._osc('sine', 495, t + 0.04, 0.28, 0.05);
+      this._noiseBurst(t, 0.18, 1400, 0.6, 0.05);
+      this._duck(0.18, 0.16);
+      return;
+    }
+    if (kind === 'needle') {
+      this._osc('square', 1480, t, 0.035, 0.055);
+      this._osc('sine', 2960, t, 0.028, 0.03);
+      this._osc('sawtooth', 740, t, 0.05, 0.02);
+      return;
+    }
+    if (kind === 'wing') {
+      this._osc('triangle', 640, t, 0.06, 0.045);
+      this._osc('square', 960, t, 0.04, 0.03);
+      return;
+    }
+    if (kind === 'helix') {
+      this._osc('square', 520, t, 0.07, 0.035);
+      this._osc('square', 533, t, 0.07, 0.03);
+      return;
+    }
+    if (kind === 'shear') {
+      this._osc('sawtooth', 210, t, 0.09, 0.06);
+      this._noiseBurst(t, 0.08, 1800, 0.7, 0.045);
+      return;
+    }
+    if (kind === 'spire') {
+      this._osc('sine', 1880, t, 0.08, 0.05);
+      this._osc('triangle', 940, t, 0.1, 0.035);
+      return;
+    }
+    if (kind === 'drone') {
+      this._osc('triangle', 420, t, 0.05, 0.03);
+      this._osc('sine', 840, t + 0.02, 0.06, 0.025);
+      return;
+    }
+    if (kind === 'prism') {
+      this._osc('sine', 700, t, 0.06, 0.035);
+      this._osc('sine', 1050, t, 0.06, 0.03);
+      return;
+    }
+    if (kind === 'shard') {
+      this._osc('triangle', 1100, t, 0.04, 0.04);
+      this._osc('sine', 1760, t, 0.035, 0.025);
       return;
     }
     this._osc('square', 480, t, 0.04, 0.04);

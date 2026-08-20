@@ -7,7 +7,7 @@ export const HANGAR_KEY = 'aether-hangar';
 export const CATALOG = {
   spark: {
     title: 'PARTICLE BLASTERS',
-    blurb: 'Forward guns. Every hull launches with these. Powerups thicken the volley — they never fan wide.',
+    blurb: 'The trickle. Forward guns. They never fan wide. Everything else is a different job.',
     unlock: 0,
   },
   tractor: {
@@ -22,7 +22,7 @@ export const CATALOG = {
   },
   needle: {
     title: 'NEEDLE LASERS',
-    blurb: 'Coherent lances under the wings. Bought once. The rift can charge them after that.',
+    blurb: 'Kills the brick. Thin lances that stay on a fat hull. Buy them for heavies, not for dives.',
     unlock: 240,
   },
   seeker: {
@@ -37,12 +37,12 @@ export const CATALOG = {
   },
   titan: {
     title: 'TITAN CANNON',
-    blurb: 'A belly slab that hits like a door. The hull has to be rebuilt around it.',
+    blurb: 'The boss tooth. A belly slab that eats a phase. You feel the kick. The Queen does too.',
     unlock: 580,
   },
   wing: {
     title: 'WING FILAMENTS',
-    blurb: 'Angled guns on the tips. Without these, the blasters stay honest and forward.',
+    blurb: 'Owns the flanks. Angled guns so the center can stay honest.',
     unlock: 480,
   },
   helix: {
@@ -57,7 +57,7 @@ export const CATALOG = {
   },
   mine: {
     title: 'AETHER MINES',
-    blurb: 'Slow gifts left in the lane. The dispenser is a shipyard job.',
+    blurb: 'Lane gifts. Leave them for the next wave, not the one in your face.',
     unlock: 360,
   },
   shear: {
@@ -72,7 +72,7 @@ export const CATALOG = {
   },
   nova: {
     title: 'NOVA BURST',
-    blurb: 'A crown that coughs a radial bloom. Pretty. Mean. Expensive.',
+    blurb: 'Clears the flanks. A crown bloom when the aisle fills. Pretty. Mean.',
     unlock: 700,
   },
   prism: {

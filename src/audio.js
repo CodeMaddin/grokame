@@ -275,6 +275,12 @@ export class AudioBus {
     this._osc('triangle', 392, t + 0.12, 0.28, 0.05);
   }
 
+  hold(kind = 'breath') {
+    if (!this.enabled) return;
+    this.setIntensity(Math.min(this.intensity, kind === 'hold' ? 0.14 : 0.2));
+    this._duck(kind === 'hold' ? 0.58 : 0.32, kind === 'hold' ? 0.62 : 0.28);
+  }
+
   _duck(amount = 0.35, dur = 0.22) {
     if (!this.duck) return;
     const t = this.ctx.currentTime;

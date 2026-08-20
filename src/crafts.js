@@ -374,7 +374,7 @@ export function createQueen() {
       segment.rotation.y = side * (0.08 + i * 0.065);
       segment.rotation.z = side * (0.08 + i * 0.025);
       wings.add(segment);
-      if (i >= 3) parts.push(segment);
+      parts.push(segment);
     }
   }
   const vaneMeshes = [];
@@ -527,7 +527,7 @@ export function createSentinel() {
   outerShell.scale.setScalar(scale * 1.02);
 
   const wings = new THREE.Group();
-  const parts = [innerShell, outerShell];
+  const parts = [innerShell, outerShell, shell];
   const spikeDirs = [
     [0, 0, -1], [0.72, 0.28, -0.62], [-0.72, 0.28, -0.62],
     [0.76, -0.3, 0.58], [-0.76, -0.3, 0.58], [0, 0.82, 0.38],

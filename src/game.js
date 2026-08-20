@@ -58,6 +58,7 @@ export class Game {
     if (!['chase', 'cockpit', 'scroll'].includes(this.view)) this.view = 'scroll';
     this._hasRun = false;
     this._levelBossSpawned = false;
+    this._railHold = 0;
     this.gateFx = 0;
     this._viewSnap = 1;
     this._camLook = new THREE.Vector3();
@@ -752,6 +753,7 @@ export class Game {
     this.bombCd = 0;
     this._chapterAt = -1;
     this._levelBossSpawned = false;
+    this._railHold = 0;
     this.muzzleFlash = 0;
     this._midsThisLevel = 0;
     this.hangar = loadHangar();
@@ -1244,7 +1246,12 @@ export class Game {
       ? 16
       : 26 + wantBoost * 22 + Math.min(this.traveled / 2800, 8);
     this.speed = lerp(this.speed, cruise, 1 - Math.exp(-dt * 2.4));
-    this.traveled += this.speed * dt;
+    if (this.state === 'playing' && this._railHold > 0) {
+      this._railHold -= dt;
+      this.traveled += this.speed * dt * 0.32;
+    } else {
+      this.traveled += this.speed * dt;
+    }
     this.path.ensure(this.traveled + 400);
 
     if (Math.floor(this.traveled / 90) !== this._ribbonAt) {
@@ -1853,6 +1860,12 @@ export class Game {
         this.entities.spawnCoins(this.path, this.traveled + 48, 0, 2);
       } else if (ev.kind === 'blockers') {
         this.entities.spawnBlockersAt(this.path, this.traveled, ev.n || 2, 80, this._stageHeat());
+      } else if (ev.kind === 'breath') {
+        this.audio.hold('breath');
+      } else if (ev.kind === 'hold') {
+        this._railHold = 0.9;
+        this.audio.hold('hold');
+        this.audio.sting('chapter');
       } else if (ev.kind === 'midboss') {
         this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step, this.loadout, this._stageHeat());
         this.stage.finaleAlive = false;

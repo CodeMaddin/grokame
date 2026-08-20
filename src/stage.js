@@ -39,53 +39,53 @@ export function lanesFor(form, n, span) {
   }
   if (form === 'silk-cut') {
     const out = [];
-    for (let i = 0; i < n; i++) out.push((i / Math.max(1, n - 1) - 0.5) * s * 1.68);
+    for (let i = 0; i < n; i++) {
+      let u = i / Math.max(1, n - 1) - 0.5;
+      if (n >= 6 && Math.abs(u) < 0.1) u += u <= 0 ? -0.14 : 0.14;
+      out.push(u * s * 1.72);
+    }
     return out;
   }
   if (form === 'curtain') {
     const out = [];
-    for (let i = 0; i < n; i++) out.push((i / Math.max(1, n - 1) - 0.5) * s * 1.88);
+    for (let i = 0; i < n; i++) out.push((i / Math.max(1, n - 1) - 0.5) * s * 1.9);
     return out;
   }
   if (form === 'aisle') {
     const out = [];
-    const half = Math.ceil(n / 2);
+    const half = Math.floor(n / 2);
     for (let i = 0; i < n; i++) {
-      const side = i < half ? -1 : 1;
-      const k = i < half ? i : i - half;
-      out.push(side * s * (0.42 + k * 0.22));
+      const left = i < half;
+      const k = left ? i : i - half;
+      out.push((left ? -1 : 1) * s * (0.5 + k * 0.16));
     }
     return out;
   }
   if (form === 'split') {
     const out = [];
-    for (let i = 0; i < n; i++) out.push((i % 2 === 0 ? -1 : 1) * s * (0.68 + Math.floor(i / 2) * 0.12));
+    for (let i = 0; i < n; i++) out.push((i % 2 === 0 ? -1 : 1) * s * (0.72 + Math.floor(i / 2) * 0.1));
     return out;
   }
   if (form === 'dark') {
-    const out = [0];
-    for (let i = 1; i < n; i++) out.push((i % 2 === 0 ? -1 : 1) * s * (0.55 + Math.floor((i - 1) / 2) * 0.3));
-    return out.slice(0, n);
-  }
-  if (form === 'judgment') {
     const out = [];
-    const mid = (n - 1) / 2;
-    for (let i = 0; i < n; i++) out.push(((i - mid) / Math.max(1, mid)) * s * 0.95);
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      out.push(side * s * (0.64 + Math.floor(i / 2) * 0.14));
+    }
     return out;
   }
   return LANE_T.slice(0, n).map((t) => t * s);
 }
 
-export function rowStagger(form, i) {
+export function rowStagger(form, i, n = 7) {
   if (form === 'v') return Math.abs(i - 2) * 9;
   if (form === 'cross') return (i % 2) * 14;
   if (form === 'escort') return i === 0 ? 18 : 0;
-  if (form === 'silk-cut') return i * 7;
+  if (form === 'silk-cut') return i * 8;
   if (form === 'curtain') return 0;
-  if (form === 'aisle') return (i % 2) * 10;
-  if (form === 'split') return Math.floor(i / 2) * 8;
-  if (form === 'dark') return i === 0 ? 22 : (i % 2) * 12;
-  if (form === 'judgment') return Math.abs(i - 3) * 6;
+  if (form === 'aisle') return 0;
+  if (form === 'split') return Math.floor(i / 2) * 10;
+  if (form === 'dark') return i === 0 ? 28 : 4;
   return 0;
 }
 

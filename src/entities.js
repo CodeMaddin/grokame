@@ -460,7 +460,7 @@ export class EntityField {
     for (let i = 0; i < count; i++) {
       const idle = this.enemies.find((e) => !e.alive);
       if (!idle) break;
-      const dist = traveled + ahead + rowStagger(form, i);
+      const dist = traveled + ahead + rowStagger(form, i, count);
       this._placeOne(idle, path, dist, 'enemy');
       this._dressEnemy(idle, role || 'dive', heat, lanes[i] ?? 0, span);
     }
@@ -574,7 +574,8 @@ export class EntityField {
     en.weave = 0.55 + Math.random() * 0.7;
     const heat = Number(difficulty) || 1;
     const bump = (base) => (heat <= 1.001 ? 0 : Math.max(0, Math.round(base * (heat - 1) * 0.75)));
-    const eliteScale = 1 + Math.max(0, heat - 1) * 0.18;
+    const namedHull = role === 'queen' || role === 'warden' || role === 'finale';
+    const eliteScale = namedHull ? 1 : 1 + Math.max(0, heat - 1) * 0.18;
     en.mesh.scale.setScalar(1);
     if (en.craft) setCraftPhase(en.craft, 1);
     if (role === 'queen') {
@@ -694,8 +695,8 @@ export class EntityField {
       weak: craft.weak,
       shell: craft.ring,
       pathDist: dist,
-      hp: Math.round(eliteHp('finale', step, loadout) * (1 + Math.max(0, heat - 1) * 0.18)),
-      maxHp: Math.round(eliteHp('finale', step, loadout) * (1 + Math.max(0, heat - 1) * 0.18)),
+      hp: eliteHp('finale', step, loadout),
+      maxHp: eliteHp('finale', step, loadout),
       cooldown: 0.6,
       windup: 0,
       windMax: 0.42,
@@ -1023,7 +1024,8 @@ export class EntityField {
     const p = r > 0.66 ? 1 : r > 0.33 ? 2 : 3;
     if (p === en.visPhase) return;
     en.visPhase = p;
-    if (en.role === 'finale' || en.levelBoss || en.superBoss) en.phase = p;
+    if (!(en.role === 'finale' || en.levelBoss || en.superBoss)) return;
+    en.phase = p;
     setCraftPhase(en.craft, p);
   }
 

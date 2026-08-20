@@ -69,12 +69,19 @@ function climax(en) {
 
 function queenVolley(i, s, x, aim, span, fire, en) {
   if (climax(en)) {
-    const fan = span * 0.2;
-    for (let k = -3; k <= 3; k++) fire(s, x + k * fan, 7.0, k === 0);
-    fire(s - 4, aim, 7.6, true);
-    fire(s - 8, aim - span * 0.1, 6.8, true);
-    fire(s - 8, aim + span * 0.1, 6.8, true);
-    return 0.2;
+    const beat = i % 4;
+    if (beat === 0) {
+      for (let k = 0; k < 5; k++) fire(s - k * 3, x + (k - 2) * span * 0.15, 6.8, k === 2);
+      return 0;
+    }
+    if (beat === 1) return en.superBoss ? 0.72 : 0.58;
+    if (beat === 2) {
+      fire(s, aim, 7.5, true);
+      fire(s - 6, aim - span * 0.2, 6.6, true);
+      fire(s - 6, aim + span * 0.2, 6.6, true);
+      return 0;
+    }
+    return 0.46;
   }
   const step = i % 6;
   const fan = span * 0.16;
@@ -105,12 +112,21 @@ function queenVolley(i, s, x, aim, span, fire, en) {
 
 function empressVolley(i, s, x, aim, span, fire, en) {
   if (climax(en)) {
-    const fan = span * 0.2;
-    for (let k = -3; k <= 3; k++) fire(s, x + k * fan * 0.8, 7.0, k === 0);
-    fire(s - 5, aim, 7.5, true);
-    fire(s - 9, aim - fan, 6.6, true);
-    fire(s - 9, aim + fan, 6.6, true);
-    return 0.18;
+    const beat = i % 4;
+    if (beat === 0) {
+      fire(s, x - span * 0.72, 6.6, true);
+      fire(s, x + span * 0.72, 6.6, true);
+      fire(s - 4, x - span * 0.82, 6.4, false);
+      fire(s - 4, x + span * 0.82, 6.4, false);
+      return 0;
+    }
+    if (beat === 1) return en.superBoss ? 0.64 : 0.5;
+    if (beat === 2) {
+      fire(s, aim, 7.4, true);
+      fire(s - 5, x, 7.0, true);
+      return 0;
+    }
+    return 0.4;
   }
   const step = i % 6;
   const fan = span * 0.18;
@@ -144,14 +160,16 @@ function empressVolley(i, s, x, aim, span, fire, en) {
 
 function coilVolley(i, s, x, aim, span, fire, en) {
   if (climax(en)) {
-    const well = span * 0.22;
-    fire(s, x - well, 6.4, true);
+    const well = span * 0.28;
+    if (i % 2 === 0) {
+      fire(s, x - well, 6.4, true);
+      fire(s - 5, x - well * 0.5, 6.6, false);
+      return 0.16;
+    }
     fire(s, x + well, 6.4, true);
-    fire(s, x, 7.3, true);
-    fire(s - 6, aim, 7.0, true);
-    fire(s - 10, x - well * 0.5, 6.5, false);
-    fire(s - 10, x + well * 0.5, 6.5, false);
-    return 0.22;
+    fire(s - 5, x + well * 0.5, 6.6, false);
+    fire(s - 8, aim, 7.1, true);
+    return en.superBoss ? 0.55 : 0.42;
   }
   const step = i % 6;
   const well = span * 0.2;
@@ -183,15 +201,21 @@ function coilVolley(i, s, x, aim, span, fire, en) {
 
 function wardenVolley(i, s, x, aim, span, fire, en) {
   if (climax(en)) {
-    const cross = span * 0.24;
-    fire(s, x - cross, 6.2, true);
-    fire(s, x + cross, 6.2, true);
-    fire(s, x, 7.4, true);
-    fire(s - 6, aim - 4, 6.8, true);
-    fire(s - 6, aim + 4, 6.8, true);
-    fire(s - 10, x - cross * 0.6, 6.4, false);
-    fire(s - 10, x + cross * 0.6, 6.4, false);
-    return 0.24;
+    const beat = i % 4;
+    if (beat === 0) {
+      fire(s, x - span * 0.5, 6.3, true);
+      fire(s, x + span * 0.5, 6.3, true);
+      fire(s - 6, x - span * 0.66, 6.1, false);
+      fire(s - 6, x + span * 0.66, 6.1, false);
+      return 0;
+    }
+    if (beat === 1) return en.superBoss ? 0.76 : 0.62;
+    if (beat === 2) {
+      fire(s, aim - span * 0.48, 6.8, true);
+      fire(s, aim + span * 0.48, 6.8, true);
+      return 0;
+    }
+    return 0.44;
   }
   const step = i % 6;
   const cross = span * 0.22;
@@ -255,15 +279,18 @@ function finaleVolley(en, s, span, aim, time, fire) {
     }
     return 0.4;
   }
-  for (let i = 0; i < 5; i++) {
-    const t = i / 4 - 0.5;
-    fire(s, t * spread * 2, 7.2, true);
+  if (beat === 0) {
+    fire(s, -spread * 0.7, 6.6, true);
+    fire(s, spread * 0.7, 6.6, true);
+    fire(s - 8, Math.sin(time * 2.4) * spread, 6.4, true);
+    return 0;
   }
-  fire(s - 8, Math.sin(time * 2.4) * spread, 6.6, true);
-  fire(s - 4, aim, 6.8, true);
-  if (beat === 3) {
-    fire(s - 10, -spread * 0.7, 6.4, true);
-    fire(s - 10, spread * 0.7, 6.4, true);
+  if (beat === 1) return 0.58;
+  if (beat === 2) {
+    fire(s, aim, 6.8, true);
+    fire(s - 6, -spread * 0.45, 6.4, true);
+    fire(s - 6, spread * 0.45, 6.4, true);
+    return 0;
   }
-  return 0;
+  return 0.4;
 }

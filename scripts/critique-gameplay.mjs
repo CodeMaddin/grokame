@@ -7,7 +7,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SCRIPT, CHAPTERS } from '../src/stage.js';
-import { CAMPAIGNS, MVP_SCRIPT, SIG, SCRIPT_OVERLAYS, allLevels } from '../src/campaigns.js';
+import { CAMPAIGNS, MVP_SCRIPT, SIG, allLevels } from '../src/campaigns.js';
+import { BEATS } from '../src/beats.js';
 import { estimateDps, estimateBossDps, eliteHp, loadoutFromStep, arsenal } from '../src/weapons.js';
 
 const root = resolve(import.meta.dirname, '..');
@@ -141,19 +142,62 @@ for (let i = 0; i < MVP_SCRIPT.length; i++) {
   }
 }
 const mvpClock = MVP_SCRIPT.map((e) => `${e.kind}@${e.at}`).join('|');
+const mvpKinds = MVP_SCRIPT.map((e) => e.kind).join('>');
 const seenClock = new Map();
+const seenKinds = new Map();
+const campaignsSrc = readFileSync(resolve(root, 'src/campaigns.js'), 'utf8');
+if (campaignsSrc.includes('function settleScript') || campaignsSrc.includes('overlayScript')) {
+  fail('settleScript/overlay remix solver is still the author');
+}
 for (const slot of allLevels()) {
   if (slot.lv.id === '1-1') continue;
-  if (!SCRIPT_OVERLAYS[slot.lv.id]) fail(`${slot.lv.id} has no authored overlay — later levels cannot reuse the 1-1 clock`);
+  if (!BEATS[slot.lv.id]) fail(`${slot.lv.id} has no authored beat sheet`);
   const clock = slot.lv.script.map((e) => `${e.kind}@${e.at}`).join('|');
+  const kinds = slot.lv.script.map((e) => e.kind).join('>');
   if (clock === mvpClock) fail(`${slot.lv.id} still runs the 1-1 clock`);
+  if (kinds === mvpKinds) fail(`${slot.lv.id} still speaks the 1-1 kind-sequence`);
   if (seenClock.has(clock)) fail(`${slot.lv.id} shares a clock with ${seenClock.get(clock)}`);
+  if (seenKinds.has(kinds)) fail(`${slot.lv.id} shares a kind-sequence with ${seenKinds.get(kinds)}`);
   seenClock.set(clock, slot.lv.id);
+  seenKinds.set(kinds, slot.lv.id);
+  const sig = SIG[slot.camp.id];
+  const squadsLv = slot.lv.script.filter((e) => e.kind === 'squad');
+  const sigN = squadsLv.filter((e) => e.form === sig.form).length;
+  if (squadsLv.length && sigN / squadsLv.length < 0.28) {
+    fail(`${slot.lv.id} signature ${sig.form} is only ${(sigN / squadsLv.length * 100).toFixed(0)}% of squads`);
+  }
+  for (let i = 1; i < slot.lv.script.length; i++) {
+    const gap = slot.lv.script[i].at - slot.lv.script[i - 1].at;
+    if (gap < 8) fail(`${slot.lv.id} stacks ${slot.lv.script[i - 1].kind}@${slot.lv.script[i - 1].at} on ${slot.lv.script[i].kind}@${slot.lv.script[i].at}`);
+  }
+  const breaths = slot.lv.script.filter((e) => e.kind === 'breath');
+  for (const b of breaths) {
+    const after = slot.lv.script.find((e) => e.at > b.at && e.kind !== 'breath');
+    const before = [...slot.lv.script].reverse().find((e) => e.at < b.at && e.kind === 'squad');
+    if (after && after.at - b.at < 18) fail(`${slot.lv.id} breath at ${b.at} is fake — next beat is only ${after.at - b.at}u later`);
+    if (before && b.at - before.at < 12) fail(`${slot.lv.id} breath at ${b.at} sits on the previous squad`);
+  }
   const long = slot.lv.banner === 'super' || slot.lv.banner === 'finale';
   if (long && slot.lv.exitAt < 1450) fail(`${slot.lv.id} super/finale is still MVP length (${slot.lv.exitAt})`);
-  if (long && !slot.lv.script.some((e) => e.form === 'judgment' || (e.at >= 1240 && e.at < (SCRIPT_OVERLAYS[slot.lv.id].clock?.boss || 1400) && e.kind === 'squad'))) {
-    fail(`${slot.lv.id} super/finale has no last-aisle pressure before the climax`);
+  if (long) {
+    const leftoverGate = slot.lv.script.some((e) => e.kind === 'gate' && e.at >= 1230 && e.at <= 1250);
+    const leftoverEscort = slot.lv.script.some((e) => e.kind === 'squad' && e.at >= 1260 && e.at <= 1280);
+    if (leftoverGate && leftoverEscort) fail(`${slot.lv.id} still wears the leftover 1-1 ending`);
+    if (!slot.lv.script.some((e) => e.kind === 'hold')) fail(`${slot.lv.id} has no hold before the super`);
+    if (!slot.lv.script.some((e) => e.at >= 1248 && e.at < 1400 && e.kind === 'squad' && e.form === sig.form)) {
+      fail(`${slot.lv.id} last aisle is not the campaign signature`);
+    }
+    if (slot.lv.script.some((e) => e.at > (BEATS[slot.lv.id].boss || 1400))) {
+      fail(`${slot.lv.id} authors extras after the boss`);
+    }
   }
+}
+if (/role === 'queen'[\s\S]{0,80}eliteScale/.test(entities) && !entities.includes('namedHull')) {
+  fail('Queen still takes eliteScale heat HP');
+}
+if (!entities.includes('namedHull ? 1')) fail('Queen/Warden/Sentinel are not exempt from eliteScale');
+if (!game.includes("ev.kind === 'breath'") || !game.includes("ev.kind === 'hold'")) {
+  fail('breath/hold events are still ignored in _runStage');
 }
 for (const camp of CAMPAIGNS) {
   const forms = new Set();

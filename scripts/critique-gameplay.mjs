@@ -179,13 +179,20 @@ for (const slot of allLevels()) {
   }
   const long = slot.lv.banner === 'super' || slot.lv.banner === 'finale';
   if (long && slot.lv.exitAt < 1450) fail(`${slot.lv.id} super/finale is still MVP length (${slot.lv.exitAt})`);
+  const leftoverGate = slot.lv.script.some((e) => e.kind === 'gate' && e.at >= 1230 && e.at <= 1250);
+  const leftoverEscort = slot.lv.script.some((e) => e.kind === 'squad' && e.at >= 1260 && e.at <= 1280);
+  if (leftoverGate && leftoverEscort) fail(`${slot.lv.id} still wears the leftover 1-1 ending`);
+  const early = slot.lv.script.filter((e) => e.at <= 160);
+  if (!early.some((e) => e.kind !== 'squad' && e.kind !== 'midboss')) {
+    fail(`${slot.lv.id} first 160u is only squads — no gate/lock/orbs/blockers tell`);
+  }
   if (long) {
-    const leftoverGate = slot.lv.script.some((e) => e.kind === 'gate' && e.at >= 1230 && e.at <= 1250);
-    const leftoverEscort = slot.lv.script.some((e) => e.kind === 'squad' && e.at >= 1260 && e.at <= 1280);
-    if (leftoverGate && leftoverEscort) fail(`${slot.lv.id} still wears the leftover 1-1 ending`);
     if (!slot.lv.script.some((e) => e.kind === 'hold')) fail(`${slot.lv.id} has no hold before the super`);
-    if (!slot.lv.script.some((e) => e.at >= 1248 && e.at < 1400 && e.kind === 'squad' && e.form === sig.form)) {
+    if (!slot.lv.script.some((e) => e.at >= 1160 && e.at < 1288 && e.kind === 'squad' && e.form === sig.form)) {
       fail(`${slot.lv.id} last aisle is not the campaign signature`);
+    }
+    if (slot.lv.script.some((e) => e.at > 1288 && e.at < (BEATS[slot.lv.id].boss || 1400) && e.kind !== 'hold')) {
+      fail(`${slot.lv.id} clutters the nave between last aisle and the super`);
     }
     if (slot.lv.script.some((e) => e.at > (BEATS[slot.lv.id].boss || 1400))) {
       fail(`${slot.lv.id} authors extras after the boss`);

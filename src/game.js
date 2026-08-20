@@ -1863,9 +1863,8 @@ export class Game {
       } else if (ev.kind === 'breath') {
         this.audio.hold('breath');
       } else if (ev.kind === 'hold') {
-        this._railHold = 0.9;
+        this._railHold = 1.35;
         this.audio.hold('hold');
-        this.audio.sting('chapter');
       } else if (ev.kind === 'midboss') {
         this.entities.spawnNamed(this.path, this.traveled, ev.id, 96, this.step, this.loadout, this._stageHeat());
         this.stage.finaleAlive = false;

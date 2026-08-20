@@ -6,7 +6,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CAMPAIGNS, MVP_SCRIPT, SIG, allLevels } from '../src/campaigns.js';
-import { BEATS } from '../src/beats.js';
+import { BEATS, CAMPAIGN_SCRIPTS } from '../src/beats.js';
+import { lanesFor } from '../src/stage.js';
 
 const root = resolve(import.meta.dirname, '..');
 const read = (p) => readFileSync(resolve(root, p), 'utf8');
@@ -32,6 +33,7 @@ if (campaigns.includes('function settleScript') || campaigns.includes('overlaySc
   fail('the remix solver is still writing later clocks');
 }
 if (!campaigns.includes("from './beats.js'")) fail('later levels are not driven by authored beat sheets');
+if (typeof CAMPAIGN_SCRIPTS.stinger === 'undefined') fail('campaign scripts are missing');
 
 for (const form of ['silk-cut', 'curtain', 'aisle', 'split', 'dark']) {
   if (!stage.includes(`form === '${form}'`)) fail(`lanesFor is missing authored form ${form}`);
@@ -42,6 +44,12 @@ if (stage.includes("form === 'aisle'") && /form === 'aisle'[\s\S]{0,80}i % 2/.te
 
 const later = allLevels().filter((s) => s.lv.id !== '1-1');
 if (later.length !== 29) fail(`expected 29 later slots, got ${later.length}`);
+if (later.filter((s) => s.lv.script.some((e) => e.kind === 'breath' && e.at === 470)).length > 2) {
+  fail('later levels still share the 1-1 breath@470 spine');
+}
+const silk = lanesFor('silk-cut', 8, 24);
+const silkDup = silk.some((x, i) => silk.some((y, j) => i !== j && Math.abs(x - y) < 1.2));
+if (silkDup) fail('silk-cut n=8 still stacks two ships on one lane');
 for (const slot of later) {
   if (!BEATS[slot.lv.id]) fail(`${slot.lv.id} has no beat sheet`);
 }

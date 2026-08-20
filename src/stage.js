@@ -39,9 +39,10 @@ export function lanesFor(form, n, span) {
   }
   if (form === 'silk-cut') {
     const out = [];
-    for (let i = 0; i < n; i++) {
-      let u = i / Math.max(1, n - 1) - 0.5;
-      if (n >= 6 && Math.abs(u) < 0.1) u += u <= 0 ? -0.14 : 0.14;
+    const slots = n + 1;
+    for (let i = 0; i < slots && out.length < n; i++) {
+      const u = i / Math.max(1, slots - 1) - 0.5;
+      if (Math.abs(u) < 0.07) continue;
       out.push(u * s * 1.72);
     }
     return out;

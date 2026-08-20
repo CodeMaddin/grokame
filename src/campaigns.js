@@ -128,7 +128,7 @@ function chaptersFor(id, name, world, mid, boss, banner, clock = {}, beatBanner 
     chapters.splice(1, 0, { at: beatBanner.at, toast: beatBanner.toast, world, sting: 'chapter' });
   }
   if (superBoss || finale) {
-    chapters.splice(-1, 0, { at: 1256, toast: 'LAST AISLE', world, sting: 'chapter' });
+    chapters.splice(-1, 0, { at: 1188, toast: 'LAST AISLE', world, sting: 'chapter' });
   }
   return chapters;
 }
@@ -139,13 +139,7 @@ function themedLevel(id, name, world, spec) {
   const beat = BEATS[id];
   if (!beat) throw new Error(`missing beat sheet for ${id}`);
   const long = spec.banner === 'super' || spec.banner === 'finale';
-  const sig = SIG[beat.camp].form;
-  const script = authorScript(remapMvp({
-    mid,
-    boss,
-    formOf: FORMS[spec.forms] || FORMS.A,
-    roleOf: ROLES[spec.roles] || ROLES.stinger,
-  }), { ...beat, sig });
+  const script = authorScript(beat.camp, beat);
   const chapters = chaptersFor(id, name, world, mid, boss, spec.banner, { mids: beat.mids, boss: beat.boss }, beat.banner);
   return {
     id,

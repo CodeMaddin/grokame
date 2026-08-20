@@ -347,6 +347,7 @@ export class Game {
       riftName: document.getElementById('rift-name'),
       riftWrap: document.querySelector('.rift-wrap'),
       toast: document.getElementById('toast'),
+      teach: document.getElementById('teach'),
       title: document.getElementById('title-screen'),
       pause: document.getElementById('pause-screen'),
       dead: document.getElementById('dead-screen'),
@@ -381,6 +382,7 @@ export class Game {
       hangarTitle: document.getElementById('hangar-title'),
       hangarHint: document.getElementById('hangar-hint'),
       hangarPayout: document.getElementById('hangar-payout'),
+      hangarNext: document.getElementById('hangar-next'),
       gold: document.getElementById('gold'),
       bossMeter: document.getElementById('boss-meter'),
       bossFill: document.getElementById('boss-fill'),
@@ -920,10 +922,27 @@ export class Game {
     this._toastTimer = setTimeout(() => this.ui.toast.classList.remove('show'), 1200);
   }
 
-  _maybeTeach(key, text) {
+  _teach(key, text) {
     if (this._hinted.has(key)) return;
     this._hinted.add(key);
-    this.toast(text);
+    if (!this.ui.teach) return;
+    this.ui.teach.textContent = text;
+    this.ui.teach.classList.add('show');
+    clearTimeout(this._teachTimer);
+    this._teachTimer = setTimeout(() => this.ui.teach.classList.remove('show'), 2200);
+  }
+
+  _maybeBoardTeach() {
+    if (this.state !== 'playing') return;
+    const reach = 108;
+    if (!this._hinted.has('gate')) {
+      const gate = this.live.enemies.find((en) => en.alive && en.kind === 'gate' && en.pathDist - this.traveled < reach && en.pathDist - this.traveled > 18);
+      if (gate) this._teach('gate', 'SHOOT THE LOCK — OR SLIDE THE GAP');
+    }
+    if (!this._hinted.has('heavy')) {
+      const brick = this.live.enemies.find((en) => en.alive && /heavy|slag|chime|prism|wisp/.test(en.kind) && en.pathDist - this.traveled < reach && en.pathDist - this.traveled > 18);
+      if (brick) this._teach('heavy', 'HOLD FIRE ON THE BRICK');
+    }
   }
 
   _currentLevel() {
@@ -1082,6 +1101,16 @@ export class Game {
       this.ui.hangarCost.classList.toggle('poor', poor);
       this.ui.hangarCost.textContent = cost <= 0 ? 'SYSTEM MAXED' : poor ? `₡${cost}  —  NOT ENOUGH` : `₡${cost}`;
     }
+    if (this.ui.hangarNext) {
+      const recId = this._hangarRecommend;
+      if (recId && CATALOG[recId]) {
+        this.ui.hangarNext.hidden = false;
+        this.ui.hangarNext.textContent = `NEXT · ${CATALOG[recId].title}`;
+      } else {
+        this.ui.hangarNext.hidden = true;
+        this.ui.hangarNext.textContent = '';
+      }
+    }
     if (this.ui.hangarBuy) {
       const base = buyLabel(levels, id);
       this.ui.hangarBuy.textContent = cost <= 0
@@ -1185,7 +1214,6 @@ export class Game {
     this._releaseUiFocus();
     const slot = this._currentLevel();
     if (slot) this.toast(`${slot.lv.id} — ${slot.lv.name}`);
-    this._maybeTeach('boot', 'A/D SLIDE · W/S CLIMB · HOLD TO FIRE');
   }
 
   _clearLevel() {
@@ -1375,6 +1403,7 @@ export class Game {
     this.entities.coinValue = coinValue(this.campaignIndex);
     this.entities.spawnAhead(this.path, this.traveled);
     if (this.state === 'playing') this._runStage();
+    if (this.state === 'playing') this._maybeBoardTeach();
     this.entities.recycleBehind(this.traveled, this.holdY);
     this.entities.update(
       dt,
@@ -1629,12 +1658,14 @@ export class Game {
     if (amount <= 0) return;
     this.hangar = addGold(this.hangar, amount);
     this.audio.coin();
+    this._teach('gold', 'GOLD BUYS BAYS IN DRYDOCK');
     if (count > 2) this.toast(`+₡${amount}`);
   }
 
   _gainMotes(n) {
     if (n <= 0) return;
-    this._maybeTeach('mote', 'MOTES CHARGE OWNED BAYS');
+    const firstMote = !this._hinted.has('mote');
+    this._teach('mote', 'MOTES CHARGE OWNED BAYS');
     this.audio.mote(n > 1);
     const fill = runFill(this.hangar.levels, this.runBonus);
     if (fill.cap <= 0 || fill.used >= fill.cap) {
@@ -1645,7 +1676,7 @@ export class Game {
     const result = applyMotes(this.hangar.levels, this.runBonus, n);
     this.runBonus = result.runBonus;
     this._applyLoadout();
-    if (result.toast) {
+    if (result.toast && !firstMote) {
       this.audio.powerup();
       this.toast(result.toast);
     }
@@ -1874,11 +1905,8 @@ export class Game {
       const ev = this.stage.consume();
       if (ev.kind === 'squad') {
         this.entities.spawnSquad(this.path, this.traveled, ev.form, ev.role, ev.n, ev.ahead, this._stageHeat());
-        const brick = ev.role === 'heavy' || ev.role === 'slag' || ev.role === 'chime' || ev.role === 'prism' || ev.role === 'wisp';
-        if (brick) this._maybeTeach('heavy', 'HEAVIES DROP THE GOOD LOOT');
       } else if (ev.kind === 'gate') {
         this.entities.spawnGateAt(this.path, this.traveled, 72, this._stageHeat());
-        this._maybeTeach('gate', 'RAM THE GATES — OR SLIDE THE GAP');
       } else if (ev.kind === 'orbs') {
         this.entities.spawnOrbsAt(this.path, this.traveled, 3);
         this.entities.spawnCoins(this.path, this.traveled + 48, 0, 2);

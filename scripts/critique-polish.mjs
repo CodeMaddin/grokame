@@ -90,11 +90,24 @@ if (crafts.includes('if (i >= 3) parts.push(segment)')) {
 
 const html = read('index.html');
 const hangar = read('src/hangar.js');
-if (!html.includes('id="title-controls"') || !html.includes('A/D SLIDE')) {
+if (!html.includes('id="title-controls"') || !html.includes('A/D SLIDE') || !html.includes('B BOMB')) {
   fail('title does not teach slide/climb/fire/bomb in one line');
 }
-if (!game.includes('_maybeTeach') || !game.includes('RAM THE GATES') || !game.includes('HEAVIES DROP THE GOOD LOOT') || !game.includes('MOTES CHARGE OWNED BAYS')) {
-  fail('first-run teach toasts are missing');
+if (!html.includes('title-touch') || !html.includes('TOUCH · HOLD TO FIRE')) {
+  fail('touch does not get its own one-liner');
+}
+if (/<div class="controls">/.test(html)) fail('title still has the five-line controls wall');
+if (!html.includes('id="teach"') || !game.includes('_teach(') || !game.includes('_maybeBoardTeach')) {
+  fail('first-run teach is not a dedicated plate');
+}
+if (game.includes('_maybeTeach') || game.includes('RAM THE GATES')) {
+  fail('school still uses toast or lies about ramming gates');
+}
+if (!game.includes('SHOOT THE LOCK') || !game.includes('HOLD FIRE ON THE BRICK') || !game.includes('MOTES CHARGE OWNED BAYS') || !game.includes('GOLD BUYS BAYS IN DRYDOCK')) {
+  fail('first-run teach copy is missing');
+}
+if (!html.includes('id="hangar-next"') || !game.includes('hangarNext') || !game.includes('NEXT ·')) {
+  fail('hangar does not pin the next buy on the hull');
 }
 if (!hangar.includes('export function recommend') || !game.includes('NEXT BUY')) {
   fail('hangar does not point at the next buy after a clear');

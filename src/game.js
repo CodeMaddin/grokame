@@ -853,6 +853,7 @@ export class Game {
   }
 
   die() {
+    if (this._pendingClear || this._bossSlow > 0) return;
     this.audio.sting('death');
     this.entities.explode(this.ship.position.clone(), 0xff3bd4);
     this.lives -= 1;
@@ -1060,8 +1061,9 @@ export class Game {
         const next = !cleared && !locked && ci === (this.progress.nextC || 0) && li === (this.progress.nextL || 0);
         const current = ci === cursor.c && li === cursor.l && !cleared;
         const last = li === camp.levels.length - 1;
-        const kind = lv.boss === 'finale' ? 'finale boss' : last ? 'boss' : '';
-        const label = lv.boss === 'finale' ? '✦' : last ? '★' : String(li + 1);
+        const finale = lv.banner === 'finale';
+        const kind = finale ? 'finale boss' : last ? 'boss' : '';
+        const label = finale ? '✦' : last ? '★' : String(li + 1);
         return `<button type="button" class="map-node ${kind} ${cleared ? 'cleared spent' : ''} ${next ? 'next' : ''} ${current ? 'current' : ''} ${locked ? 'locked' : ''}" data-c="${ci}" data-l="${li}" ${locked ? 'disabled' : ''} aria-label="${lv.id} ${lv.name}">${label}</button>`;
       }).join('<div class="map-rail"></div>');
       return `<div class="map-campaign${currentCamp ? ' current' : ''}"><div class="map-camp-meta"><span class="kicker">${camp.kicker}</span><span class="name">${camp.name}</span></div><div class="map-nodes">${nodes}</div></div>`;
@@ -1072,7 +1074,7 @@ export class Game {
     }
   }
 
-  _openHangar({ from = 'map', payout = null, slot = null, nxt = null, hangar = null } = {}) {
+  _openHangar({ from = 'map', payout = null, slot = null, nxt = null, hangar = null, goldFrom = null } = {}) {
     this._clearInput();
     this._hangarFrom = from;
     this.state = 'hangar';
@@ -1133,8 +1135,18 @@ export class Game {
       this._hangarCursor = Math.max(0, Math.min(MODULE_ORDER.length - 1, this._hangarCursor || 0));
     }
     this._renderHangar();
+    if (record && goldFrom != null && this.ui.hangarGold) {
+      this.ui.hangarGold.textContent = String(goldFrom);
+    }
     requestAnimationFrame(() => {
-      if (this.state === 'hangar') this._renderHangar();
+      if (this.state !== 'hangar') return;
+      this._renderHangar();
+      if (record && goldFrom != null && this.ui.hangarGold) {
+        this.ui.hangarGold.classList.remove('gold-catch');
+        void this.ui.hangarGold.offsetWidth;
+        this.ui.hangarGold.classList.add('gold-catch');
+        this.audio.coin();
+      }
     });
     this.clock.getDelta();
     this._syncShipyardView();
@@ -1316,15 +1328,16 @@ export class Game {
       this._mapCursor = { c: nxt.ci, l: nxt.li };
     }
     this.audio.sting('chapter');
+    const goldFrom = this.hangar.gold;
     this._collectLooseGold();
     const payout = clearPayout(ci, li, {
       superBoss: slot?.lv.chapters?.some((ch) => /SUPER/.test(ch.toast || '')),
       finale: slot?.lv.boss === 'finale',
-      mids: this._midsThisLevel || 2,
+      mids: this._midsThisLevel | 0,
     });
     this.hangar = addGold(this.hangar, payout.total);
     this.entities.pullLoot(false);
-    this._openHangar({ from: nxt ? 'clear' : 'win', payout, slot, nxt, hangar: this.hangar });
+    this._openHangar({ from: nxt ? 'clear' : 'win', payout, slot, nxt, hangar: this.hangar, goldFrom });
   }
 
   win() {
@@ -1387,6 +1400,9 @@ export class Game {
     if (this.state === 'playing' && this._bossHold > 0) {
       this._bossHold -= dt;
       if (this._bossHold <= 0) this.ui.bossTitle?.classList.add('settled');
+    }
+    if (this.state === 'playing' && (this._pendingClear || this._bossSlow > 0)) {
+      this.invuln = Math.max(this.invuln, 1);
     }
     if (this.state === 'playing' && this._bossSlow > 0) {
       this._bossSlow -= dt;
@@ -1513,6 +1529,7 @@ export class Game {
       difficulty,
       this.holdY,
       tractorSpec(this.loadout),
+      this.camera,
     );
     this.audio.setIntensity(this.stage.intensity(
       this.traveled,
@@ -1601,6 +1618,7 @@ export class Game {
         if (k.type === 'ping') {
           this.entities.spawnImpact(k.pos, k.color || 0x9af7ff);
           this._punch(0.018, 0.35);
+          if (k.chip) this.audio.chip();
           continue;
         }
         const big = k.type === 'boss' || k.type === 'midboss';
@@ -1614,7 +1632,7 @@ export class Game {
           this.boost = Math.min(1, this.boost + 0.18);
           this._dropLoot(k);
           if (k.type === 'midboss') {
-            this._midsThisLevel = (this._midsThisLevel || 0) + 1;
+            this._noteMidKill(k);
             if (this._isLevelBossKill(k)) {
               this._beginBossClear(k.role, k.pos);
               return;
@@ -1674,6 +1692,12 @@ export class Game {
                   pathDist: en.pathDist,
                   laneX: en.offset?.x ?? this.offset.x,
                   bombDrop: en.bombDrop ?? 0,
+                  type: en.role === 'finale' ? 'boss' : 'midboss',
+                  role: en.role,
+                });
+                this._noteMidKill({
+                  type: en.role === 'finale' ? 'boss' : 'midboss',
+                  role: en.role,
                 });
                 if (this._isLevelBossKill({
                   type: en.role === 'finale' ? 'boss' : 'midboss',
@@ -1896,7 +1920,14 @@ export class Game {
     this._combatScore(n);
   }
 
+  _noteMidKill(k) {
+    if (k?.type !== 'midboss') return;
+    if (this._isLevelBossKill(k)) return;
+    this._midsThisLevel = (this._midsThisLevel || 0) + 1;
+  }
+
   _damage(amt) {
+    if (this._pendingClear || this._bossSlow > 0) return false;
     this.health -= amt;
     this.hurt = 1;
     this.invuln = 0.7;
@@ -2345,6 +2376,7 @@ export class Game {
       this.kills += 1;
       this._combatScore(k.type === 'boss' ? 3200 : k.type === 'midboss' ? 1400 : 180);
       this._dropLoot(k);
+      this._noteMidKill(k);
       if (k.type === 'boss') {
         this._beginBossClear('finale', k.pos);
         return;

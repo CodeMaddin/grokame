@@ -206,6 +206,10 @@ if (!entities.includes('namedHull ? 1')) fail('Queen/Warden/Sentinel are not exe
 if (!entities.includes('midScale') || !entities.includes('en.mid && heat > 1.001')) {
   fail('later minis still share the level-boss HP budget');
 }
+if (!entities.includes("e.levelBoss || e.superBoss || e.role === 'finale'")) {
+  fail('activeBoss still returns leftover mids');
+}
+if (game.includes('_midsThisLevel || 2')) fail('clear still pays two phantom mids');
 if (!game.includes("ev.kind === 'breath'") || !game.includes("ev.kind === 'hold'")) {
   fail('breath/hold events are still ignored in _runStage');
 }

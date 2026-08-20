@@ -667,42 +667,44 @@ export class EntityField {
   }
 
   _hullMeterMats() {
-    if (this._meterGeo) return;
-    this._meterGeo = new THREE.PlaneGeometry(2.4, 0.22);
-    this._meterTrack = new THREE.MeshBasicMaterial({
-      color: 0x140818,
-      transparent: true,
-      opacity: 0.82,
-      depthTest: false,
-      depthWrite: false,
-    });
-    this._meterFill = new THREE.MeshBasicMaterial({
+    if (this._pipGeo) return;
+    this._pipGeo = new THREE.BoxGeometry(0.2, 0.2, 0.07);
+    this._pipOn = new THREE.MeshBasicMaterial({
       color: 0xffd166,
       transparent: true,
       opacity: 0.96,
       depthTest: false,
       depthWrite: false,
     });
+    this._pipOff = new THREE.MeshBasicMaterial({
+      color: 0x2a1018,
+      transparent: true,
+      opacity: 0.4,
+      depthTest: false,
+      depthWrite: false,
+    });
   }
 
   _ensureHullMeter(en) {
-    if (en.hullMeter) return en.hullMeter;
+    if (en.hullMeter?.pips) return en.hullMeter;
+    if (en.hullMeter?.group) en.mesh.remove(en.hullMeter.group);
     this._hullMeterMats();
-    const track = new THREE.Mesh(this._meterGeo, this._meterTrack);
-    const fill = new THREE.Mesh(this._meterGeo, this._meterFill);
     const group = new THREE.Group();
-    track.renderOrder = 8;
-    fill.renderOrder = 9;
-    fill.position.z = 0.02;
-    group.add(track);
-    group.add(fill);
-    group.position.set(0, 2.55, 0.35);
+    const pips = [];
+    for (let i = 0; i < 3; i++) {
+      const mesh = new THREE.Mesh(this._pipGeo, this._pipOn);
+      mesh.position.x = (i - 1) * 0.32;
+      mesh.renderOrder = 9;
+      group.add(mesh);
+      pips.push(mesh);
+    }
+    group.position.set(0, 2.05, 0.42);
     en.mesh.add(group);
-    en.hullMeter = { group, fill, track };
+    en.hullMeter = { group, pips, lit: 3, punch: 0 };
     return en.hullMeter;
   }
 
-  _syncHullMeter(en) {
+  _syncHullMeter(en, camera = null) {
     const mid = !!(en?.alive && en.mid && !en.levelBoss && !en.superBoss);
     if (!mid) {
       if (en?.hullMeter) en.hullMeter.group.visible = false;
@@ -711,8 +713,19 @@ export class EntityField {
     const bar = this._ensureHullMeter(en);
     bar.group.visible = true;
     const r = Math.max(0, Math.min(1, en.hp / Math.max(1, en.maxHp || en.hp)));
-    bar.fill.scale.x = Math.max(0.05, r);
-    bar.fill.position.x = (r - 1) * 1.2;
+    const lit = Math.ceil(r * bar.pips.length);
+    if (lit < (bar.lit ?? bar.pips.length)) {
+      bar.punch = 1;
+      en.hullChip = true;
+    }
+    bar.lit = lit;
+    bar.punch = Math.max(0, (bar.punch || 0) - 0.14);
+    bar.group.scale.setScalar(1 + bar.punch * 0.45);
+    bar.pips.forEach((pip, i) => {
+      pip.material = i < lit ? this._pipOn : this._pipOff;
+      pip.scale.setScalar(i < lit ? 1 : 0.62);
+    });
+    if (camera) bar.group.lookAt(camera.position);
   }
 
   _bindCraft(en, role) {
@@ -1031,10 +1044,8 @@ export class EntityField {
   }
 
   activeBoss() {
-    const elite = this.enemies.find((e) => e.alive && e.elite);
-    if (elite) return elite;
     if (this.boss?.alive) return this.boss;
-    return null;
+    return this.enemies.find((e) => e.alive && e.elite && (e.levelBoss || e.superBoss || e.role === 'finale')) || null;
   }
 
   blockerAhead(traveled) {
@@ -1144,7 +1155,7 @@ export class EntityField {
     this.enemyFireRail(path, s + 1, x, 8);
   }
 
-  update(dt, path, traveled, shipPos, playerOffset, difficulty, holdY = 8, tractor = null) {
+  update(dt, path, traveled, shipPos, playerOffset, difficulty, holdY = 8, tractor = null, camera = null) {
     this._tractor = tractor || { range: 0, force: 0 };
     this.time += dt;
     for (const orb of this.orbs) {
@@ -1231,7 +1242,7 @@ export class EntityField {
       en.flash = Math.max(0, (en.flash || 0) - dt);
       const inRange = en.pathDist > traveled + 6 && en.pathDist < traveled + 78;
       this._telegraphAndFire(en, dt, path, difficulty, inRange);
-      this._syncHullMeter(en);
+      this._syncHullMeter(en, camera);
     }
     if (this.boss?.alive) {
       if (this.boss.ring) this.boss.ring.rotation.z -= dt * 0.9;
@@ -1502,6 +1513,7 @@ export class EntityField {
         if (this._railHit(b, en.pathDist, en.offset?.x ?? 0, en.radius)) {
           en.hp -= b.damage || 1;
           consumed = this._applyHit(b, en);
+          this._syncHullMeter(en);
           if (en.hp <= 0) {
             en.alive = false;
             en.mesh.visible = false;
@@ -1518,7 +1530,9 @@ export class EntityField {
             en.flash = en.elite ? 0.22 : 0.12;
             if (en.craft) applyCraftFlash(en.craft, en.elite ? 0.95 : 0.7);
             this._syncVisPhase(en);
-            events.push({ type: 'ping', pos: en.mesh.position.clone(), color: en.elite ? 0xffe08a : 0x9af7ff });
+            const chip = !!en.hullChip;
+            en.hullChip = false;
+            events.push({ type: 'ping', pos: en.mesh.position.clone(), color: en.elite ? 0xffe08a : 0x9af7ff, mid: !!en.mid, chip });
           }
           if (consumed) break;
         }

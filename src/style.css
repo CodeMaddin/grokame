@@ -323,49 +323,31 @@ canvas {
   opacity: 1;
 }
 
-#rift-bloom .iris-core,
-#rift-bloom .iris-ring {
+#rift-bloom .rift-glow {
   position: absolute;
   left: var(--bx, 50%);
   top: var(--by, 55%);
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
   border-radius: 50%;
   pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 248, 220, 0.95) 0%, rgba(255, 209, 102, 0.35) 38%, rgba(255, 209, 102, 0) 70%);
+  box-shadow: 0 0 36px 12px rgba(255, 209, 102, 0.4);
 }
 
-#rift-bloom .iris-core {
-  width: 18px;
-  height: 18px;
-  margin: -9px 0 0 -9px;
-  background: rgba(255, 248, 220, 0.88);
-  box-shadow: 0 0 28px 10px rgba(255, 209, 102, 0.55);
-}
-
-#rift-bloom.show .iris-core {
-  animation: rift-core 0.7s ease-out forwards;
-}
-
-#rift-bloom .iris-ring {
-  width: 14px;
-  height: 14px;
-  margin: -7px 0 0 -7px;
-  border: 2px solid rgba(255, 226, 154, 0.9);
-  box-shadow: 0 0 0 1px rgba(255, 252, 244, 0.55), 0 0 22px rgba(255, 209, 102, 0.45);
-  background: transparent;
-}
-
-#rift-bloom.show .iris-ring {
-  animation: rift-bloom 0.95s ease-out forwards;
-}
-
-@keyframes rift-core {
-  0% { transform: scale(0.3); opacity: 1; }
-  40% { transform: scale(3.2); opacity: 0.85; }
-  100% { transform: scale(7); opacity: 0; }
+#rift-bloom.show .rift-glow {
+  animation: rift-bloom 1.05s ease-out forwards;
 }
 
 @keyframes rift-bloom {
-  0% { transform: scale(0.06); opacity: 1; }
-  100% { transform: scale(16); opacity: 0; }
+  0% { transform: scale(0.2); opacity: 1; }
+  55% { transform: scale(5.5); opacity: 0.7; }
+  100% { transform: scale(9); opacity: 0; }
+}
+
+.hangar-gold.gold-catch {
+  animation: gold-catch 0.42s ease-out;
 }
 
 .bomb-wrap.bomb-slam {

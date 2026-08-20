@@ -270,8 +270,8 @@ export function getLevel(ci, li) {
 export function nextSlot(ci, li) {
   const camp = CAMPAIGNS[ci];
   if (!camp) return null;
-  if (li + 1 < camp.levels.length) return { ci, li: li + 1 };
-  if (ci + 1 < CAMPAIGNS.length) return { ci: ci + 1, li: 0 };
+  if (li + 1 < camp.levels.length) return getLevel(ci, li + 1);
+  if (ci + 1 < CAMPAIGNS.length) return getLevel(ci + 1, 0);
   return null;
 }
 

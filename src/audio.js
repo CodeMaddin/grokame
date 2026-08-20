@@ -637,6 +637,13 @@ export class AudioBus {
     this._osc('triangle', 140, t + 0.04, 0.2, 0.04, null, 70);
   }
 
+  chip() {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    this._osc('triangle', 740, t, 0.05, 0.034);
+    this._osc('sine', 420, t, 0.045, 0.02);
+  }
+
   yardTick() {
     if (!this.enabled) return;
     const t = this.ctx.currentTime;

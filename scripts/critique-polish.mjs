@@ -273,6 +273,28 @@ if (!audio.includes('[92, 138, 184, 138]')) fail('hangar is a click, not a loopi
 if (!campaigns.includes("themedLevel('5-1', 'LAST LIGHT', 'heart'") || !read('src/world.js').includes('heart:')) {
   fail('campaign 5 never enters a heart chapter');
 }
+if (!campaigns.includes('return getLevel(ci, li + 1)')) fail('nextSlot still has no level');
+if (!game.includes('if (this._pendingClear || this._bossSlow > 0) return')) {
+  fail('stray shot can still steal a clear');
+}
+if (!entities.includes("e.levelBoss || e.superBoss || e.role === 'finale'")) {
+  fail('activeBoss still returns leftover mids');
+}
+if (game.includes('_midsThisLevel || 2') || !game.includes('_noteMidKill')) {
+  fail('mid bounty still pays ghosts');
+}
+if (!entities.includes('_pipOn') || !entities.includes('hullChip') || !audio.includes('chip()')) {
+  fail('mini hull is still a silent bar');
+}
+if (html.includes('id="rift-bloom"') && /id="rift-bloom"[\s\S]{0,80}iris-ring/.test(html)) {
+  fail('fall bloom is still a bomb iris');
+}
+if (!css.includes('rift-glow') || !game.includes('goldFrom') || !game.includes("hangarGold.classList.add('gold-catch')")) {
+  fail('hangar gold still just ticks');
+}
+if (!game.includes('lv.banner === \'finale\'') || game.includes("lv.boss === 'finale' ? '✦'")) {
+  fail('1-1 still wears the finale star');
+}
 
 if (fails.length) {
   console.error('POLISH CRITIQUE FAIL\n' + notes.map((n) => `  · ${n}`).join('\n') + '\n' + fails.map((f) => `  ✖ ${f}`).join('\n'));

@@ -359,9 +359,23 @@ canvas {
   100% { filter: none; }
 }
 
-.threat-panel .value {
-  color: var(--magenta);
-  text-shadow: 0 0 18px rgba(255, 59, 212, 0.9);
+#health-fill.hull-hit {
+  animation: hull-hit 0.22s ease-out;
+}
+
+.hud-vitals.hull-hit .bar-wrap:first-child {
+  animation: hull-shake 0.22s ease-out;
+}
+
+@keyframes hull-hit {
+  0% { filter: brightness(2.6) saturate(1.4); }
+  100% { filter: none; }
+}
+
+@keyframes hull-shake {
+  0%, 100% { transform: none; }
+  35% { transform: translateX(2px); }
+  70% { transform: translateX(-2px); }
 }
 
 .bar-wrap {
@@ -483,6 +497,15 @@ canvas {
   background: linear-gradient(180deg, #ff9be0, #ff3bd4);
   box-shadow: 0 0 12px rgba(255, 59, 212, 0.85);
   border-color: #ff3bd4;
+}
+
+.life-pip.life-lost {
+  animation: life-lost 0.38s ease-out both;
+}
+
+@keyframes life-lost {
+  0% { transform: scale(1.35); filter: brightness(2.2); opacity: 1; }
+  100% { transform: scale(0.55); filter: none; opacity: 0.35; }
 }
 
 #toast {
@@ -704,6 +727,32 @@ canvas {
 .pause-dim {
   background: radial-gradient(ellipse at center, rgba(8, 0, 22, 0.62), rgba(0, 0, 0, 0.78));
   backdrop-filter: blur(2px);
+}
+
+#continue-left {
+  animation: continue-pulse 0.9s ease-in-out infinite;
+}
+
+.continue-fade {
+  width: min(280px, 70vw);
+  height: 4px;
+  margin: 16px auto 0;
+  background: rgba(255, 59, 212, 0.16);
+  border: 1px solid rgba(255, 59, 212, 0.35);
+  overflow: hidden;
+}
+
+#continue-fade {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #ff3bd4, #ffd166);
+  box-shadow: 0 0 10px rgba(255, 59, 212, 0.7);
+}
+
+@keyframes continue-pulse {
+  0%, 100% { opacity: 0.72; letter-spacing: 0.18em; }
+  50% { opacity: 1; letter-spacing: 0.28em; }
 }
 
 .fly-in {
@@ -1312,7 +1361,7 @@ kbd {
     grid-template-columns: auto auto 1fr;
     grid-template-areas:
       "score combo stock"
-      "depth hunters gold";
+      "depth gold gold";
     column-gap: 14px;
     row-gap: 2px;
     align-items: end;
@@ -1326,7 +1375,6 @@ kbd {
   .hud-score { grid-area: score; }
   .combo-panel { grid-area: combo; }
   .hud-depth { grid-area: depth; }
-  .threat-panel { grid-area: hunters; }
   .hud-gold { grid-area: gold; justify-self: end; }
 
   .hud-stock {

@@ -644,6 +644,23 @@ export class AudioBus {
     this._osc('sine', 420, t, 0.045, 0.02);
   }
 
+  enemyWindup() {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    if (t < (this._windupAt || 0) + 0.08) return;
+    this._windupAt = t;
+    this._osc('triangle', 420, t, 0.11, 0.028, null, 880);
+  }
+
+  enemyShot(fat) {
+    if (!this.enabled) return;
+    const t = this.ctx.currentTime;
+    if (t < (this._shotAt || 0) + 0.05) return;
+    this._shotAt = t;
+    this._osc('square', fat ? 620 : 1480, t, fat ? 0.055 : 0.03, fat ? 0.046 : 0.026);
+    if (fat) this._osc('sine', 90, t, 0.08, 0.05);
+  }
+
   yardTick() {
     if (!this.enabled) return;
     const t = this.ctx.currentTime;

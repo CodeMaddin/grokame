@@ -76,6 +76,8 @@ export class EntityField {
     this.time = 0;
     this.laneLimit = 24;
     this.coinValue = 5;
+    this.onWindup = null;
+    this.onShot = null;
     this._seedOrbs();
     this._seedGates();
     this._seedEnemies();
@@ -1076,6 +1078,7 @@ export class EntityField {
         const extra = nextVolley(en, this.laneLimit || 24, this._playerLane ?? 0, this.time, (s, lane, speed, fat) => {
           this.enemyFireRail(path, s, lane, speed ?? 8, fat);
         });
+        this.onShot?.(!!(en.elite || en.role === 'finale'));
         if (en.ring) en.ring.scale.setScalar(1);
         en.cooldown = this._reloadFor(en, difficulty) + (extra || 0);
       }
@@ -1085,6 +1088,7 @@ export class EntityField {
     if (en.cooldown <= 0) {
       en.windMax = en.windMax || 0.2;
       en.windup = en.windMax;
+      this.onWindup?.();
     }
   }
 

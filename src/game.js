@@ -153,6 +153,8 @@ export class Game {
     this.world = new World(this.scene);
     this.world.attachRibbon(this.path.rebuildRibbon());
     this.entities = new EntityField(this.scene);
+    this.entities.onWindup = () => this.audio.enemyWindup();
+    this.entities.onShot = (fat) => this.audio.enemyShot(fat);
     const ship = createShip();
     this.shipCraft = ship;
     this.ship = ship.group;
@@ -346,7 +348,7 @@ export class Game {
       score: document.getElementById('score'),
       combo: document.getElementById('combo'),
       depth: document.getElementById('depth'),
-      threat: document.getElementById('threat'),
+      hudVitals: document.querySelector('.hud-vitals'),
       health: document.getElementById('health-fill'),
       boost: document.getElementById('boost-fill'),
       riftFill: document.getElementById('rift-fill'),
@@ -369,6 +371,7 @@ export class Game {
       lives: document.getElementById('life-pips'),
       continue: document.getElementById('continue-screen'),
       continueLeft: document.getElementById('continue-left'),
+      continueFade: document.getElementById('continue-fade'),
       map: document.getElementById('map-screen'),
       mapGrid: document.getElementById('campaign-map'),
       mapKicker: document.getElementById('map-kicker'),
@@ -817,7 +820,7 @@ export class Game {
     this.world.setChapter(this._chapterId);
     this.audio.setChapter(this._audioChapter(this._chapterId));
     this._syncBombs();
-    this._syncLives();
+    this._syncLives({ force: true });
   }
 
   _localRibbon() {
@@ -857,7 +860,7 @@ export class Game {
     this.audio.sting('death');
     this.entities.explode(this.ship.position.clone(), 0xff3bd4);
     this.lives -= 1;
-    this._syncLives();
+    this._syncLives({ lost: true });
     if (this.lives > 0) {
       this._respawn();
       return;
@@ -879,17 +882,26 @@ export class Game {
     this.slide.set(0, 0);
     this.muzzleFlash = 0;
     this.audio.sting('life');
-    this._syncLives();
+    this._syncLives({ force: true });
   }
 
   _showContinue() {
     this.state = 'continue';
+    this._continueT = 9;
     this.audio.setPaused(true);
     this.audio.sting('continue');
     if (this.ui.continueLeft) {
       this.ui.continueLeft.textContent = `${this.continues} CREDIT${this.continues === 1 ? '' : 'S'} REMAIN`;
     }
+    if (this.ui.continueFade) this.ui.continueFade.style.transform = 'scaleX(1)';
     this.ui.continue?.classList.remove('hidden');
+  }
+
+  _tickContinue(dt) {
+    if (this.state !== 'continue') return;
+    this._continueT = Math.max(0, (this._continueT ?? 9) - dt);
+    if (this.ui.continueFade) this.ui.continueFade.style.transform = `scaleX(${this._continueT / 9})`;
+    if (this._continueT <= 0) this._declineContinue();
   }
 
   _acceptContinue() {
@@ -927,7 +939,6 @@ export class Game {
     this._runLive = false;
     this._syncTitleActions();
     this.audio.setPaused(false);
-    this.audio.explosion(true);
     this.best = Math.max(this.best, this.score);
     localStorage.setItem('aether-best', String(this.best));
     const rank = this._gradeNow(victory);
@@ -1310,8 +1321,6 @@ export class Game {
     this.audio.setPaused(false);
     this.clock.getDelta();
     this._releaseUiFocus();
-    const slot = this._currentLevel();
-    if (slot) this.toast(`${slot.lv.id} — ${slot.lv.name}`);
   }
 
   _clearLevel() {
@@ -1327,7 +1336,6 @@ export class Game {
       this.levelIndex = nxt.li;
       this._mapCursor = { c: nxt.ci, l: nxt.li };
     }
-    this.audio.sting('chapter');
     const goldFrom = this.hangar.gold;
     this._collectLooseGold();
     const payout = clearPayout(ci, li, {
@@ -1361,6 +1369,7 @@ export class Game {
         this._pinHangarNext();
         return;
       }
+      if (this.state === 'continue') this._tickContinue(dt);
       this._render();
       return;
     }
@@ -1935,6 +1944,18 @@ export class Game {
     this.combo = 1;
     this.audio.hit();
     this._punch(0.04, 1.15);
+    const hull = this.ui.health;
+    const vitals = this.ui.hudVitals;
+    if (hull) {
+      hull.classList.remove('hull-hit');
+      void hull.offsetWidth;
+      hull.classList.add('hull-hit');
+    }
+    if (vitals) {
+      vitals.classList.remove('hull-hit');
+      void vitals.offsetWidth;
+      vitals.classList.add('hull-hit');
+    }
     this._shedResonance();
     if (this.health <= 0) {
       this.die();
@@ -1954,7 +1975,6 @@ export class Game {
     this._lastCombo = this.combo;
     const slotCode = this._currentLevel()?.lv.id || '1-1';
     this.ui.depth.textContent = `${slotCode} · ${(this.traveled / 10).toFixed(0)} km`;
-    if (this.ui.threat) this.ui.threat.textContent = String(this.entities.hunterCount());
     this.ui.health.style.transform = `scaleX(${clamp(this.health, 0, 1)})`;
     this.ui.boost.style.transform = `scaleX(${clamp(this.boost, 0, 1)})`;
     if (this.ui.gold) this.ui.gold.textContent = String(this.hangar?.gold || 0);
@@ -2193,13 +2213,16 @@ export class Game {
     if (sting) this.audio.sting(sting);
   }
 
-  _syncLives() {
+  _syncLives({ lost = false, force = false } = {}) {
     const el = this.ui?.lives;
     if (!el) return;
+    if (!force && !lost && this._livesPainted === this.lives && el.childElementCount === 3) return;
+    this._livesPainted = this.lives;
     el.innerHTML = '';
     for (let i = 0; i < 3; i++) {
       const pip = document.createElement('div');
-      pip.className = 'life-pip' + (i < this.lives ? ' lit' : '');
+      const lit = i < this.lives;
+      pip.className = 'life-pip' + (lit ? ' lit' : '') + (lost && i === this.lives ? ' life-lost' : '');
       el.appendChild(pip);
     }
   }

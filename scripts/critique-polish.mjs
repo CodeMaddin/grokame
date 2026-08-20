@@ -296,6 +296,56 @@ if (!game.includes('lv.banner === \'finale\'') || game.includes("lv.boss === 'fi
   fail('1-1 still wears the finale star');
 }
 
+if (!html.includes('id="continue-screen"') || !html.includes('continue-fade') || !html.includes('id="continue-fade"')) {
+  fail('continue has no dying fade bar');
+}
+if (!/id="continue-screen"[^>]*pause-dim/.test(html) || !css.includes('continue-pulse') || !css.includes('#continue-fade')) {
+  fail('continue is not a dying signal');
+}
+if (!game.includes('_tickContinue') || !game.includes('this._continueT = 9') || !game.includes('_tickContinue(dt)')) {
+  fail('continue never times out');
+}
+if (!game.includes('_acceptContinue') || !html.includes('CONTINUE')) {
+  fail('arcade continue was deleted');
+}
+
+if (!css.includes('hull-hit') || !css.includes('life-lost') || !game.includes("classList.add('hull-hit')")) {
+  fail('hull bar does not flinch');
+}
+if (!game.includes('_syncLives({ lost') || !game.includes('_syncLives({ force: true })') || !game.includes('if (!force && !lost && this._livesPainted')) {
+  fail('life pips rebuild every frame and kill the flinch');
+}
+
+if (!audio.includes('enemyWindup()') || !audio.includes('enemyShot(fat)') || !entities.includes('this.onWindup') || !entities.includes('this.onShot')) {
+  fail('enemy guns have no voice');
+}
+if (!game.includes('this.audio.enemyWindup()') || !game.includes('this.audio.enemyShot(fat)') || !entities.includes('this.onWindup?.()') || !entities.includes('this.onShot?.(')) {
+  fail('enemy windup/shot callbacks are not wired');
+}
+
+const endRun = game.slice(game.indexOf('_endRun(victory)'), game.indexOf('toast(text)'));
+if (!endRun || endRun.includes('explosion(true)')) {
+  fail('death still bangs twice on the rank card');
+}
+
+if (game.includes('toast(`${slot.lv.id')) {
+  fail('deploy still toasts id — NAME');
+}
+
+if (html.includes('HUNTERS') || html.includes('id="threat"') || css.includes('threat-panel')) {
+  fail('HUNTERS chrome is still on the HUD');
+}
+if (!css.includes('"depth gold gold"')) {
+  fail('mobile grid still reserves a hunters column');
+}
+if (!game.includes('hunterCount()')) fail('hunterCount was deleted instead of the chrome');
+
+const clearFn = game.slice(game.indexOf('_clearLevel()'), game.indexOf('\n  win()'));
+if (!clearFn || clearFn.includes("sting('chapter')")) {
+  fail('hangar door still stings chapter');
+}
+if (!game.includes("sting('chapter')")) fail('boss-phase chapter sting was deleted');
+
 if (fails.length) {
   console.error('POLISH CRITIQUE FAIL\n' + notes.map((n) => `  · ${n}`).join('\n') + '\n' + fails.map((f) => `  ✖ ${f}`).join('\n'));
   process.exit(1);

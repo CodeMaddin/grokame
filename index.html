@@ -30,10 +30,6 @@
             <div class="label">GOLD</div>
             <div id="gold" class="value">0</div>
           </div>
-          <div class="hud-panel threat-panel">
-            <div class="label">HUNTERS</div>
-            <div id="threat" class="value">0</div>
-          </div>
           <div class="hud-panel hud-depth">
             <div class="label">DEPTH</div>
             <div id="depth" class="value">0 km</div>
@@ -134,10 +130,11 @@
       </div>
     </div>
 
-    <div id="continue-screen" class="screen hidden">
+    <div id="continue-screen" class="screen hidden pause-dim">
       <p class="kicker">SIGNAL FADING</p>
       <h2>CONTINUE?</h2>
       <p id="continue-left" class="tagline">2 CREDITS REMAIN</p>
+      <div class="continue-fade"><div id="continue-fade"></div></div>
       <div class="menu-actions">
         <button id="continue-yes" type="button">CONTINUE</button>
         <button id="continue-no" type="button">GIVE UP</button>

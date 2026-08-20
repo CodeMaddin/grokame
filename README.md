@@ -1,4 +1,4 @@
-# Aether Drift — playable build
+Aether Drift — playable build
 
 Open `index.html` on this branch, or use:
 
